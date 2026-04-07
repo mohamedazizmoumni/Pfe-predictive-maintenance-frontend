@@ -1,0 +1,218 @@
+<div class="user-management">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header__left">
+      <h1>User Management</h1>
+      <p>Access control and workforce footprint across inventory operations</p>
+    </div>
+
+    <div class="header__actions">
+      <button class="btn primary" (click)="onCreateUser()">+ New User</button>
+      <button class="btn outline" (click)="onExportExcel()">Export XLSX</button>
+      <button class="btn outline" (click)="excelInput.click()">Import</button>
+      <input #excelInput type="file" hidden (change)="onExcelImport($event)" />
+    </div>
+  </header>
+
+  <!-- STATS STRIP -->
+  <section class="card stats-strip" *ngIf="users.length">
+    <div class="stat">
+      <span class="stat__label">Total users</span>
+      <span class="stat__value">{{ totalUsers }}</span>
+    </div>
+    <div class="stat">
+      <span class="stat__label">Active</span>
+      <span class="stat__value text-success">{{ activeUsers }}</span>
+    </div>
+    <div class="stat">
+      <span class="stat__label">Inactive / blocked</span>
+      <span class="stat__value text-muted">{{ inactiveUsers }}</span>
+    </div>
+    <div class="stat">
+      <span class="stat__label">Inventory / stock roles</span>
+      <span class="stat__value">{{ inventoryFacingUsers }}</span>
+      <span class="stat__hint">Users with roles tied to stock & operations</span>
+    </div>
+    <div class="stat">
+      <span class="stat__label">Inventory roles: stale login</span>
+      <span class="stat__value text-muted">{{ inventoryFacingUsersStaleLogin }}</span>
+      <span class="stat__hint">No login in the last 30 days</span>
+    </div>
+  </section>
+
+ <!-- FORM CARD -->
+<section class="card form-card" *ngIf="showCreateForm">
+  <div class="card__header">
+    <h2>{{ selectedUser ? 'Edit User' : 'Create User' }}</h2>
+  </div>
+
+  <form (ngSubmit)="onSubmitForm()" class="form-grid">
+
+    <!-- USERNAME -->
+    <div class="input-group">
+      <label>Username *</label>
+      <input [(ngModel)]="formModel.username" name="username" required />
+    </div>
+
+    <!-- EMAIL -->
+    <div class="input-group">
+      <label>Email *</label>
+      <input [(ngModel)]="formModel.email" name="email" type="email" required />
+    </div>
+
+    <!-- PASSWORD (only for create mode) -->
+    <div class="input-group" *ngIf="!selectedUser">
+      <label>Password *</label>
+      <input [(ngModel)]="formModel.password" name="password" type="password" required />
+    </div>
+
+    <!-- FIRST NAME -->
+    <div class="input-group">
+      <label>First Name *</label>
+      <input [(ngModel)]="formModel.firstName" name="firstName" required />
+    </div>
+
+    <!-- LAST NAME -->
+    <div class="input-group">
+      <label>Last Name *</label>
+      <input [(ngModel)]="formModel.lastName" name="lastName" required />
+    </div>
+
+    <!-- DEPARTMENT -->
+    <div class="input-group">
+      <label>Department</label>
+      <input [(ngModel)]="formModel.department" name="department" />
+    </div>
+
+    <!-- PHONE -->
+    <div class="input-group">
+      <label>Phone</label>
+      <input [(ngModel)]="formModel.phoneNumber" name="phoneNumber" />
+    </div>
+
+      <div class="input-group">
+        <label>Role</label>
+        <select [(ngModel)]="formModel.roleName" name="roleName">
+          <option value="" disabled selected>Select role</option>
+          <option *ngFor="let role of roles" [value]="role.name">{{ role.name }}</option>
+        </select>
+      </div>
+
+    <!-- FORM ACTIONS -->
+    <div class="form-actions">
+      <button class="btn primary" [disabled]="isLoading">
+        {{ selectedUser ? 'Save Changes' : 'Create User' }}
+      </button>
+      <button class="btn ghost" type="button" (click)="onCancelForm()">Cancel</button>
+    </div>
+  </form>
+</section>
+
+  <!-- STATES -->
+  <div *ngIf="isLoading" class="state loading">Loading users...</div>
+  <div *ngIf="error" class="state error">{{ error }}</div>
+
+  <!-- TABLE CARD -->
+  <section class="card" *ngIf="!isLoading && users.length > 0">
+
+    <!-- TABLE FILTERS -->
+    <div class="table-toolbar">
+      <div class="toolbar-left">
+        <input
+          type="search"
+          placeholder="Search by name, email, department, or role"
+          [(ngModel)]="searchTerm"
+          (ngModelChange)="onSearchChange()"
+        />
+
+        <select [(ngModel)]="filterStatus" (ngModelChange)="onFilterChange()">
+          <option value="all">All statuses</option>
+          <option value="ACTIVE">Active</option>
+          <option value="INACTIVE">Inactive / blocked</option>
+        </select>
+
+        <select [(ngModel)]="filterRole" (ngModelChange)="onFilterChange()">
+          <option value="all">All roles</option>
+          <option *ngFor="let role of roles" [value]="role.name">{{ role.name }}</option>
+        </select>
+      </div>
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th (click)="onSort('username')">
+            User
+            <span class="sort-indicator" *ngIf="isSorted('username', 'asc')">▲</span>
+            <span class="sort-indicator" *ngIf="isSorted('username', 'desc')">▼</span>
+          </th>
+          <th (click)="onSort('department')">
+            Department
+            <span class="sort-indicator" *ngIf="isSorted('department', 'asc')">▲</span>
+            <span class="sort-indicator" *ngIf="isSorted('department', 'desc')">▼</span>
+          </th>
+          <th (click)="onSort('status')">
+            Status
+            <span class="sort-indicator" *ngIf="isSorted('status', 'asc')">▲</span>
+            <span class="sort-indicator" *ngIf="isSorted('status', 'desc')">▼</span>
+          </th>
+          <th>Email</th>
+          <th (click)="onSort('lastLoginDate')">
+            Last Login
+            <span class="sort-indicator" *ngIf="isSorted('lastLoginDate', 'asc')">▲</span>
+            <span class="sort-indicator" *ngIf="isSorted('lastLoginDate', 'desc')">▼</span>
+          </th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of pagedUsers">
+          <td class="user-cell">
+            <div class="avatar">{{ user.username[0] || '?' }}</div>
+            <div>
+              <strong>{{ user.username }}</strong>
+              <span>{{ user.email }}</span>
+            </div>
+          </td>
+          <td>{{ user.department || '-' }}</td>
+          <td>
+            <span class="badge" [ngClass]="{'active': user.status === 'ACTIVE', 'inactive': user.status !== 'ACTIVE'}">
+              {{ user.status || 'ACTIVE' }}
+            </span>
+          </td>
+          <td>{{ getUserRoles(user) }}</td>
+          <td>{{ user.lastLoginDate ? (user.lastLoginDate | date:'short') : '-' }}</td>
+          <td class="actions">
+            <button class="icon-btn" (click)="onEditUser(user)">✏️</button>
+            <button class="icon-btn danger" (click)="onDeleteUser(user)">🗑</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- PAGINATION FOOTER -->
+    <div class="pagination" *ngIf="filteredUsers.length > size">
+      <button type="button" class="btn outline" (click)="prevPage()" [disabled]="page === 0">Previous</button>
+      <span class="pagination__label">
+        Page {{ page + 1 }} · Showing
+        {{ pageStartIndex }}–{{ pageEndIndex }} of {{ filteredUsers.length }} users
+      </span>
+      <button
+        type="button"
+        class="btn outline"
+        (click)="nextPage()"
+        [disabled]="(page + 1) * size >= filteredUsers.length"
+      >
+        Next
+      </button>
+    </div>
+  </section>
+
+  <!-- EMPTY STATE -->
+  <div *ngIf="!isLoading && users.length === 0" class="empty">
+    <h3>No users found</h3>
+    <p>Create your first user to get started</p>
+  </div>
+
+</div>

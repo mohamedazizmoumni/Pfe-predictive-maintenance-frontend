@@ -1,0 +1,256 @@
+.alert-list-panel {
+  background: #0f1115;
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  color: #e2e6f2;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  flex: 1;
+}
+
+.filter-stack {
+  background: #151922;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.filter-stack p {
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7c859d;
+}
+
+.filter-stack label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.filter-stack input {
+  border: 1px solid #222838;
+  background: #0a0c11;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: inherit;
+}
+
+.chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip-row button {
+  border: 1px solid #252b3d;
+  background: transparent;
+  color: inherit;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chip-row button.active {
+  background: linear-gradient(120deg, #ff5f6d, #ffc371);
+  border-color: transparent;
+  color: #0b0d12;
+  font-weight: 600;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.toolbar-actions button {
+  border-radius: 12px;
+  padding: 10px 18px;
+}
+
+button {
+  border: none;
+  background: #1f2533;
+  color: inherit;
+  cursor: pointer;
+}
+
+button.ghost {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.error-banner {
+  background: rgba(255, 95, 109, 0.12);
+  border: 1px solid rgba(255, 95, 109, 0.4);
+  padding: 10px 14px;
+  border-radius: 12px;
+}
+
+.table-wrapper {
+  position: relative;
+  border: 1px solid #1d2231;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+th {
+  text-align: left;
+  padding: 14px;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: #7f88a3;
+  background: #161a25;
+}
+
+td {
+  padding: 14px;
+  border-top: 1px solid #1a1f2c;
+}
+
+tbody tr {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+tbody tr:hover,
+tbody tr.active {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.title-cell small,
+.machine-cell small,
+.assigned-cell small {
+  display: block;
+  color: #929bb3;
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
+.severity-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.severity-info {
+  background: rgba(64, 196, 255, 0.15);
+  color: #40c4ff;
+}
+
+.severity-warning {
+  background: rgba(255, 184, 0, 0.15);
+  color: #ffb800;
+}
+
+.severity-critical {
+  background: rgba(255, 99, 132, 0.18);
+  color: #ff6384;
+}
+
+.status-chip {
+  padding: 4px 12px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+}
+
+.status-new {
+  background: rgba(64, 196, 255, 0.12);
+  color: #40c4ff;
+}
+
+.status-acknowledged {
+  background: rgba(255, 184, 0, 0.12);
+  color: #ffb800;
+}
+
+.status-escalated {
+  background: rgba(255, 120, 0, 0.15);
+  color: #ff7800;
+}
+
+.status-closed {
+  background: rgba(92, 255, 180, 0.12);
+  color: #5cffb4;
+}
+
+.view-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  background: transparent;
+}
+
+.view-indicator.unread {
+  background: #ff6384;
+  box-shadow: 0 0 8px rgba(255, 99, 132, 0.8);
+}
+
+.loading-indicator {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 12, 17, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.empty-state {
+  padding: 24px;
+  text-align: center;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #929bb3;
+}
+
+.pagination .controls {
+  display: flex;
+  gap: 8px;
+}
+
+.input-inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.pill {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}

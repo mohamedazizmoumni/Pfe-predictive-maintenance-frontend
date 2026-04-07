@@ -1,0 +1,43 @@
+<div class="section-header">
+  <div>
+    <h2>Reorder requests</h2>
+    <p>Review outstanding replenishment needs and approval status.</p>
+  </div>
+  <button type="button" (click)="loadReorders()">Refresh</button>
+</div>
+
+<div class="alert alert-error" *ngIf="error">{{ error }}</div>
+<div class="loading" *ngIf="isLoading">Loading requests…</div>
+
+<div class="requests" *ngIf="!isLoading">
+  <article class="card" *ngFor="let request of requests">
+    <header>
+      <div>
+        <h3>{{ request.partName }}</h3>
+        <p>Requested quantity: {{ request.quantity | number }}</p>
+      </div>
+      <span class="status" [class]="request.status.toLowerCase()">{{ request.status }}</span>
+    </header>
+    <dl>
+      <div>
+        <dt>Reason</dt>
+        <dd>{{ request.reason }}</dd>
+      </div>
+      <div>
+        <dt>Approx. cost</dt>
+        <dd>{{ request.approximateCost | currency }}</dd>
+      </div>
+      <div>
+        <dt>Requested by</dt>
+        <dd>{{ request.requestedBy }} on {{ request.requestedDate | date:'mediumDate' }}</dd>
+      </div>
+      <div *ngIf="request.approvedBy">
+        <dt>Approved by</dt>
+        <dd>{{ request.approvedBy }} on {{ request.approvedDate | date:'mediumDate' }}</dd>
+      </div>
+    </dl>
+    <p class="notes" *ngIf="request.notes">{{ request.notes }}</p>
+  </article>
+
+  <p class="empty" *ngIf="requests.length === 0">No reorder activity yet.</p>
+</div>

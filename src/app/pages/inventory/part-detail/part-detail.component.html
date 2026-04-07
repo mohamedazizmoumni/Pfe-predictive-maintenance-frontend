@@ -1,0 +1,11 @@
+<div class="part-detail-container" *ngIf="!loading && part">
+  <h2>Part Details</h2>
+  <div class="detail-row"><span>Name:</span> {{ part.name }}</div>
+  <div class="detail-row"><span>Part Number:</span> {{ part.partNumber }}</div>
+  <div class="detail-row"><span>Quantity:</span> {{ part.quantity }}</div>
+  <div class="detail-row"><span>Location:</span> {{ part.location }}</div>
+  <div class="detail-row"><span>Description:</span> {{ part.description }}</div>
+  <button (click)="goBack()">Back</button>
+</div>
+<div *ngIf="loading" class="loading">Loading...</div>
+<div *ngIf="error" class="error">{{ error }}</div>

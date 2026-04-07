@@ -1,0 +1,116 @@
+<div class="analytics-container" *ngIf="!loading && stats">
+  <h2>Inventory KPIs</h2>
+
+  <!-- KPI GRID -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <h3>Total Parts Tracked</h3>
+      <p class="kpi-value">{{ stats.totalPartsTracked }}</p>
+      <span class="kpi-caption">All active SKUs in stock model</span>
+    </div>
+
+    <div class="kpi-card warning">
+      <h3>Low Stock Parts</h3>
+      <p class="kpi-value">{{ stats.lowStockPartsCount }}</p>
+      <span class="kpi-caption">At or below minimum thresholds</span>
+    </div>
+
+    <div class="kpi-card danger">
+      <h3>Out of Stock Parts</h3>
+      <p class="kpi-value">{{ stats.outOfStockPartsCount }}</p>
+      <span class="kpi-caption">Require urgent replenishment</span>
+    </div>
+
+    <div class="kpi-card info">
+      <h3>Pending Orders</h3>
+      <p class="kpi-value">{{ stats.pendingOrdersCount }}</p>
+      <span class="kpi-caption">Purchase orders not yet received</span>
+    </div>
+
+    <div class="kpi-card">
+      <h3>Total Inventory Value</h3>
+      <p class="kpi-value">{{ stats.totalInventoryValue | currency:'USD':'symbol' }}</p>
+      <span class="kpi-caption">Current on-book value of spare parts</span>
+    </div>
+
+    <div class="kpi-card" [ngClass]="{'turnover-low': turnoverBucket === 'low', 'turnover-high': turnoverBucket === 'high'}">
+      <h3>Turnover Rate</h3>
+      <p class="kpi-value">{{ stats.turnoverRate | number:'1.1-2' }} / year</p>
+      <span class="kpi-caption" *ngIf="turnoverBucket === 'low'">Stock is moving slowly (potential overstock)</span>
+      <span class="kpi-caption" *ngIf="turnoverBucket === 'target'">In a healthy range for MRO inventory</span>
+      <span class="kpi-caption" *ngIf="turnoverBucket === 'high'">Very fast consumption (risk of frequent shortages)</span>
+    </div>
+  </div>
+
+  <!-- STOCK HEALTH CHARTS -->
+  <section class="chart-card">
+    <div class="chart-header">
+      <h3>Stock Health Overview</h3>
+      <span class="chart-subtitle">Distribution of parts by health status</span>
+    </div>
+
+    <div class="chart-layout" *ngIf="stats.totalPartsTracked > 0">
+      <!-- Donut pie -->
+      <div class="pie-wrapper">
+        <div class="pie" [style.background]="stockHealthPieBackground">
+          <div class="pie-inner">
+            <span class="pie-label">{{ stats.totalPartsTracked }}</span>
+            <span class="pie-caption">parts</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stacked bar + legend -->
+      <div class="stacked-wrapper">
+        <div class="stacked-bar">
+          <div
+            class="segment healthy"
+            [style.width.%]="stockHealthPercentages.healthy"
+            *ngIf="stockHealthPercentages.healthy > 0"
+          >
+            <span>{{ stockHealthPercentages.healthy }}% Healthy</span>
+          </div>
+          <div
+            class="segment low"
+            [style.width.%]="stockHealthPercentages.low"
+            *ngIf="stockHealthPercentages.low > 0"
+          >
+            <span>{{ stockHealthPercentages.low }}% Low</span>
+          </div>
+          <div
+            class="segment out"
+            [style.width.%]="stockHealthPercentages.out"
+            *ngIf="stockHealthPercentages.out > 0"
+          >
+            <span>{{ stockHealthPercentages.out }}% Out</span>
+          </div>
+        </div>
+
+        <ul class="chart-legend">
+          <li>
+            <span class="dot healthy"></span>
+            Healthy parts
+            <strong>{{ healthyPartsCount }}</strong>
+          </li>
+          <li>
+            <span class="dot low"></span>
+            Low stock
+            <strong>{{ stats.lowStockPartsCount }}</strong>
+          </li>
+          <li>
+            <span class="dot out"></span>
+            Out of stock
+            <strong>{{ stats.outOfStockPartsCount }}</strong>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="last-updated" *ngIf="stats.lastUpdated">
+    Last updated: {{ stats.lastUpdated | date:'medium' }}
+  </div>
+</div>
+
+<div *ngIf="loading" class="loading">Loading...</div>
+<div *ngIf="error" class="error">{{ error }}</div>

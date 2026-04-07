@@ -1,0 +1,107 @@
+<section class="chatbot-page" aria-label="AI assistant conversation">
+  <header class="chatbot-header">
+    <div>
+      <p class="eyebrow">AI assistant</p>
+      <h1>Sentinel Copilot</h1>
+      <p class="subtitle">Ask questions about maintenance, inventory, and operations.</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="btn btn-ghost" (click)="resetChatSize()" title="Reset conversation size">
+        Reset size
+      </button>
+      <button type="button" class="btn btn-ghost" (click)="clearChat()" [disabled]="!messages.length">
+        Clear chat
+      </button>
+    </div>
+  </header>
+
+  <div class="chat-container">
+    <div class="chat-shell surface-card"
+         [style.height.px]="chatHeight"
+         #chatShell>
+
+      <!-- Chat Messages -->
+      <ol class="chat-thread" aria-live="polite">
+        <li
+          *ngFor="let message of messages; trackBy: trackById"
+          class="chat-row"
+          [class.chat-row--assistant]="message.role === 'assistant'"
+          [class.chat-row--user]="message.role === 'user'"
+        >
+          <div
+            class="chat-bubble"
+            [class.chat-bubble--assistant]="message.role === 'assistant' && message.authorized !== false && message.content !== 'NOT AUTHORIZED'"
+            [class.chat-bubble--user]="message.role === 'user'"
+            [class.chat-bubble--warning]="message.role === 'assistant' && (message.authorized === false || message.content === 'NOT AUTHORIZED')"
+          >
+            <span class="chat-avatar" aria-hidden="true">
+              {{ message.role === 'user' ? 'You' : 'AI' }}
+            </span>
+            <div class="chat-content">
+              <p class="chat-meta">
+                <span class="chat-role">{{ message.role === 'user' ? 'You' : 'Sentinel Copilot' }}</span>
+                <span
+                  *ngIf="message.role === 'assistant' && (message.authorized === false || message.content === 'NOT AUTHORIZED')"
+                  class="chat-flag"
+                >
+                  Policy restriction
+                </span>
+              </p>
+              <p class="chat-text">{{ message.content }}</p>
+            </div>
+          </div>
+        </li>
+
+        <!-- Loading indicator -->
+        <li *ngIf="isSubmitting" class="chat-row chat-row--assistant">
+          <div class="chat-bubble chat-bubble--assistant">
+            <span class="chat-avatar" aria-hidden="true">AI</span>
+            <div class="chat-content">
+              <p class="chat-meta">
+                <span class="chat-role">Sentinel Copilot</span>
+              </p>
+              <p class="chat-text loading">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+              </p>
+            </div>
+          </div>
+        </li>
+      </ol>
+
+      <!-- Input Form -->
+      <form class="chat-input" (ngSubmit)="onSubmit()" novalidate>
+        <label class="visually-hidden" for="chat-input">Ask a question</label>
+        <textarea
+          id="chat-input"
+          [(ngModel)]="question"
+          name="question"
+          required
+          [attr.maxLength]="1000"
+          rows="2"
+          placeholder="Ask Sentinel Copilot a question about your fleet, maintenance, or inventory..."
+          (keydown.enter)="onKeydownEnter($event)"
+        ></textarea>
+
+        <div class="chat-actions">
+          <p class="input-help" *ngIf="!errorMessage">Press Enter to send • Shift+Enter for new line</p>
+          <p class="input-error" *ngIf="errorMessage" role="alert">{{ errorMessage }}</p>
+          <button
+            type="submit"
+            class="btn btn-primary"
+            [disabled]="isSubmitting || !question.trim()"
+          >
+            {{ isSubmitting ? 'Sending…' : 'Send' }}
+          </button>
+        </div>
+      </form>
+
+      <!-- Resize Handle -->
+      <div class="resize-handle"
+           (mousedown)="startResizing($event)"
+           title="Drag to resize conversation area">
+      </div>
+    </div>
+  </div>
+</section>

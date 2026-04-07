@@ -1,0 +1,83 @@
+<section class="alert-detail-panel">
+  <div class="loading" *ngIf="isLoading">
+    <p>Loading alert context…</p>
+  </div>
+
+  <ng-container *ngIf="alert; else emptyState">
+    <header>
+      <div>
+        <p>Selected alert</p>
+        <h2>{{ alert.title }}</h2>
+        <span>{{ alert.message || 'No operator message provided.' }}</span>
+      </div>
+      <div class="status-block">
+        <span [class]="getSeverityBadgeClass(alert.severity)">{{ alert.severity }}</span>
+        <span class="status-pill" [class]="'status-' + alert.status.toLowerCase()">{{ alert.status }}</span>
+      </div>
+    </header>
+
+    <section class="meta">
+      <article>
+        <p>Machine</p>
+        <h4>{{ alert.machineSerial || ('#' + alert.machineId) }}</h4>
+        <small>{{ alert.machineModel || alert.machineLocation || 'Unknown asset' }}</small>
+      </article>
+      <article>
+        <p>Category</p>
+        <h4>{{ alert.category || 'UNCATEGORIZED' }}</h4>
+        <small>{{ alert.sourceReference || 'No source reference' }}</small>
+      </article>
+      <article>
+        <p>Assigned to</p>
+        <h4>{{ alert.assignedToDisplayName || alert.assignedTo || 'Unassigned' }}</h4>
+        <small>{{ alert.viewed ? 'Viewed' : 'Unviewed' }}</small>
+      </article>
+      <article>
+        <p>Recommendations</p>
+        <h4>{{ alert.recommendations || 'None supplied' }}</h4>
+        <small>Provided by detection pipeline</small>
+      </article>
+    </section>
+
+    <section class="timeline">
+      <h3>Lifecycle</h3>
+      <ul>
+        <li *ngFor="let step of timeline">
+          <div class="dot"></div>
+          <div>
+            <strong>{{ step.label }}</strong>
+            <time>{{ step.date | date: 'medium' }}</time>
+            <p *ngIf="step.actor">{{ step.actor }}</p>
+            <p *ngIf="step.note" class="note">{{ step.note }}</p>
+          </div>
+        </li>
+        <li *ngIf="timeline.length === 0" class="muted">No lifecycle events captured yet.</li>
+      </ul>
+    </section>
+
+    <section class="actions">
+      <button type="button" (click)="triggerAcknowledge()" [disabled]="!canAcknowledge || actionInFlight">
+        Acknowledge
+      </button>
+      <button type="button" (click)="triggerEscalate()" [disabled]="!canEscalate || actionInFlight">
+        Escalate
+      </button>
+      <button type="button" (click)="triggerClose()" [disabled]="!canClose || actionInFlight">
+        Close
+      </button>
+      <button type="button" class="ghost" (click)="refresh.emit()">Refresh detail</button>
+      <button type="button" class="destructive" (click)="triggerDelete()" [disabled]="actionInFlight">
+        Delete
+      </button>
+    </section>
+
+    <p *ngIf="error" class="error-banner">{{ error }}</p>
+  </ng-container>
+
+  <ng-template #emptyState>
+    <div class="placeholder">
+      <p>Select an alert from the feed to inspect its lifecycle.</p>
+      <span>Unread alerts will automatically mark as viewed the moment you open them.</span>
+    </div>
+  </ng-template>
+</section>

@@ -1,0 +1,216 @@
+<div class="register-shell">
+  <div class="login-background">
+    <div class="glow"></div>
+  </div>
+
+  <div class="register-center">
+    <section class="register-card">
+      <header class="register-header">
+        <span class="eyebrow">Sentinel Guardian</span>
+        <h1>Create Operator Access</h1>
+        <p class="subtitle">Provision secure access with guided steps and compliance review.</p>
+      </header>
+
+      <div class="stepper">
+        <div class="stepper-progress">
+          <div class="stepper-progress__fill" [style.width.%]="stepProgress"></div>
+        </div>
+        <div class="stepper-list">
+          <article
+            class="step"
+            *ngFor="let step of steps; let i = index"
+            [class.step--active]="i === currentStep"
+            [class.step--complete]="i < currentStep"
+          >
+            <span class="step__badge">{{ i + 1 }}</span>
+            <div>
+              <p>{{ step.label }}</p>
+              <small>{{ step.description }}</small>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <form class="register-form" [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+        <section [ngSwitch]="currentStep">
+          <div *ngSwitchCase="0" class="step-panel">
+            <div class="input-group" [class.has-error]="shouldShowControlError('username')">
+              <label for="username">Username</label>
+              <input
+                id="username"
+                type="text"
+                class="ui-input"
+                placeholder="Choose a unique username"
+                formControlName="username"
+                autocomplete="username"
+              />
+              <span class="field-error" *ngIf="shouldShowControlError('username')">
+                {{ getControlMessage('username') }}
+              </span>
+            </div>
+
+            <div class="input-group" [class.has-error]="shouldShowControlError('email')">
+              <label for="email">Work Email</label>
+              <input
+                id="email"
+                type="email"
+                class="ui-input"
+                placeholder="name@sentinel.ai"
+                formControlName="email"
+                autocomplete="email"
+              />
+              <span class="field-error" *ngIf="shouldShowControlError('email')">
+                {{ getControlMessage('email') }}
+              </span>
+            </div>
+
+            <div class="input-group" [class.has-error]="shouldShowControlError('password')">
+              <label for="password">Password</label>
+              <div class="input-wrapper">
+                <input
+                  id="password"
+                  [type]="hidePassword ? 'password' : 'text'"
+                  class="ui-input"
+                  placeholder="Use 6+ characters"
+                  formControlName="password"
+                  autocomplete="new-password"
+                />
+                <button type="button" class="toggle-password" (click)="togglePasswordVisibility('primary')">
+                  👁️
+                </button>
+              </div>
+              <span class="field-error" *ngIf="shouldShowControlError('password')">
+                {{ getControlMessage('password') }}
+              </span>
+            </div>
+
+            <div class="input-group" [class.has-error]="shouldShowControlError('confirmPassword')">
+              <label for="confirmPassword">Confirm Password</label>
+              <div class="input-wrapper">
+                <input
+                  id="confirmPassword"
+                  [type]="hideConfirmPassword ? 'password' : 'text'"
+                  class="ui-input"
+                  placeholder="Re-enter password"
+                  formControlName="confirmPassword"
+                  autocomplete="new-password"
+                />
+                <button type="button" class="toggle-password" (click)="togglePasswordVisibility('confirm')">
+                  👁️
+                </button>
+              </div>
+              <span class="field-error" *ngIf="shouldShowControlError('confirmPassword')">
+                {{ getControlMessage('confirmPassword') }}
+              </span>
+            </div>
+          </div>
+
+          <div *ngSwitchCase="1" class="step-panel">
+            <div class="input-row">
+              <div class="input-group" [class.has-error]="shouldShowControlError('firstName')">
+                <label for="firstName">First Name</label>
+                <input id="firstName" type="text" class="ui-input" formControlName="firstName" autocomplete="given-name" />
+                <span class="field-error" *ngIf="shouldShowControlError('firstName')">
+                  {{ getControlMessage('firstName') }}
+                </span>
+              </div>
+
+              <div class="input-group" [class.has-error]="shouldShowControlError('lastName')">
+                <label for="lastName">Last Name</label>
+                <input id="lastName" type="text" class="ui-input" formControlName="lastName" autocomplete="family-name" />
+                <span class="field-error" *ngIf="shouldShowControlError('lastName')">
+                  {{ getControlMessage('lastName') }}
+                </span>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label for="department">Department (Optional)</label>
+              <input
+                id="department"
+                type="text"
+                class="ui-input"
+                placeholder="e.g. Reliability Engineering"
+                formControlName="department"
+              />
+            </div>
+
+            <div class="profile-hint">
+              <h4>Why we need this</h4>
+              <p>
+                Personal details help Sentinel map authorizations to your maintenance roles, ensuring alerts and workflows reach the right
+                engineers.
+              </p>
+            </div>
+          </div>
+
+          <div *ngSwitchDefault class="step-panel">
+            <div class="review-card">
+              <h4>Review summary</h4>
+              <ul>
+                <li>
+                  <span>Account</span>
+                  <strong>{{ registerForm.value.username }} • {{ registerForm.value.email }}</strong>
+                </li>
+                <li>
+                  <span>Profile</span>
+                  <strong>{{ registerForm.value.firstName }} {{ registerForm.value.lastName }}</strong>
+                </li>
+                <li>
+                  <span>Department</span>
+                  <strong>{{ registerForm.value.department || 'Not provided' }}</strong>
+                </li>
+              </ul>
+            </div>
+
+            <div class="terms-card" [class.has-error]="shouldShowControlError('terms')">
+              <h4>Terms & Conditions</h4>
+              <p>
+                By continuing you certify that you understand Sentinel Guardian handles operational telemetry and agree to enforce MFA for
+                privileged sessions.
+              </p>
+              <label class="checkbox">
+                <input type="checkbox" formControlName="terms" />
+                <span>I agree to the Sentinel Guardian Terms of Service and data policies.</span>
+              </label>
+              <label class="checkbox optional">
+                <input type="checkbox" formControlName="updates" />
+                <span>Send me product alerts and maintenance intelligence updates.</span>
+              </label>
+              <span class="field-error" *ngIf="shouldShowControlError('terms')">
+                {{ getControlMessage('terms') }}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <div *ngIf="errorMessage" class="error-banner">
+          {{ errorMessage }}
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="ghost" (click)="goToPreviousStep()" [disabled]="currentStep === 0">
+            Previous
+          </button>
+
+          <button type="button" *ngIf="!isLastStep()" class="cta" (click)="goToNextStep()">
+            Continue
+          </button>
+
+          <button type="submit" *ngIf="isLastStep()" class="cta" [disabled]="registerForm.invalid || isLoading">
+            <span *ngIf="!isLoading">Create Account</span>
+            <span *ngIf="isLoading" class="loading">
+              <span class="spinner" aria-hidden="true"></span>
+              Provisioning…
+            </span>
+          </button>
+        </div>
+      </form>
+
+      <div class="footnote">
+        Already onboarded?
+        <a routerLink="/auth/login">Return to login</a>
+      </div>
+    </section>
+  </div>
+</div>

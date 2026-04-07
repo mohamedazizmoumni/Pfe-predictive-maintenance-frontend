@@ -1,0 +1,83 @@
+<div class="detail-card surface-card" data-card>
+  <div *ngIf="isLoading && !maintenance" class="detail-loading" aria-live="polite">
+    <span class="spinner" aria-hidden="true"></span>
+    <p>Loading maintenance details…</p>
+  </div>
+
+  <ng-container *ngIf="maintenance as task; else placeholder">
+    <header>
+      <div>
+        <p>Maintenance Detail</p>
+        <h3>Machine {{ task.machineId }}</h3>
+        <span>{{ task.description }}</span>
+      </div>
+      <span [class]="getStatusBadge(task.status)">{{ task.status.replace('_', ' ') }}</span>
+    </header>
+
+    <section class="detail-grid">
+      <article>
+        <p>Type</p>
+        <h4>{{ task.type }}</h4>
+        <span>Planned maintenance category</span>
+      </article>
+      <article>
+        <p>Priority</p>
+        <h4>{{ task.priority }}</h4>
+        <span>Business impact</span>
+      </article>
+      <article>
+        <p>Duration</p>
+        <h4>{{ task.estimatedDuration }} minutes</h4>
+        <span>Estimated work window</span>
+      </article>
+      <article>
+        <p>Technician</p>
+        <h4>{{ task.assignedTechnicianId || 'Unassigned' }}</h4>
+        <span>Assignment source</span>
+      </article>
+    </section>
+
+    <section class="timeline">
+      <article>
+        <p>Scheduled</p>
+        <strong>{{ task.scheduledDate | date: 'medium' }}</strong>
+      </article>
+      <article>
+        <p>Started</p>
+        <strong>{{ task.startDate ? (task.startDate | date: 'medium') : 'Pending' }}</strong>
+      </article>
+      <article>
+        <p>Completed</p>
+        <strong>{{ task.completedDate ? (task.completedDate | date: 'medium') : 'Pending' }}</strong>
+      </article>
+      <article>
+        <p>Approved</p>
+        <strong>{{ task.approvedDate ? (task.approvedDate | date: 'medium') : 'Pending' }}</strong>
+      </article>
+    </section>
+
+    <section class="notes">
+      <p>Notes</p>
+      <div>
+        {{ task.notes || 'No operator notes yet.' }}
+      </div>
+    </section>
+
+    <footer class="detail-actions">
+      <button type="button" class="danger ghost" (click)="onCancel()" [disabled]="!canCancel">Cancel</button>
+      <div class="action-row">
+        <button type="button" (click)="onStart()" [disabled]="!canStart">Start</button>
+        <button type="button" (click)="onComplete()" [disabled]="!canComplete">Complete</button>
+        <button type="button" class="ghost" (click)="onApprove()" [disabled]="!canApprove">Approve</button>
+        <button type="button" class="danger" (click)="onDelete()">Delete</button>
+      </div>
+    </footer>
+  </ng-container>
+
+  <ng-template #placeholder>
+    <div class="placeholder">
+      <h4>Select a maintenance task</h4>
+      <p>Choose any work order from the queue to inspect details, timeline, and take actions.</p>
+    </div>
+  </ng-template>
+</div>

@@ -1,0 +1,163 @@
+<div class="sentinel-shell" [class.nav-hidden]="!sidebarOpen">
+  <div class="shell-grid">
+    <aside class="shell-nav" [class.collapsed]="!sidebarOpen">
+      <div class="brand-block">
+        <div>
+          <p class="eyebrow">Sentinel</p>
+          <h2>Guardian</h2>
+        </div>
+        <button class="nav-toggle" type="button" (click)="toggleSidebar()" aria-label="Toggle navigation">
+          {{ sidebarOpen ? '✕' : '☰' }}
+        </button>
+      </div>
+
+      <span class="status-pill">
+        <span class="dot"></span>
+        Systems nominal
+      </span>
+
+      <article class="user-card" *ngIf="currentUser; else guestCard">
+        <div class="avatar">{{ getUserInitial() }}</div>
+        <div>
+          <p class="user-name">{{ getUserDisplayName() }}</p>
+          <p class="user-role">{{ getUserRoles() }}</p>
+        </div>
+      </article>
+
+      <ng-template #guestCard>
+        <article class="user-card">
+          <div class="avatar">?</div>
+          <div>
+            <p class="user-name">Guest</p>
+            <p class="user-role">Awaiting access</p>
+          </div>
+        </article>
+      </ng-template>
+
+      <nav class="nav-list">
+        <a
+          *ngFor="let item of menuItems"
+          class="nav-link"
+          [routerLink]="item.path"
+          routerLinkActive="nav-link--active"
+          [routerLinkActiveOptions]="{ exact: false }"
+          [hidden]="!isMenuItemVisible(item)"
+        >
+          <span class="nav-icon">{{ item.icon }}</span>
+          <span>
+            <span class="nav-label">{{ item.label }}</span>
+            <span class="nav-caption" *ngIf="item.caption">{{ item.caption }}</span>
+          </span>
+        </a>
+      </nav>
+
+      <button class="logout-btn" type="button" (click)="logout()">
+        Logout
+      </button>
+    </aside>
+
+    <section class="shell-main">
+      <header class="shell-header">
+        <div>
+          <button class="mobile-toggle" type="button" (click)="toggleSidebar()" aria-label="Toggle navigation">
+            ☰
+          </button>
+          <p class="eyebrow">Operations cockpit</p>
+          <h1>Sentinel Workspace</h1>
+          <p class="subtitle">AI-assisted maintenance governance and telemetry.</p>
+        </div>
+
+        <div class="header-actions">
+          <button
+				class="theme-toggle"
+				type="button"
+				(click)="toggleTheme()"
+				[attr.aria-label]="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+			>
+				<span class="theme-toggle__icon">{{ theme === 'dark' ? '☀️' : '🌙' }}</span>
+				<span class="theme-toggle__label">{{ theme === 'dark' ? 'Light' : 'Dark' }}</span>
+			</button>
+          <label class="search-field">
+            <span class="search-input">
+              <button class="search-icon" type="button" aria-label="Search">
+                🔍
+              </button>
+              <input type="search" class="ui-input" placeholder="Search assets, alerts, teams" />
+            </span>
+          </label>
+          <button class="ghost" type="button">Sync Data</button>
+          <button class="primary" type="button">New Task</button>
+        </div>
+      </header>
+
+      <div class="header-metrics">
+        <article class="metric-card">
+          <p class="eyebrow">Roles</p>
+          <h3>{{ currentUser?.roles?.length || 0 }}</h3>
+          <p class="muted">Assigned access levels</p>
+        </article>
+        <article class="metric-card">
+          <p class="eyebrow">Status</p>
+          <h3>{{ currentUser?.status || 'ACTIVE' }}</h3>
+          <p class="muted">Account health</p>
+        </article>
+        <article class="metric-card">
+          <p class="eyebrow">Department</p>
+          <h3>{{ currentUser?.department || 'Operations' }}</h3>
+          <p class="muted">Primary org node</p>
+        </article>
+      </div>
+
+      <div class="shell-content">
+        <div class="workspace-card">
+          <router-outlet></router-outlet>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <button
+    class="chat-fab"
+    type="button"
+    (click)="toggleChat()"
+    [attr.aria-pressed]="chatOpen"
+    aria-label="Open AI assistant chatbot"
+  >
+    🤖
+  </button>
+
+  <div class="chat-overlay" *ngIf="chatOpen" aria-label="Chatbot conversation panel">
+    <div
+      class="chat-overlay__shell surface-card"
+      data-card
+      [ngStyle]="{ left: chatLeft + 'px', top: chatTop + 'px', width: chatWidth + 'px', height: chatHeight + 'px' }"
+    >
+      <header class="chat-overlay__header" (mousedown)="onChatDragStart($event)">
+        <div class="chat-overlay__title">
+          <p class="eyebrow">AI assistant</p>
+          <h2>Sentinel Copilot</h2>
+        </div>
+        <div class="chat-overlay__header-actions" (mousedown)="$event.stopPropagation()">
+          <button
+            type="button"
+            class="chat-overlay__icon-btn"
+            (click)="toggleChatMaximize()"
+            [attr.aria-label]="chatMaximized ? 'Restore chat window' : 'Maximize chat window'"
+          >
+            {{ chatMaximized ? '🗗' : '🗖' }}
+          </button>
+          <button
+            type="button"
+            class="chat-overlay__icon-btn chat-overlay__close"
+            (click)="toggleChat()"
+            aria-label="Close chatbot"
+          >
+            ✕
+          </button>
+        </div>
+      </header>
+      <app-chatbot></app-chatbot>
+      <button class="chat-overlay__resize" type="button" (mousedown)="onChatResizeStart($event)" aria-label="Resize chatbot"></button>
+    </div>
+  </div>
+</div>

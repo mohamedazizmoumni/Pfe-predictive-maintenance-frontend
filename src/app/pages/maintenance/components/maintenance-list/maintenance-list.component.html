@@ -1,0 +1,107 @@
+<div class="list-card surface-card" data-card>
+  <header>
+    <div>
+      <p>Maintenance Queue</p>
+      <h3>Task Stream</h3>
+      <span>Live feed of scheduled and in-progress work orders.</span>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="ghost" (click)="refreshRequested.emit()">Refresh</button>
+      <button type="button" (click)="createRequested.emit()">Schedule Task</button>
+    </div>
+  </header>
+
+  <div *ngIf="error" class="error-banner" role="alert">
+    <strong>Heads up:</strong> {{ error }}
+  </div>
+
+  <section class="filters">
+    <article>
+      <p>Status</p>
+      <div class="pill-row">
+        <button
+          type="button"
+          *ngFor="let status of statusFilters"
+          [class.is-active]="(activeStatus || undefined) === status.value"
+          (click)="onStatusFilterChange(status.value)"
+        >
+          <span>{{ status.label }}</span>
+          <small *ngIf="status.hint">{{ status.hint }}</small>
+        </button>
+      </div>
+    </article>
+
+    <article>
+      <p>Priority</p>
+      <div class="pill-row">
+        <button
+          type="button"
+          *ngFor="let priority of priorityFilters"
+          [class.is-active]="(activePriority || undefined) === priority.value"
+          (click)="onPriorityFilterChange(priority.value)"
+        >
+          {{ priority.label }}
+        </button>
+      </div>
+    </article>
+  </section>
+
+  <ng-container *ngIf="(!isLoading) || (tasks?.length); else loadingState">
+    <div class="task-feed" *ngIf="tasks?.length; else emptyState">
+      <article
+        *ngFor="let task of tasks; trackBy: trackById"
+        class="task-row"
+        [class.is-selected]="task.id === selectedTaskId"
+        (click)="handleSelect(task.id)"
+      >
+        <div class="task-head">
+          <div>
+            <p>Machine {{ task.machineId }}</p>
+            <h4>{{ task.description }}</h4>
+          </div>
+          <span [class]="getPriorityClass(task.priority)">
+            {{ task.priority }}
+          </span>
+        </div>
+        <div class="task-meta">
+          <span [class]="getStatusChipClass(task.status)">
+            {{ task.status.replace('_', ' ') }}
+          </span>
+          <span>Scheduled {{ task.scheduledDate | date: 'medium' }}</span>
+          <span>{{ task.estimatedDuration }} min</span>
+        </div>
+      </article>
+    </div>
+  </ng-container>
+
+  <ng-template #emptyState>
+    <div class="empty-state">
+      <p>No maintenance tasks for this filter.</p>
+      <button type="button" class="ghost" (click)="createRequested.emit()">Schedule first task</button>
+    </div>
+  </ng-template>
+
+  <ng-template #loadingState>
+    <div class="loading-state" aria-live="polite">
+      <div *ngFor="let skeleton of [0, 1, 2, 3]" class="skeleton-row"></div>
+    </div>
+  </ng-template>
+
+  <footer class="list-pagination" *ngIf="pagination">
+    <button type="button" class="ghost" (click)="onPageChange('prev')" [disabled]="pagination.currentPage === 0">
+      Previous
+    </button>
+    <p>
+      Page {{ (pagination.currentPage || 0) + 1 }} of
+      {{ pagination.totalPages || 1 }} · {{ pagination.totalElements }} tasks
+    </p>
+    <button
+      type="button"
+      class="ghost"
+      (click)="onPageChange('next')"
+      [disabled]="pagination.totalPages <= 1 || pagination.currentPage >= pagination.totalPages - 1"
+    >
+      Next
+    </button>
+  </footer>
+</div>

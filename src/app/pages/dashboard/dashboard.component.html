@@ -1,0 +1,148 @@
+<div class="dashboard-shell">
+  <div *ngIf="error$ | async as error" class="error-banner" role="alert">
+    <strong>Heads up:</strong> {{ error }}
+  </div>
+
+  <ng-container *ngIf="isLoading$ | async; else dashboardContent">
+    <div class="loading-panel" data-card>
+      <span class="spinner" aria-hidden="true"></span>
+      <p>Hydrating dashboards with the latest telemetry…</p>
+    </div>
+  </ng-container>
+
+  <ng-template #dashboardContent>
+    <section class="hero-grid">
+      <article class="hero-card surface-card" data-card *ngIf="overview$ | async as overview">
+        <div class="hero-card__aura"></div>
+        <div class="hero-card__body">
+          <div>
+            <p class="eyebrow">Operational Overview</p>
+            <h1>Mission Control</h1>
+            <p class="subtitle">
+              Live insights for Sentinel Guardian across equipment, maintenance, and AI predictions.
+            </p>
+          </div>
+
+          <div class="hero-chip-row">
+            <span>Fleet {{ overview?.totalMachinesCount || 0 }} machines</span>
+            <span>{{ overview?.operationalMachinesCount || 0 }} operational</span>
+            <span>{{ overview?.totalSensorsCount || 0 }} sensors</span>
+          </div>
+
+          <div class="hero-metrics">
+            <article>
+              <p>Uptime</p>
+              <h3>{{ (overview?.uptimePercentage || 0).toFixed(1) }}%</h3>
+              <span class="metric-delta metric-delta--positive">+2.4% vs last week</span>
+            </article>
+            <article>
+              <p>Maintenance Due</p>
+              <h3>{{ overview?.maintenanceDueCount || 0 }}</h3>
+              <span class="metric-delta text-amber">Schedule window closing</span>
+            </article>
+            <article>
+              <p>Open Alerts</p>
+              <h3 [class.text-danger]="(overview?.openAlertsCount || 0) > 0">
+                {{ overview?.openAlertsCount || 0 }}
+              </h3>
+              <span class="metric-delta" [ngClass]="(overview?.openAlertsCount || 0) > 0 ? 'text-danger' : 'metric-delta--positive'">
+                {{ (overview?.openAlertsCount || 0) > 0 ? 'Requires attention' : 'All clear' }}
+              </span>
+            </article>
+            <article *ngIf="predictionHealth$ | async as health">
+              <p>Model Confidence</p>
+              <h3>{{ ((health?.avgConfidenceScore || 0) * 100).toFixed(1) }}%</h3>
+              <span class="metric-delta">{{ (health?.recentPredictions || []).length }} recent predictions</span>
+            </article>
+          </div>
+
+          <div class="hero-actions">
+            <button type="button">Sync Data</button>
+            <button type="button" class="ghost">Download Report</button>
+          </div>
+        </div>
+      </article>
+
+      <aside class="status-stack surface-card" data-card *ngIf="machineStatus$ | async as status">
+        <header>
+          <div>
+            <p>Fleet status stack</p>
+            <h3>Machine Distribution</h3>
+          </div>
+          <span class="metric-delta">Telemetry refreshed</span>
+        </header>
+        <div class="status-stack__grid">
+          <article *ngFor="let segment of statusSegments">
+            <p>{{ segment.label }}</p>
+            <h4 [ngClass]="segment.tone">{{ status?.[segment.key] || 0 }}</h4>
+            <span class="metric-delta" [ngClass]="segment.tone">{{ segment.hint }}</span>
+          </article>
+        </div>
+      </aside>
+    </section>
+
+    <section class="content-grid">
+      <article class="alerts-card surface-card" data-card *ngIf="predictionHealth$ | async as health">
+        <header>
+          <div>
+            <p>Alerts & AI</p>
+            <h3>Recent Predictions</h3>
+          </div>
+          <p>Machines at risk: <span class="text-danger">{{ health?.machinesAtRisk || 0 }}</span></p>
+        </header>
+
+        <div class="alerts-list">
+          <article *ngFor="let prediction of ((health?.recentPredictions || []) | slice:0:5)">
+            <span class="alert-marker" [ngClass]="prediction?.riskLevel?.toLowerCase()"></span>
+            <div class="alert-meta">
+              <span>Machine {{ prediction?.machineId }}</span>
+              <span>{{ prediction?.predictionDate | date: 'short' }}</span>
+            </div>
+            <div class="alert-severity">
+              <span>{{ prediction?.riskLevel }}</span>
+<span>{{ prediction?.confidenceScore != null ? ((prediction.confidenceScore * 100).toFixed(0) + '%') : 'N/A%' }} confidence</span>            </div>
+            <p class="alert-text">Potential anomaly detected by predictive model. RUL: {{ (prediction?.predictionValue || 0).toFixed(1) }} days</p>
+            <div class="alert-footer">
+              <span [ngClass]="prediction?.riskLevel?.toLowerCase() === 'low' ? 'alert-resolved' : 'alert-active'">
+                {{ prediction?.riskLevel?.toLowerCase() === 'low' ? 'Monitoring' : 'Action required' }}
+              </span>
+              <span>{{ prediction?.predictionDate | date: 'shortTime' }}</span>
+            </div>
+          </article>
+
+          <article *ngIf="!(health?.recentPredictions || []).length">
+            <p class="alert-text">No recent predictions. Your systems are operating within normal parameters.</p>
+          </article>
+        </div>
+      </article>
+
+      <aside class="stock-card surface-card" data-card *ngIf="maintenancePipeline$ | async as pipeline">
+        <header>
+          <div>
+            <p>Maintenance</p>
+            <h3>Pipeline Status</h3>
+          </div>
+          <p>{{ pipeline?.completed || 0 }} completed today</p>
+        </header>
+
+        <div class="stock-list">
+          <article *ngFor="let stage of pipelineStages">
+            <div class="item-head">
+              <div>
+                <p>{{ stage.label }}</p>
+                <span>{{ stage.caption }}</span>
+              </div>
+              <p>{{ pipeline?.[stage.key] || 0 }}</p>
+            </div>
+            <div class="item-progress">
+              <div
+                class="item-progress__fill"
+                [style.width.%]="getPipelineFill(pipeline?.[stage.key] || 0, pipeline)"
+              ></div>
+            </div>
+          </article>
+        </div>
+      </aside>
+    </section>
+  </ng-template>
+</div>

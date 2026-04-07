@@ -1,0 +1,158 @@
+<section class="equipment-page">
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="header-text">
+      <h1>Equipment</h1>
+      <p>Monitor machine status, location, and manufacturers at a glance.</p>
+    </div>
+
+    <div class="header-actions">
+      <div class="filter-group">
+        <label for="status-filter">Status</label>
+        <select id="status-filter" [value]="selectedStatus" (change)="handleStatusChange($event)">
+          <option *ngFor="let status of statuses" [value]="status.value">{{ status.label }}</option>
+        </select>
+      </div>
+
+      <button type="button" class="btn btn-secondary" (click)="refresh()">
+        <span class="icon">↻</span> Refresh
+      </button>
+      <button type="button" class="btn btn-primary" (click)="openCreate()">
+        + Add Machine
+      </button>
+      <button type="button" class="btn btn-ghost" (click)="exportCsv()">
+        Export (.csv)
+      </button>
+    </div>
+  </header>
+
+  <!-- Error Message -->
+  <ng-container *ngIf="(error$ | async) as error">
+    <div class="alert alert-error" *ngIf="error">{{ error }}</div>
+  </ng-container>
+
+  <!-- Machines Table -->
+  <div class="table-card" *ngIf="(machines$ | async) as machines">
+    <table class="equipment-table">
+      <thead>
+        <tr>
+          <th>Serial</th>
+          <th>Model</th>
+          <th>Location</th>
+          <th>Manufacturer</th>
+          <th>Status</th>
+          <th>Installation</th>
+          <th class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let machine of machines; trackBy: trackByMachine">
+          <td><strong>{{ machine.serialNumber }}</strong></td>
+          <td>{{ machine.model }}</td>
+          <td>{{ machine.location }}</td>
+          <td>{{ machine.manufacturer }}</td>
+          <td>
+            <span class="status-pill" [ngClass]="(machine.status || 'UNKNOWN').toLowerCase()">
+              {{ machine.status || 'UNKNOWN' }}
+            </span>
+          </td>
+          <td>{{ machine.installationYear || '—' }}</td>
+          <td class="cell-actions">
+            <button type="button" class="btn btn-ghost-sm" (click)="openEdit(machine)">Edit</button>
+            <button type="button" class="btn btn-danger-sm" (click)="requestDelete(machine)">Delete</button>
+          </td>
+        </tr>
+        <tr *ngIf="machines.length === 0">
+          <td colspan="7" class="empty-state">
+            <p>No machines found for the selected filter.</p>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Create / Edit Modal -->
+  <div class="modal-backdrop" *ngIf="showForm" (click)="closeForm()">
+    <div class="modal-content" (click)="$event.stopImmediatePropagation()">
+      <div class="modal-header">
+        <h2>{{ formMode === 'create' ? 'Add New Machine' : 'Edit Machine' }}</h2>
+        <button type="button" class="close-btn" (click)="closeForm()" aria-label="Close">✕</button>
+      </div>
+
+      <form [formGroup]="machineForm" (ngSubmit)="submitForm()" class="modal-body">
+        <div class="form-grid">
+          <div class="form-field full">
+            <label>Name</label>
+            <input type="text" formControlName="name" placeholder="e.g. Press #3 – West line" />
+          </div>
+
+          <div class="form-field">
+            <label>Serial Number</label>
+            <input type="text" formControlName="serialNumber" placeholder="Unique machine serial" />
+          </div>
+
+          <div class="form-field">
+            <label>Model</label>
+            <input type="text" formControlName="model" placeholder="Manufacturer model code" />
+          </div>
+
+          <div class="form-field">
+            <label>Manufacturer</label>
+            <input type="text" formControlName="manufacturer" placeholder="Vendor or OEM" />
+          </div>
+
+          <div class="form-field">
+            <label>Location</label>
+            <input type="text" formControlName="location" placeholder="Plant / line / zone" />
+          </div>
+
+          <div class="form-field">
+            <label>Installation Year</label>
+            <input type="number" formControlName="installationYear" min="1900" max="2100" />
+          </div>
+
+          <div class="form-field">
+            <label>Status</label>
+            <select formControlName="status">
+              <option value="OPERATIONAL">Operational</option>
+              <option value="MAINTENANCE">Maintenance</option>
+              <option value="OFFLINE">Offline</option>
+              <option value="DECOMMISSIONED">Decommissioned</option>
+            </select>
+          </div>
+
+          <div class="form-field full">
+            <label>Description</label>
+            <textarea rows="3" formControlName="description"
+              placeholder="Short context for operators and maintenance teams..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" (click)="closeForm()">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            {{ formMode === 'create' ? 'Create Machine' : 'Save Changes' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation -->
+  <div class="modal-backdrop" *ngIf="deleteConfirmId" (click)="cancelDelete()">
+    <div class="delete-modal" (click)="$event.stopImmediatePropagation()">
+      <h3>Delete Machine?</h3>
+      <p>This action cannot be undone. The machine and all its history will be permanently deleted.</p>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" (click)="cancelDelete()">Cancel</button>
+        <button type="button" class="btn btn-danger" (click)="confirmDelete()">Yes, Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-state" *ngIf="(isLoading$ | async)">
+    <div class="spinner"></div>
+    <p>Loading machines...</p>
+  </div>
+</section>

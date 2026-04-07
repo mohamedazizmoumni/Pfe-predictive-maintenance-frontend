@@ -1,0 +1,94 @@
+<section class="modal" *ngIf="visible">
+  <div class="modal-backdrop" (click)="onClose()"></div>
+  <div class="modal-card" role="dialog" aria-modal="true">
+    <header>
+      <div>
+        <p>Schedule Maintenance</p>
+        <h3>Create Work Order</h3>
+        <span>Assign a machine, prioritize impact, and lock a time window.</span>
+      </div>
+      <button type="button" class="ghost" (click)="onClose()">Close</button>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+      <label>
+        Machine
+        <select formControlName="machineId">
+          <option value="" disabled>Select machine</option>
+          <option *ngFor="let machine of machines || []" [value]="machine.id">
+            {{ machine.serialNumber }} · {{ machine.model }} ({{ machine.location }})
+          </option>
+        </select>
+      </label>
+
+      <div class="split">
+        <label>
+          Type
+          <select formControlName="type">
+            <option *ngFor="let type of maintenanceTypes; trackBy: trackByValue" [value]="type.value">
+              {{ type.label }}
+            </option>
+          </select>
+        </label>
+
+        <label>
+          Priority
+          <select formControlName="priority">
+            <option *ngFor="let priority of priorities; trackBy: trackByValue" [value]="priority.value">
+              {{ priority.label }}
+            </option>
+          </select>
+        </label>
+      </div>
+
+      <label>
+        Scheduled Date & Time
+        <input type="datetime-local" formControlName="scheduledDate" />
+      </label>
+
+      <label>
+        Estimated Duration (minutes)
+        <input type="number" formControlName="estimatedDuration" min="15" max="1440" step="15" />
+      </label>
+
+      <label>
+        Technician (optional)
+        <ng-container *ngIf="(technicians?.length || 0) > 0; else noTechnicians">
+          <select formControlName="assignedTechnicianId">
+            <option value="">Unassigned</option>
+            <option
+              *ngFor="let technician of technicians || []; trackBy: trackTechnicianById"
+              [value]="technician.id"
+            >
+              {{ getTechnicianLabel(technician) }}
+            </option>
+          </select>
+        </ng-container>
+        <ng-template #noTechnicians>
+          <p class="form-hint">No technicians available yet. Task will be created unassigned.</p>
+        </ng-template>
+      </label>
+
+      <label>
+        Description
+        <textarea rows="4" formControlName="description" placeholder="Outline the maintenance scope and acceptance criteria."></textarea>
+      </label>
+
+      <label>
+        Notes (optional)
+        <textarea
+          rows="3"
+          formControlName="notes"
+          placeholder="Supply on-site notes, access constraints, or spare parts context."
+        ></textarea>
+      </label>
+
+      <footer>
+        <button type="button" class="ghost" (click)="onClose()">Cancel</button>
+        <button type="submit" [disabled]="isSubmitting">
+          {{ isSubmitting ? 'Scheduling…' : 'Schedule Task' }}
+        </button>
+      </footer>
+    </form>
+  </div>
+</section>

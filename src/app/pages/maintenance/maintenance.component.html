@@ -1,0 +1,75 @@
+<div class="maintenance-shell">
+  <div *ngIf="error$ | async as error" class="error-banner" role="alert">
+    <strong>Service interruption:</strong> {{ error }}
+  </div>
+
+  <section class="maintenance-hero" data-card>
+    <div>
+      <p>Maintenance Command</p>
+      <h1>Operations Board</h1>
+      <span>Coordinate technicians, unblock the pipeline, and keep Sentinel Guardian running.</span>
+      <div class="hero-actions">
+        <button type="button" (click)="openCreateModal()">Schedule Maintenance</button>
+        <button type="button" class="ghost" (click)="handleRefresh()">Sync Data</button>
+      </div>
+    </div>
+    <div class="hero-stats" *ngIf="pipeline$ | async as pipeline">
+      <article>
+        <p>Scheduled</p>
+        <h3>{{ pipeline.scheduled || 0 }}</h3>
+        <span>Ready within 24h</span>
+      </article>
+      <article>
+        <p>In Progress</p>
+        <h3>{{ pipeline.inProgress || 0 }}</h3>
+        <span>Active crews</span>
+      </article>
+      <article>
+        <p>Completed</p>
+        <h3>{{ pipeline.completed || 0 }}</h3>
+        <span>Cleared today</span>
+      </article>
+      <article>
+        <p>Cancelled</p>
+        <h3>{{ pipeline.cancelled || 0 }}</h3>
+        <span>Deferred tickets</span>
+      </article>
+    </div>
+  </section>
+
+  <section class="maintenance-grid">
+    <app-maintenance-list
+      [tasks]="maintenance$ | async"
+      [pagination]="pagination$ | async"
+      [isLoading]="isLoading$ | async"
+      [error]="error$ | async"
+      [activeStatus]="statusFilter"
+      [activePriority]="priorityFilter"
+      [selectedTaskId]="selectedTaskId"
+      (filtersChange)="handleFiltersChange($event)"
+      (pageChange)="handlePageChange($event)"
+      (selectTask)="handleSelect($event)"
+      (refreshRequested)="handleRefresh()"
+      (createRequested)="openCreateModal()"
+    ></app-maintenance-list>
+
+    <app-maintenance-detail
+      [maintenance]="currentMaintenance$ | async"
+      [isLoading]="isLoading$ | async"
+      (start)="handleStart($event)"
+      (complete)="handleComplete($event)"
+      (approve)="handleApprove($event)"
+      (cancel)="handleCancel($event)"
+      (delete)="handleDelete($event)"
+    ></app-maintenance-detail>
+  </section>
+
+  <app-maintenance-create
+    [visible]="showCreateModal"
+    [machines]="machines$ | async"
+    [technicians]="technicians$ | async"
+    [isSubmitting]="isCreating"
+    (close)="closeCreateModal()"
+    (submitRequest)="handleCreate($event)"
+  ></app-maintenance-create>
+</div>

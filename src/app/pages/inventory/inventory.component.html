@@ -1,0 +1,27 @@
+<section class="inventory-page">
+  <header class="page-header">
+    <div>
+      <h1>Inventory</h1>
+      <p>Maintain optimal spare parts availability and keep procurement aligned.</p>
+    </div>
+  </header>
+
+  <nav class="tab-bar">
+    <button
+      type="button"
+      *ngFor="let tab of tabs"
+      [class.active]="isActive(tab.id)"
+      (click)="setTab(tab.id)"
+    >
+      <span class="tab-label">{{ tab.label }}</span>
+      <span class="tab-description">{{ tab.description }}</span>
+    </button>
+  </nav>
+
+  <section class="tab-content" [ngSwitch]="activeTab">
+    <app-parts-list *ngSwitchCase="'parts'"></app-parts-list>
+    <app-reorder-requests *ngSwitchCase="'reorders'"></app-reorder-requests>
+    <app-stock-orders *ngSwitchCase="'orders'"></app-stock-orders>
+    <app-inventory-analytics *ngSwitchCase="'analytics'"></app-inventory-analytics>
+  </section>
+</section>

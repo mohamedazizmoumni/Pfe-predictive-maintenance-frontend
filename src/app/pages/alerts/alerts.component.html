@@ -1,0 +1,75 @@
+<div class="alerts-shell">
+  <section class="hero" *ngIf="stats$ | async as stats">
+    <div>
+      <p>Incident intelligence</p>
+      <h1>Alert Operations</h1>
+      <span>Filter high-signal anomalies, own the lifecycle, and keep machines trustworthy.</span>
+    </div>
+    <div class="hero-stats">
+      <article>
+        <p>Total</p>
+        <h3>{{ stats.totalAlerts }}</h3>
+        <small>{{ stats.unviewedCount }} unviewed</small>
+      </article>
+      <article>
+        <p>Critical</p>
+        <h3>{{ stats.criticalCount }}</h3>
+        <small>Need immediate response</small>
+      </article>
+      <article>
+        <p>Acknowledged</p>
+        <h3>{{ stats.acknowledgedAlerts }}</h3>
+        <small>Awaiting resolution</small>
+      </article>
+      <article>
+        <p>Closed</p>
+        <h3>{{ stats.closedAlerts }}</h3>
+        <small>Resolved this week</small>
+      </article>
+    </div>
+  </section>
+
+  <section class="alerts-grid">
+    <app-alert-list
+      [alerts]="alerts$ | async"
+      [page]="page$ | async"
+      [filters]="filters"
+      [selectedAlertId]="(selectedAlert$ | async)?.id || null"
+      [isLoading]="isListLoading"
+      [error]="listError"
+      (filtersChange)="handleFiltersChange($event)"
+      (pageChange)="handlePageChange($event)"
+      (selectAlert)="handleSelectAlert($event)"
+      (refreshRequested)="handleRefresh()"
+      (createRequested)="openCreateModal()"
+    ></app-alert-list>
+
+    <app-alert-detail
+      [alert]="selectedAlert$ | async"
+      [isLoading]="isDetailLoading"
+      [actionInFlight]="isActionSubmitting"
+      [error]="detailError"
+      (acknowledge)="openActionModal('acknowledge', $event)"
+      (escalate)="openActionModal('escalate', $event)"
+      (close)="openActionModal('close', $event)"
+      (delete)="deleteAlert($event)"
+      (refresh)="handleRefresh()"
+    ></app-alert-detail>
+  </section>
+
+  <app-alert-create
+    [visible]="showCreateModal"
+    [machines]="machines$ | async"
+    [isSubmitting]="isCreateSubmitting"
+    (close)="closeCreateModal()"
+    (submitAlert)="submitCreate($event)"
+  ></app-alert-create>
+
+  <app-alert-action-modal
+    [visible]="!!actionModalMode"
+    [mode]="actionModalMode || 'acknowledge'"
+    [isSubmitting]="isActionSubmitting"
+    (close)="closeActionModal()"
+    (submitAction)="submitAction($event)"
+  ></app-alert-action-modal>
+</div>

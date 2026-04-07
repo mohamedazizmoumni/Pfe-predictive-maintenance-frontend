@@ -1,0 +1,55 @@
+.inventory-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.page-header p {
+  margin: 0.25rem 0 0;
+  color: #5f6368;
+}
+
+.tab-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.tab-bar button {
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 0.85rem;
+  text-align: left;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tab-bar button.active {
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 1px rgba(26, 115, 232, 0.2);
+}
+
+.tab-label {
+  display: block;
+  font-weight: 600;
+}
+
+.tab-description {
+  display: block;
+  font-size: 0.85rem;
+  color: #5f6368;
+}
+
+.tab-content {
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  background: #fff;
+}

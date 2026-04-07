@@ -1,0 +1,134 @@
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 30;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.63);
+  backdrop-filter: blur(6px);
+}
+
+.modal-card {
+  position: relative;
+  width: min(640px, 92vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: var(--ui-radius-lg, 24px);
+  padding: var(--ui-space-5, 1.75rem);
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.28);
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--ui-space-3, 0.75rem);
+  margin-bottom: var(--ui-space-4, 1.25rem);
+}
+
+header p {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: rgba(15, 23, 42, 0.6);
+}
+
+header h3 {
+  margin: 0.2rem 0;
+}
+
+header span {
+  color: rgba(15, 23, 42, 0.6);
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3, 0.75rem);
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: rgba(15, 23, 42, 0.8);
+}
+
+select,
+input,
+textarea {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: var(--ui-radius-md, 16px);
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  background: rgba(248, 250, 252, 0.8);
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+select:focus,
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: rgba(91, 93, 216, 0.6);
+  box-shadow: 0 0 0 3px rgba(91, 93, 216, 0.2);
+}
+
+textarea {
+  resize: vertical;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--ui-space-3, 0.75rem);
+}
+
+footer {
+  margin-top: var(--ui-space-4, 1.25rem);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ui-space-3, 0.75rem);
+}
+
+button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.6rem 1.6rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.ghost {
+  background: rgba(91, 93, 216, 0.08);
+  color: #4c1d95;
+}
+
+button:not(.ghost) {
+  background: linear-gradient(135deg, #5b5dd8, #8b5cf6);
+  color: #fff;
+}
+
+@media (max-width: 640px) {
+  .modal-card {
+    padding: var(--ui-space-4, 1.25rem);
+  }
+}

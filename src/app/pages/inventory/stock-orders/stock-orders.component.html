@@ -1,0 +1,38 @@
+<div class="section-header">
+  <div>
+    <h2>Stock orders</h2>
+    <p>Track purchase orders from submission to delivery.</p>
+  </div>
+  <button type="button" (click)="loadOrders()">Refresh</button>
+</div>
+
+<div class="alert alert-error" *ngIf="error">{{ error }}</div>
+<div class="loading" *ngIf="isLoading">Loading orders…</div>
+
+<div class="orders" *ngIf="!isLoading">
+  <table>
+    <thead>
+      <tr>
+        <th>PO #</th>
+        <th>Part</th>
+        <th>Quantity</th>
+        <th>Status</th>
+        <th>Cost</th>
+        <th>Expected delivery</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let order of orders">
+        <td>{{ order.supplierPurchaseOrder || order.id }}</td>
+        <td>{{ order.partName }}</td>
+        <td>{{ order.quantity | number }}</td>
+        <td><span class="status" [class]="order.status.toLowerCase()">{{ order.status }}</span></td>
+        <td>{{ order.cost | currency }}</td>
+        <td>{{ order.expectedDeliveryDate | date:'mediumDate' }}</td>
+      </tr>
+      <tr *ngIf="orders.length === 0">
+        <td colspan="6" class="empty">No stock orders yet.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
