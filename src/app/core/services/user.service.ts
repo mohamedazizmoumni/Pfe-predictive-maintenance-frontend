@@ -5,6 +5,7 @@ import { tap, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { User, Role } from '../models/sentinel.models';
 import { apiEndpoint } from '../http/api-base';
+import { normalizeRoleName } from '../utils/role.utils';
 
 export interface UsersResponse {
   content: User[];
@@ -22,6 +23,7 @@ export interface CreateUserPayload {
   department?: string;
   phoneNumber?: string;
   roleName?: string;
+  roles?: string[];
 }
 
 export interface UpdateUserPayload {
@@ -63,24 +65,15 @@ export class UserService {
       .set('size', size.toString());
 
     this.http
-      .get<UsersResponse>(apiEndpoint('/v1/users'), { params })
+      .get<User[] | UsersResponse>(apiEndpoint('/v1/users'), { params })
       .pipe(
         tap((response) => {
-          const mapped = (response.content || []).map((u: any) => ({
-            ...u,
-            roles: Array.isArray(u.roles)
-              ? u.roles.map((r: any) =>
-                  typeof r === 'string'
-                    ? ({ id: r, name: r } as Role)
-                    : r
-                )
-              : [],
-          }));
-          this.usersSubject.next(mapped as User[]);
+          const users = this.extractUsers(response).map((user) => this.mapUser(user));
+          this.usersSubject.next(users);
           this.isLoadingSubject.next(false);
         }),
         catchError((error) => {
-          const errorMessage = error.error?.message || 'Failed to load users';
+          const errorMessage = error.error?.error || error.error?.message || 'Failed to load users';
           this.errorSubject.next(errorMessage);
           this.isLoadingSubject.next(false);
           return of(null);
@@ -92,12 +85,22 @@ export class UserService {
   /**
    * Get a specific user
    */
-  getUser(userId: string): Observable<User> {
+  getUser(userId: string | number): Observable<User> {
     return this.http
       .get<User>(apiEndpoint(`/v1/users/${userId}`))
       .pipe(
+        tap((user) => {
+          const mapped = this.mapUser(user);
+          const users = this.usersSubject.value;
+          const existing = users.findIndex((u) => String(u.id) === String(mapped.id));
+          if (existing >= 0) {
+            const updated = [...users];
+            updated[existing] = mapped;
+            this.usersSubject.next(updated);
+          }
+        }),
         catchError((error) => {
-          const errorMessage = error.error?.message || 'Failed to load user';
+          const errorMessage = error.error?.error || error.error?.message || 'Failed to load user';
           this.errorSubject.next(errorMessage);
           throw error;
         })
@@ -115,12 +118,13 @@ export class UserService {
       .post<User>(apiEndpoint('/v1/users'), userData)
       .pipe(
         tap((user) => {
+          const mappedUser = this.mapUser(user);
           const users = this.usersSubject.value;
-          this.usersSubject.next([...users, user]);
+          this.usersSubject.next([...users, mappedUser]);
           this.isLoadingSubject.next(false);
         }),
         catchError((error) => {
-          const errorMessage = error.error?.message || 'Failed to create user';
+          const errorMessage = error.error?.error || error.error?.message || 'Failed to create user';
           this.errorSubject.next(errorMessage);
           this.isLoadingSubject.next(false);
           throw error;
@@ -131,7 +135,7 @@ export class UserService {
   /**
    * Update a user
    */
-  updateUser(userId: string, updates: UpdateUserPayload): Observable<User> {
+  updateUser(userId: string | number, updates: UpdateUserPayload): Observable<User> {
     this.isLoadingSubject.next(true);
     this.errorSubject.next(null);
 
@@ -139,14 +143,15 @@ export class UserService {
       .put<User>(apiEndpoint(`/v1/users/${userId}`), updates)
       .pipe(
         tap((user) => {
+          const mappedUser = this.mapUser(user);
           const users = this.usersSubject.value.map((u) =>
-            u.id === userId ? user : u
+            String(u.id) === String(userId) ? mappedUser : u
           );
           this.usersSubject.next(users);
           this.isLoadingSubject.next(false);
         }),
         catchError((error) => {
-          const errorMessage = error.error?.message || 'Failed to update user';
+          const errorMessage = error.error?.error || error.error?.message || 'Failed to update user';
           this.errorSubject.next(errorMessage);
           this.isLoadingSubject.next(false);
           throw error;
@@ -157,7 +162,7 @@ export class UserService {
   /**
    * Delete a user
    */
-  deleteUser(userId: string): Observable<void> {
+  deleteUser(userId: string | number): Observable<void> {
     this.isLoadingSubject.next(true);
     this.errorSubject.next(null);
 
@@ -165,12 +170,12 @@ export class UserService {
       .delete<void>(apiEndpoint(`/v1/users/${userId}`))
       .pipe(
         tap(() => {
-          const users = this.usersSubject.value.filter((u) => u.id !== userId);
+          const users = this.usersSubject.value.filter((u) => String(u.id) !== String(userId));
           this.usersSubject.next(users);
           this.isLoadingSubject.next(false);
         }),
         catchError((error) => {
-          const errorMessage = error.error?.message || 'Failed to delete user';
+          const errorMessage = error.error?.error || error.error?.message || 'Failed to delete user';
           this.errorSubject.next(errorMessage);
           this.isLoadingSubject.next(false);
           throw error;
@@ -189,11 +194,12 @@ export class UserService {
       .get<Role[]>(apiEndpoint('/v1/roles'))
       .pipe(
         tap((roles) => {
-          this.rolesSubject.next(roles);
+          const mappedRoles = (roles || []).map((role) => this.mapRole(role));
+          this.rolesSubject.next(mappedRoles);
           this.isLoadingSubject.next(false);
         }),
         catchError((error) => {
-          const errorMessage = error.error?.message || 'Failed to load roles';
+          const errorMessage = error.error?.error || error.error?.message || 'Failed to load roles';
           this.errorSubject.next(errorMessage);
           this.isLoadingSubject.next(false);
           return of(null);
@@ -216,10 +222,44 @@ export class UserService {
           this.usersSubject.next(users);
         }),
         catchError((error) => {
-          const errorMessage = error.error?.message || 'Failed to assign role';
+          const errorMessage = error.error?.error || error.error?.message || 'Failed to assign role';
           this.errorSubject.next(errorMessage);
           throw error;
         })
       );
+  }
+
+  private extractUsers(response: User[] | UsersResponse): User[] {
+    if (Array.isArray(response)) {
+      return response;
+    }
+    return response?.content || [];
+  }
+
+  private mapUser(user: User): User {
+    return {
+      ...user,
+      roles: Array.isArray(user.roles)
+        ? user.roles.map((role: any) => this.mapRole(role))
+        : [],
+    };
+  }
+
+  private mapRole(role: any): Role {
+    if (typeof role === 'string') {
+      const normalizedName = normalizeRoleName(role);
+      return {
+        id: normalizedName || role,
+        name: normalizedName || role,
+      } as Role;
+    }
+
+    const normalizedName = normalizeRoleName(role?.name || role?.id || '');
+
+    return {
+      id: role?.id ?? normalizedName,
+      name: normalizedName || role?.name || role?.id || 'UNKNOWN_ROLE',
+      description: role?.description,
+    } as Role;
   }
 }

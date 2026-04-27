@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   ReactiveFormsModule,
@@ -10,7 +10,6 @@ import {
 } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { RegisterPayload } from '../../core/models/sentinel.models';
 
 interface StepConfig {
   label: string;
@@ -25,6 +24,9 @@ interface StepConfig {
   styleUrl: './register.component.scss',
 })
 export class RegisterComponent implements OnInit {
+  @ViewChild('cameraVideo') cameraVideo?: ElementRef<HTMLVideoElement>;
+  @ViewChild('faceCanvas') faceCanvas?: ElementRef<HTMLCanvasElement>;
+
   registerForm!: FormGroup;
   steps: StepConfig[] = [
     { label: 'Account Setup', description: 'Credentials & access' },
@@ -36,6 +38,12 @@ export class RegisterComponent implements OnInit {
   errorMessage = '';
   hidePassword = true;
   hideConfirmPassword = true;
+  selectedFile: File | null = null;
+  previewImageUrl: string | null = null;
+  cameraReady = false;
+  isStartingCamera = false;
+
+  private cameraStream: MediaStream | null = null;
 
   private stepFields: string[][] = [
     ['username', 'email', 'password', 'confirmPassword'],
@@ -51,6 +59,11 @@ export class RegisterComponent implements OnInit {
 
   ngOnInit(): void {
     this.initializeForm();
+  }
+
+  ngOnDestroy(): void {
+    this.stopCamera();
+    this.clearPreviewUrl();
   }
 
   get stepProgress(): number {
@@ -92,27 +105,179 @@ export class RegisterComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
 
-    const value = this.registerForm.value;
-    const payload: RegisterPayload = {
-      username: value.username,
-      email: value.email,
-      password: value.password,
-      firstName: value.firstName,
-      lastName: value.lastName,
-      department: value.department || undefined,
-    };
+    if (!this.selectedFile) {
+      this.isLoading = false;
+      this.errorMessage = 'Please upload your face photo before signing up.';
+      return;
+    }
 
-    this.authService.register(payload).subscribe({
+    const { email, password, username, firstName, lastName, department } = this.registerForm.value;
+    const formData = new FormData();
+    formData.append('email', email);
+    formData.append('password', password);
+    formData.append('file', this.selectedFile);
+    formData.append('username', username || '');
+    formData.append('firstName', firstName || '');
+    formData.append('lastName', lastName || '');
+    formData.append('department', department || '');
+
+    this.authService.signupWithFace(formData).subscribe({
       next: () => {
         this.isLoading = false;
         this.router.navigate(['/dashboard']);
       },
       error: (error: any) => {
         this.isLoading = false;
-        this.errorMessage =
-          error?.error?.message || 'Registration failed. Please try again.';
+        this.errorMessage = this.resolveApiErrorMessage(error, 'Registration failed. Please try again.');
       },
     });
+  }
+
+  onFileSelected(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0] ?? null;
+
+    if (!file) {
+      this.selectedFile = null;
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      this.selectedFile = null;
+      this.errorMessage = 'Only image files are allowed.';
+      return;
+    }
+
+    this.stopCamera();
+    this.clearPreviewUrl();
+    this.selectedFile = file;
+    this.previewImageUrl = URL.createObjectURL(file);
+    this.errorMessage = '';
+  }
+
+  async startCamera(): Promise<void> {
+    if (this.isStartingCamera) {
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      this.errorMessage = 'Camera is not supported in this browser.';
+      return;
+    }
+
+    this.isStartingCamera = true;
+    this.errorMessage = '';
+
+    try {
+      this.stopCamera();
+      this.cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'user',
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
+        audio: false,
+      });
+
+      const video = this.cameraVideo?.nativeElement;
+      if (!video) {
+        this.errorMessage = 'Camera preview is unavailable.';
+        this.stopCamera();
+        return;
+      }
+
+      video.srcObject = this.cameraStream;
+      await video.play();
+      this.cameraReady = true;
+    } catch {
+      this.errorMessage = 'Unable to access camera. Please allow permission or upload a photo.';
+      this.cameraReady = false;
+      this.stopCamera();
+    } finally {
+      this.isStartingCamera = false;
+    }
+  }
+
+  capturePhoto(): void {
+    const video = this.cameraVideo?.nativeElement;
+    const canvas = this.faceCanvas?.nativeElement;
+
+    if (!video || !canvas || !this.cameraReady) {
+      this.errorMessage = 'Camera is not ready. Please start camera first.';
+      return;
+    }
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      this.errorMessage = 'Failed to capture photo from camera.';
+      return;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          this.errorMessage = 'Photo capture failed. Please retry.';
+          return;
+        }
+
+        this.clearPreviewUrl();
+        this.selectedFile = new File([blob], 'face-photo.jpg', { type: 'image/jpeg' });
+        this.previewImageUrl = URL.createObjectURL(blob);
+        this.errorMessage = '';
+      },
+      'image/jpeg',
+      0.92
+    );
+  }
+
+  stopCamera(): void {
+    this.cameraStream?.getTracks().forEach((track) => track.stop());
+    this.cameraStream = null;
+    this.cameraReady = false;
+
+    const video = this.cameraVideo?.nativeElement;
+    if (video) {
+      video.srcObject = null;
+    }
+  }
+
+  private clearPreviewUrl(): void {
+    if (this.previewImageUrl) {
+      URL.revokeObjectURL(this.previewImageUrl);
+      this.previewImageUrl = null;
+    }
+  }
+
+  private resolveApiErrorMessage(error: any, fallback: string): string {
+    const apiError = error?.error;
+    if (!apiError) {
+      return fallback;
+    }
+
+    if (typeof apiError === 'string' && apiError.trim()) {
+      return apiError;
+    }
+
+    if (typeof apiError?.message === 'string' && apiError.message.trim()) {
+      return apiError.message;
+    }
+
+    if (typeof apiError?.detail === 'string' && apiError.detail.trim()) {
+      return apiError.detail;
+    }
+
+    if (Array.isArray(apiError?.detail) && apiError.detail.length > 0) {
+      const first = apiError.detail[0];
+      if (typeof first?.msg === 'string' && first.msg.trim()) {
+        return first.msg;
+      }
+    }
+
+    return fallback;
   }
 
   shouldShowControlError(controlName: string): boolean {

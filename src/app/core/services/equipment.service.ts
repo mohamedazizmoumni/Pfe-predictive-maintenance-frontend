@@ -1,8 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { tap, catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { BehaviorSubject, Observable, of } from 'rxjs';
+import { tap, catchError, map } from 'rxjs/operators';
 import { Machine, Sensor, CreateMachineRequest } from '../models/sentinel.models';
 import { apiEndpoint } from '../http/api-base';
 
@@ -10,13 +9,15 @@ export interface MachinesResponse {
   content: Machine[];
   totalElements: number;
   totalPages: number;
-  currentPage: number;
+  currentPage?: number;
+  number?: number;
 }
 
 @Injectable({
   providedIn: 'root',
 })
 export class EquipmentService {
+  private readonly machinesUrl = apiEndpoint('/machines');
   private machinesSubject = new BehaviorSubject<Machine[]>([]);
   private isLoadingSubject = new BehaviorSubject<boolean>(false);
   private errorSubject = new BehaviorSubject<string | null>(null);
@@ -45,15 +46,15 @@ export class EquipmentService {
     }
 
     this.http
-      .get<MachinesResponse>(apiEndpoint('/v1/machines'), { params })
+      .get<MachinesResponse | Machine[]>(this.machinesUrl, { params })
       .pipe(
         tap((response) => {
-          this.machinesSubject.next(response.content);
+          const machines = Array.isArray(response) ? response : response.content ?? [];
+          this.machinesSubject.next(machines);
           this.isLoadingSubject.next(false);
         }),
         catchError((error) => {
-          const errorMessage =
-            error.error?.message || 'Failed to load machines';
+          const errorMessage = error.error?.message || 'Failed to load machines';
           this.errorSubject.next(errorMessage);
           this.isLoadingSubject.next(false);
           return of(null);
@@ -70,7 +71,7 @@ export class EquipmentService {
     this.errorSubject.next(null);
 
     return this.http
-      .get<Machine>(apiEndpoint(`/v1/machines/${id}`))
+      .get<Machine>(apiEndpoint(`/machines/${id}`))
       .pipe(
         tap((machine) => {
           this.currentMachineSubject.next(machine);
@@ -87,13 +88,14 @@ export class EquipmentService {
 
   /**
    * Create a new machine
+   * Uses /api/v1/costs/machines per the updated backend contract.
    */
   createMachine(request: CreateMachineRequest): Observable<Machine> {
     this.isLoadingSubject.next(true);
     this.errorSubject.next(null);
 
     return this.http
-      .post<Machine>(apiEndpoint('/v1/machines'), request)
+      .post<Machine>(apiEndpoint('/costs/machines'), request)
       .pipe(
         tap((machine) => {
           const machines = this.machinesSubject.value;
@@ -101,8 +103,7 @@ export class EquipmentService {
           this.isLoadingSubject.next(false);
         }),
         catchError((error) => {
-          const errorMessage =
-            error.error?.message || 'Failed to create machine';
+          const errorMessage = error.error?.message || 'Failed to create machine';
           this.errorSubject.next(errorMessage);
           this.isLoadingSubject.next(false);
           throw error;
@@ -112,13 +113,14 @@ export class EquipmentService {
 
   /**
    * Update an existing machine
+   * Uses /api/v1/costs/machines/{id} per the updated backend contract.
    */
   updateMachine(id: string, request: Partial<CreateMachineRequest>): Observable<Machine> {
     this.isLoadingSubject.next(true);
     this.errorSubject.next(null);
 
     return this.http
-      .put<Machine>(apiEndpoint(`/v1/machines/${id}`), request)
+      .put<Machine>(apiEndpoint(`/costs/machines/${id}`), request)
       .pipe(
         tap((machine) => {
           const machines = this.machinesSubject.value.map((m) =>
@@ -129,8 +131,7 @@ export class EquipmentService {
           this.isLoadingSubject.next(false);
         }),
         catchError((error) => {
-          const errorMessage =
-            error.error?.message || 'Failed to update machine';
+          const errorMessage = error.error?.message || 'Failed to update machine';
           this.errorSubject.next(errorMessage);
           this.isLoadingSubject.next(false);
           throw error;
@@ -140,13 +141,14 @@ export class EquipmentService {
 
   /**
    * Delete a machine
+   * Uses /api/v1/costs/machines/{id} per the updated backend contract.
    */
   deleteMachine(id: string): Observable<void> {
     this.isLoadingSubject.next(true);
     this.errorSubject.next(null);
 
     return this.http
-      .delete<void>(apiEndpoint(`/v1/machines/${id}`))
+      .delete<void>(apiEndpoint(`/costs/machines/${id}`))
       .pipe(
         tap(() => {
           const machines = this.machinesSubject.value.filter((m) => m.id !== id);
@@ -157,8 +159,7 @@ export class EquipmentService {
           this.isLoadingSubject.next(false);
         }),
         catchError((error) => {
-          const errorMessage =
-            error.error?.message || 'Failed to delete machine';
+          const errorMessage = error.error?.message || 'Failed to delete machine';
           this.errorSubject.next(errorMessage);
           this.isLoadingSubject.next(false);
           throw error;
@@ -171,8 +172,22 @@ export class EquipmentService {
    */
   getSensors(machineId: string): Observable<Sensor[]> {
     return this.http
-      .get<Sensor[]>(apiEndpoint(`/v1/machines/${machineId}/sensors`))
+      .get<Record<string, unknown>>(apiEndpoint(`/machines/${machineId}/telemetry/schema`))
       .pipe(
+        map((schema) => {
+          const keys = Object.keys(schema ?? {});
+          return keys.map((key, index) => ({
+            id: `${machineId}-${key}-${index}`,
+            code: key,
+            machineId,
+            sensorType: 'TELEMETRY',
+            unit: '',
+            status: 'ACTIVE' as const,
+          }));
+        }),
+        tap(() => {
+          this.errorSubject.next(null);
+        }),
         catchError((error) => {
           const errorMessage = error.error?.message || 'Failed to load sensors';
           this.errorSubject.next(errorMessage);
@@ -186,15 +201,10 @@ export class EquipmentService {
    */
   addSensor(machineId: string, sensor: Omit<Sensor, 'id'>): Observable<Sensor> {
     return this.http
-      .post<Sensor>(apiEndpoint(`/v1/machines/${machineId}/sensors`), sensor)
+      .post<Sensor>(apiEndpoint(`/machines/${machineId}/sensors`), sensor)
       .pipe(
-        tap(() => {
-          // Refresh current machine to update sensors list
-          this.getMachine(machineId).subscribe();
-        }),
         catchError((error) => {
-          const errorMessage = error.error?.message || 'Failed to add sensor';
-          this.errorSubject.next(errorMessage);
+          this.errorSubject.next(error.error?.message || 'Failed to add sensor');
           throw error;
         })
       );
@@ -205,28 +215,21 @@ export class EquipmentService {
    */
   updateSensor(machineId: string, sensorId: string, sensor: Partial<Sensor>): Observable<Sensor> {
     return this.http
-      .put<Sensor>(
-        apiEndpoint(`/v1/machines/${machineId}/sensors/${sensorId}`),
-        sensor
-      )
+      .put<Sensor>(apiEndpoint(`/machines/${machineId}/sensors/${sensorId}`), sensor)
       .pipe(
-        tap(() => {
-          this.getMachine(machineId).subscribe();
-        }),
         catchError((error) => {
-          const errorMessage = error.error?.message || 'Failed to update sensor';
-          this.errorSubject.next(errorMessage);
+          this.errorSubject.next(error.error?.message || 'Failed to update sensor');
           throw error;
         })
       );
   }
 
   /**
-   * Get real-time machine status
+   * Get real-time machine status.
+   * The /predictions/latest endpoint does not exist in the current backend contract.
+   * Returns an empty observable so callers degrade gracefully.
    */
   getMachineStatus(machineId: string): Observable<any> {
-    return this.http.get<any>(
-      apiEndpoint(`/v1/machines/${machineId}/status`)
-    );
+    return of(null);
   }
 }

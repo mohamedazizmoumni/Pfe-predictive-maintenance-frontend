@@ -1,0 +1,20 @@
+<section class="recommendation-page">
+  <div class="loading-container" *ngIf="isLoading">
+    <mat-spinner diameter="46"></mat-spinner>
+  </div>
+
+  <ng-container *ngIf="!isLoading">
+    <mat-card class="machine-summary" *ngIf="machine as machineInfo">
+      <p class="label">Machine</p>
+      <h2>{{ machineInfo.name }}</h2>
+      <p class="meta">Location: {{ machineInfo.location }} | Status: {{ machineInfo.status }}</p>
+    </mat-card>
+
+    <app-recommendation-card
+      *ngIf="recommendation as recommendationData"
+      [recommendation]="recommendationData"
+    ></app-recommendation-card>
+
+    <app-cost-comparison [preselectedMachineId]="selectedMachineId"></app-cost-comparison>
+  </ng-container>
+</section>

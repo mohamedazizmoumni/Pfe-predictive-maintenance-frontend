@@ -1,0 +1,36 @@
+<mat-card class="budget-card">
+  <mat-card-header>
+    <mat-card-title>Budget (Planned)</mat-card-title>
+    <mat-card-subtitle>{{ b.department }} — {{ b.period }}</mat-card-subtitle>
+  </mat-card-header>
+
+  <mat-card-content>
+
+    <div class="stat-row">
+      <div class="stat">
+        <span class="label">Allocated Budget</span>
+        <span class="value">€{{ b.allocatedAmount }}</span>
+      </div>
+
+      <div class="stat">
+        <span class="label">Consumed (All Costs)</span>
+        <span class="value danger">€{{ b.spentAmount }}</span>
+      </div>
+
+      <div class="stat">
+        <span class="label">Remaining Budget</span>
+        <span class="value success">€{{ b.remainingAmount }}</span>
+      </div>
+    </div>
+
+    <mat-progress-bar
+      [value]="b.percentageUsed"
+      [color]="b.percentageUsed > 80 ? 'warn' : 'primary'">
+    </mat-progress-bar>
+
+    <div class="hint">
+      Includes preventive actions + failure costs
+    </div>
+
+  </mat-card-content>
+</mat-card>

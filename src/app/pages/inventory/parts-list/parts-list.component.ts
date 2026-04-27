@@ -2,8 +2,10 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { Part } from '../../../core/models/sentinel.models';
+import { Part, ReorderRequestRequest } from '../../../core/models/sentinel.models';
 import { InventoryService } from '../../../core/services/inventory.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { rolesCollectionHasAny } from '../../../core/utils/role.utils';
 
 interface PaginatedResponse<T> {
   content?: T[];
@@ -43,8 +45,38 @@ export class PartsListComponent implements OnInit {
 
   constructor(
     private readonly inventoryService: InventoryService,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly authService: AuthService
   ) {}
+
+  canRequest(): boolean {
+    return rolesCollectionHasAny(this.authService.getCurrentUser()?.roles, ['SUPER_ADMIN', 'ADMIN', 'STOCK_MANAGER', 'MANAGER', 'TECHNICIAN']);
+  }
+
+  requestReorderQuick(part: Part): void {
+    if (!this.canRequest()) {
+      this.error = 'Not authorized to request reorders.';
+      return;
+    }
+    const defaultQty = part.reorderQuantity || Math.max(1, (part.minimumStock || 1));
+    const qtyStr = window.prompt(`Enter quantity to reorder for ${part.name}:`, String(defaultQty));
+    if (!qtyStr) return;
+    const qty = parseInt(qtyStr, 10);
+    if (isNaN(qty) || qty <= 0) {
+      this.error = 'Invalid quantity.';
+      return;
+    }
+    const reason = window.prompt('Reason (optional):', 'Replenishment') || '';
+    const payload: ReorderRequestRequest = { partId: part.id, quantity: qty, reason, notes: '' };
+    this.inventoryService.requestReorder(payload).subscribe({
+      next: () => {
+        this.loadParts(this.page);
+      },
+      error: (err) => {
+        this.error = err?.error?.message ?? 'Failed to request reorder.';
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.loadParts();

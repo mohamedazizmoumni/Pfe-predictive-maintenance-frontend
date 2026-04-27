@@ -1,0 +1,365 @@
+<section class="predictive-page">
+  <header class="surface-card predictive-header" data-card>
+    <div>
+      <p class="eyebrow">Machine Intelligence</p>
+      <h1>Predictive Maintenance Dashboard</h1>
+      <p>Live risk monitoring with simulated readings and server-side failure report insights.</p>
+    </div>
+
+    <div class="header-actions">
+      <label>
+        <span>Machine filter</span>
+        <select [formControl]="machineFilterControl">
+          <option value="">All machines</option>
+          <option *ngFor="let machine of machines$ | async" [value]="machine.id">
+            {{ machine.name || machine.serialNumber || machine.model || machine.id }}
+          </option>
+        </select>
+      </label>
+
+      <button
+        *ngIf="shouldShowRunNowButton"
+        type="button"
+        class="btn btn-primary"
+        [disabled]="isRunningPredictive"
+        (click)="runPredictiveNow()"
+      >
+        {{ isRunningPredictive ? 'Running Predictive...' : 'Run Predictive Now' }}
+      </button>
+
+      <button type="button" class="btn btn-secondary" [disabled]="isExporting" (click)="exportFailureReportsPdf()">
+        {{ isExporting ? 'Exporting PDF...' : 'Export Failure Reports (.pdf)' }}
+      </button>
+    </div>
+  </header>
+
+  <section class="surface-card" data-card>
+    <div class="section-head">
+      <h2>Live Simulated Readings</h2>
+      <p>
+        Auto-refreshing every 5 seconds while this tab is visible. High-risk readings automatically create predictive alerts and toast notifications.
+        <span *ngIf="lastLiveRefreshAt">Last refresh: {{ lastLiveRefreshAt | date : 'mediumTime' }}</span>
+      </p>
+    </div>
+
+    <div class="skeleton" *ngIf="isReadingsLoading">
+      <div></div>
+      <div></div>
+      <div></div>
+    </div>
+
+    <div class="alert alert-error" *ngIf="!isReadingsLoading && readingsError">
+      {{ readingsError }}
+      <button type="button" class="btn btn-ghost" (click)="retryReadings()">Retry</button>
+    </div>
+
+    <div class="empty-state" *ngIf="!isReadingsLoading && !readingsError && simulatedReadings.length === 0">
+      <p>No simulated readings available for the selected filters.</p>
+      <button
+        *ngIf="shouldShowRunNowButton"
+        type="button"
+        class="btn btn-secondary"
+        [disabled]="isRunningPredictive"
+        (click)="runPredictiveNow()"
+      >
+        {{ isRunningPredictive ? 'Running Predictive...' : 'Run Predictive Now' }}
+      </button>
+    </div>
+
+    <div class="table-wrap" *ngIf="!isReadingsLoading && !readingsError && simulatedReadings.length > 0">
+      <table class="table-shell readings-table">
+        <thead>
+          <tr>
+            <th>Machine</th>
+            <th>Timestamp</th>
+            <th>Usage Hours</th>
+            <th>Anomaly Count</th>
+            <th>Risk</th>
+            <th>Predicted Failure Days</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let reading of simulatedReadings; trackBy: trackByReading">
+            <tr>
+              <td>{{ reading.machineName }}</td>
+              <td>{{ reading.timestamp | date : 'medium' }}</td>
+              <td>{{ reading.usageHours }}</td>
+              <td>{{ reading.anomalyCount }}</td>
+              <td>
+                <span [class]="getRiskClass(reading.risk)">{{ toRiskPercent(reading.risk) | number : '1.0-1' }}%</span>
+              </td>
+              <td>{{ reading.predictedFailureDays }}</td>
+              <td>
+                <button type="button" class="btn btn-ghost" (click)="toggleReadingDetails(reading.machineId)">
+                  {{ expandedReadingMachineId === reading.machineId ? 'Hide sensors' : 'View sensors' }}
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="expandedReadingMachineId === reading.machineId">
+              <td colspan="7" class="sensor-cell">
+                <div class="sensor-grid" *ngIf="(reading.sensorValues | keyvalue).length > 0; else noSensors">
+                  <div *ngFor="let sensor of reading.sensorValues | keyvalue">
+                    <span>{{ sensor.key }}</span>
+                    <strong>{{ sensor.value }}</strong>
+                  </div>
+                </div>
+                <ng-template #noSensors>
+                  <p class="empty-inline">No sensor values in this reading.</p>
+                </ng-template>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="surface-card" data-card>
+    <div class="section-head">
+      <h2>Dynamic Sensor Data Table</h2>
+      <p>Newest machine sensor points from backend, refreshed every 5 seconds while visible.</p>
+    </div>
+
+    <div class="skeleton" *ngIf="isSensorDataLoading">
+      <div></div>
+      <div></div>
+      <div></div>
+    </div>
+
+    <div class="alert alert-error" *ngIf="!isSensorDataLoading && sensorDataError">
+      {{ sensorDataError }}
+      <button type="button" class="btn btn-ghost" (click)="retrySensorData()">Retry</button>
+    </div>
+
+    <div class="empty-state" *ngIf="!isSensorDataLoading && !sensorDataError && (!sensorDataPage || sensorDataPage.content.length === 0)">
+      <p>No sensor-data points available for the selected filters.</p>
+    </div>
+
+    <div class="table-wrap table-wrap--sensor" *ngIf="!isSensorDataLoading && !sensorDataError && sensorDataPage && sensorDataPage.content.length > 0">
+      <table class="table-shell sensor-data-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Machine Id</th>
+            <th>Sensor Code</th>
+            <th>Sensor Name</th>
+            <th>Sensor Type</th>
+            <th>Value</th>
+            <th>Unit</th>
+            <th>Anomaly</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let point of sensorRowsForView; trackBy: trackBySensorDataRow">
+            <td>{{ point ? (point.timestamp | date : 'medium') : '—' }}</td>
+            <td>{{ point?.machineId ?? '—' }}</td>
+            <td>{{ point?.sensorCode || '—' }}</td>
+            <td>{{ point?.sensorName || '—' }}</td>
+            <td>{{ point?.sensorType || '—' }}</td>
+            <td>{{ point ? (point.value | number : '1.2-4') : '—' }}</td>
+            <td>{{ point?.unit || '—' }}</td>
+            <td>
+              <span class="status-badge" [class.status-badge--warning]="point?.isAnomaly">
+                {{ point ? (point.isAnomaly ? 'Yes' : 'No') : '—' }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <footer class="pager">
+        <button type="button" class="btn btn-ghost" [disabled]="sensorPage === 0" (click)="previousSensorPage()">
+          Previous
+        </button>
+        <span>Page {{ sensorPage + 1 }} of {{ sensorDataPage.totalPages || 1 }}</span>
+        <button
+          type="button"
+          class="btn btn-ghost"
+          [disabled]="!sensorDataPage || sensorPage + 1 >= sensorDataPage.totalPages"
+          (click)="nextSensorPage()"
+        >
+          Next
+        </button>
+      </footer>
+    </div>
+  </section>
+
+  <section class="reports-grid">
+    <article class="surface-card" data-card>
+      <div class="section-head">
+        <h2>Failure Reports</h2>
+        <p>Sorted by newest first from backend.</p>
+      </div>
+
+      <div class="skeleton" *ngIf="isReportsLoading">
+        <div></div>
+        <div></div>
+        <div></div>
+      </div>
+
+      <div class="alert alert-error" *ngIf="!isReportsLoading && reportsError">
+        {{ reportsError }}
+        <button type="button" class="btn btn-ghost" (click)="retryReports()">Retry</button>
+      </div>
+
+      <div class="empty-state" *ngIf="!isReportsLoading && !reportsError && (!reportsPage || reportsPage.content.length === 0)">
+        <p>No failure reports found.</p>
+      </div>
+
+      <div class="table-wrap" *ngIf="!isReportsLoading && !reportsError && reportsPage && reportsPage.content.length > 0">
+        <table class="table-shell reports-table">
+          <thead>
+            <tr>
+              <th>Report ID</th>
+              <th>Machine</th>
+              <th>Risk</th>
+              <th>Predicted Days</th>
+              <th>Estimated Cost</th>
+              <th>Created At</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let report of reportsPage.content; trackBy: trackByReport"
+              (click)="selectReport(report)"
+              [class.row-active]="selectedReport?.id === report.id"
+            >
+              <td>#{{ report.id }}</td>
+              <td>{{ report.machineName }}</td>
+              <td><span [class]="getRiskClass(report.risk)">{{ toRiskPercent(report.risk) | number : '1.0-1' }}%</span></td>
+              <td>{{ report.predictedFailureDays }}</td>
+              <td>{{ report.estimatedCost | currency }}</td>
+              <td>{{ report.createdAt | date : 'medium' }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <footer class="pager">
+          <button type="button" class="btn btn-ghost" [disabled]="reportPage === 0" (click)="previousPage()">Previous</button>
+          <span>Page {{ reportPage + 1 }} of {{ reportsPage.totalPages || 1 }}</span>
+          <button
+            type="button"
+            class="btn btn-ghost"
+            [disabled]="!reportsPage || reportPage + 1 >= reportsPage.totalPages"
+            (click)="nextPage()"
+          >
+            Next
+          </button>
+        </footer>
+      </div>
+    </article>
+
+    <aside class="surface-card details-drawer" data-card>
+      <h2>Report Details</h2>
+
+      <div class="empty-state" *ngIf="!selectedReport">
+        <p>Select a failure report to view details.</p>
+      </div>
+
+      <ng-container *ngIf="selectedReport as report">
+        <p><strong>Machine:</strong> {{ report.machineName }}</p>
+        <p><strong>Risk:</strong> <span [class]="getRiskClass(report.risk)">{{ toRiskPercent(report.risk) | number : '1.0-1' }}%</span></p>
+        <p><strong>Predicted failure days:</strong> {{ report.predictedFailureDays }}</p>
+        <p><strong>Recommended action:</strong> {{ report.recommendedAction || '—' }}</p>
+
+        <section class="drawer-section">
+          <h3>Next Best Steps</h3>
+          <ul *ngIf="getNextBestSteps(report).length > 0; else noNextSteps">
+            <li *ngFor="let step of getNextBestSteps(report)">
+              <span>{{ step }}</span>
+            </li>
+          </ul>
+          <ng-template #noNextSteps>
+            <p class="empty-inline">No recommended next steps available.</p>
+          </ng-template>
+        </section>
+
+        <section class="drawer-section" *ngIf="parseSensorState(report) as sensorState">
+          <h3>Current Sensor State</h3>
+          <div *ngIf="!sensorState.parseFailed && sensorState.entries.length > 0" class="sensor-grid">
+            <div *ngFor="let entry of sensorState.entries">
+              <span>{{ entry[0] }}</span>
+              <strong>{{ entry[1] }}</strong>
+            </div>
+          </div>
+          <p class="empty-inline" *ngIf="!sensorState.parseFailed && sensorState.entries.length === 0">
+            No sensor state values included.
+          </p>
+          <pre *ngIf="sensorState.parseFailed">{{ sensorState.raw }}</pre>
+        </section>
+
+        <section class="drawer-section">
+          <h3>Required Parts</h3>
+          <ul *ngIf="report.requiredParts.length > 0; else noParts">
+            <li *ngFor="let part of report.requiredParts">
+              <span>{{ part.partName }} (Need: {{ part.quantityNeeded }})</span>
+              <span class="stock-badge" [class.stock-badge--warning]="part.currentStock <= part.minimumStock">
+                Stock {{ part.currentStock }} / Min {{ part.minimumStock }}
+              </span>
+            </li>
+          </ul>
+          <ng-template #noParts>
+            <p class="empty-inline">No required parts reported.</p>
+          </ng-template>
+        </section>
+      </ng-container>
+    </aside>
+  </section>
+
+  <section class="surface-card" data-card>
+    <div class="section-head">
+      <h2>Related Alerts</h2>
+      <p>Latest alert signals with machine/report context linking.</p>
+    </div>
+
+    <div class="skeleton" *ngIf="isAlertsLoading">
+      <div></div>
+      <div></div>
+      <div></div>
+    </div>
+
+    <div class="alert alert-error" *ngIf="!isAlertsLoading && alertsError">
+      {{ alertsError }}
+      <button type="button" class="btn btn-ghost" (click)="retryAlerts()">Retry</button>
+    </div>
+
+    <div class="empty-state" *ngIf="!isAlertsLoading && !alertsError && (!alertsPage || alertsPage.content.length === 0)">
+      <p>No alerts available for this context.</p>
+    </div>
+
+    <div class="table-wrap" *ngIf="!isAlertsLoading && !alertsError && alertsPage && alertsPage.content.length > 0">
+      <table class="table-shell alerts-table">
+        <thead>
+          <tr>
+            <th>Severity</th>
+            <th>Status</th>
+            <th>Title</th>
+            <th>Assigned</th>
+            <th>Created</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let alert of alertsPage.content; trackBy: trackByAlert">
+            <td>
+              <span class="status-badge" [class.status-badge--critical]="alert.severity === 'CRITICAL'">
+                {{ alert.severity }}
+              </span>
+            </td>
+            <td>{{ alert.status }}</td>
+            <td>
+              <span>{{ alert.title }}</span>
+              <span class="category-chip" *ngIf="isPredictionAlert(alert)">Prediction</span>
+            </td>
+            <td>{{ alert.assignedToDisplayName || alert.assignedTo || 'Unassigned' }}</td>
+            <td>{{ alert.createdDate | date : 'short' }}</td>
+            <td>
+              <button type="button" class="btn btn-ghost" (click)="viewAlertContext(alert)">Open Context</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</section>

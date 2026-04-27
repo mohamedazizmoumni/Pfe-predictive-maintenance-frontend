@@ -1,0 +1,15 @@
+.budget-page { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+.page-header h1 { margin: 0; font-size: 26px; font-weight: 700; }
+.subtitle { color: var(--text-secondary); font-size: 14px; }
+.budgets-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 20px; }
+.budget-detail-card.alert { border: 2px solid var(--danger); }
+.alert-banner { background: #FFEBEE; color: var(--danger); padding: 10px 14px; border-radius: var(--radius); margin-bottom: 16px; font-weight: 500; }
+.budget-stats { display: flex; justify-content: space-between; margin: 16px 0; }
+.bstat { display: flex; flex-direction: column; gap: 4px; }
+.blabel { font-size: 12px; color: var(--text-secondary); }
+.bval { font-size: 20px; font-weight: 700; }
+.danger { color: var(--danger); }
+.success { color: var(--success); }
+.progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+.expense-form { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin-top: 8px; }
+.loading-center { display: flex; justify-content: center; padding: 40px; }

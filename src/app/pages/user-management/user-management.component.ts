@@ -160,9 +160,8 @@ export class UserManagementComponent implements OnInit {
     const term = this.searchTerm.trim().toLowerCase();
 
     let result = this.users.filter((user) => {
-      const matchesSearch = !term
-        ? true
-        : [
+      const matchesSearch = term
+        ? [
             user.username,
             user.email,
             user.firstName,
@@ -171,7 +170,8 @@ export class UserManagementComponent implements OnInit {
             this.getUserRoles(user)
           ]
             .filter(Boolean)
-            .some((value) => (value as string).toLowerCase().includes(term));
+            .some((value) => (value as string).toLowerCase().includes(term))
+        : true;
 
       const status = user.status || 'ACTIVE';
       const matchesStatus = this.filterStatus === 'all' ? true : status === this.filterStatus;
@@ -291,7 +291,19 @@ export class UserManagementComponent implements OnInit {
 
       this.isLoading = true;
       this.error = null;
-      this.userService.createUser(this.formModel).subscribe({
+
+      const createPayload: CreateUserPayload = {
+        username: this.formModel.username,
+        email: this.formModel.email,
+        password: this.formModel.password,
+        firstName: this.formModel.firstName,
+        lastName: this.formModel.lastName,
+        department: this.formModel.department || undefined,
+        phoneNumber: this.formModel.phoneNumber || undefined,
+        roles: this.formModel.roleName ? [this.formModel.roleName] : undefined,
+      };
+
+      this.userService.createUser(createPayload).subscribe({
         next: () => {
           this.isLoading = false;
           this.showCreateForm = false;
@@ -310,7 +322,7 @@ export class UserManagementComponent implements OnInit {
       return;
     }
     this.isLoading = true;
-    this.userService.deleteUser(user.id).subscribe({
+    this.userService.deleteUser(String(user.id)).subscribe({
       next: () => {
         this.isLoading = false;
         this.userService.loadUsers(0, 200);

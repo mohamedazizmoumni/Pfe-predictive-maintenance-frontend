@@ -1,0 +1,57 @@
+<mat-card>
+  <mat-card-header><mat-card-title>Cost Comparison</mat-card-title></mat-card-header>
+  <mat-card-content>
+
+    <form [formGroup]="form" class="compare-form">
+      <mat-form-field appearance="outline">
+        <mat-label>Machine</mat-label>
+        <mat-select formControlName="machineId">
+          <mat-option *ngFor="let m of machines$ | async" [value]="m.id">{{ m.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Action ID</mat-label>
+        <input matInput type="number" formControlName="actionId" placeholder="e.g. 1">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Estimated Failure Downtime (hrs)</mat-label>
+        <input matInput type="number" formControlName="estimatedFailureDowntimeHours">
+      </mat-form-field>
+
+      <button mat-flat-button color="primary"
+              [disabled]="form.invalid || loading()"
+              (click)="compare()">
+        <mat-spinner *ngIf="loading()" diameter="18"></mat-spinner>
+        Compare Costs
+      </button>
+    </form>
+
+    <div *ngIf="result" class="result-section">
+      <div class="cost-cards">
+        <div class="cost-card preventive">
+          <div class="cost-label">Preventive Cost</div>
+          <div class="cost-amount">€{{ result.preventiveCost | number:'1.0-0' }}</div>
+        </div>
+        <div class="vs-divider">VS</div>
+        <div class="cost-card corrective">
+          <div class="cost-label">Corrective Cost</div>
+          <div class="cost-amount">€{{ result.correctiveCost | number:'1.0-0' }}</div>
+        </div>
+      </div>
+
+      <div class="savings-banner">
+        💰 Estimated Savings: <strong>€{{ result.estimatedSavings | number:'1.0-0' }}</strong>
+      </div>
+
+      <div class="rec-text">
+        <mat-icon>lightbulb</mat-icon>
+        {{ result.recommendation }}
+      </div>
+
+      <app-urgency-badge [urgency]="result.urgencyLevel"></app-urgency-badge>
+    </div>
+
+  </mat-card-content>
+</mat-card>

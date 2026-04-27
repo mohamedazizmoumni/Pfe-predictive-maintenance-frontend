@@ -17,13 +17,13 @@ describe('AppComponent', () => {
   it(`should have the 'pfeFront' title`, () => {
     const fixture = TestBed.createComponent(AppComponent);
     const app = fixture.componentInstance;
-    expect(app.title).toEqual('pfeFront');
+    expect(app.title).toEqual('Sentinel Guardian');
   });
 
-  it('should render title', () => {
+  it('should render router outlet root', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, pfeFront');
+    expect(compiled.querySelector('router-outlet')).toBeTruthy();
   });
 });

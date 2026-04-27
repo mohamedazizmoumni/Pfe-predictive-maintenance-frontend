@@ -1,8 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { tap, catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
+import { tap, catchError, map } from 'rxjs/operators';
 import { Prediction, MLModel } from '../models/sentinel.models';
 import { apiEndpoint } from '../http/api-base';
 
@@ -10,7 +9,8 @@ export interface PredictionsResponse {
   content: Prediction[];
   totalElements: number;
   totalPages: number;
-  currentPage: number;
+  currentPage?: number;
+  number?: number;
 }
 
 @Injectable({
@@ -30,26 +30,36 @@ export class PredictionService {
   constructor(private http: HttpClient) {}
 
   /**
-   * Load recent predictions
+   * Load recent predictions for a specific machine.
    */
-  loadPredictions(page: number = 0, size: number = 10): void {
+  loadPredictions(page: number = 0, size: number = 10, machineId?: string): void {
     this.isLoadingSubject.next(true);
     this.errorSubject.next(null);
+
+    if (!machineId) {
+      this.predictionsSubject.next([]);
+      this.isLoadingSubject.next(false);
+      this.errorSubject.next('A machineId is required to load predictions with the current backend contract.');
+      return;
+    }
 
     const params = new HttpParams()
       .set('page', page.toString())
       .set('size', size.toString());
 
     this.http
-      .get<PredictionsResponse>(apiEndpoint('/v1/predictions'), { params })
+      .get<PredictionsResponse | Prediction[]>(
+        apiEndpoint(`/machines/${machineId}/predictions`),
+        { params }
+      )
       .pipe(
         tap((response) => {
-          this.predictionsSubject.next(response.content);
+          const payload = Array.isArray(response) ? { content: response } : response;
+          this.predictionsSubject.next(payload.content ?? []);
           this.isLoadingSubject.next(false);
         }),
         catchError((error) => {
-          const errorMessage =
-            error.error?.message || 'Failed to load predictions';
+          const errorMessage = error.error?.message || 'Failed to load predictions';
           this.errorSubject.next(errorMessage);
           this.isLoadingSubject.next(false);
           return of(null);
@@ -59,146 +69,109 @@ export class PredictionService {
   }
 
   /**
-   * Get predictions for a specific machine
+   * Get predictions for a specific machine (paginated).
    */
-  getMachinePredictions(machineId: string, page: number = 0, size: number = 10): Observable<PredictionsResponse> {
-    return this.http.get<PredictionsResponse>(
-      apiEndpoint(`/v1/machines/${machineId}/predictions`),
-      {
-        params: new HttpParams()
-          .set('page', page.toString())
-          .set('size', size.toString()),
-      }
+  getMachinePredictions(
+    machineId: string,
+    page: number = 0,
+    size: number = 10
+  ): Observable<PredictionsResponse> {
+    return this.http
+      .get<PredictionsResponse | Prediction[]>(
+        apiEndpoint(`/machines/${machineId}/predictions`),
+        {
+          params: new HttpParams()
+            .set('page', page.toString())
+            .set('size', size.toString()),
+        }
+      )
+      .pipe(
+        map((response) => {
+          if (Array.isArray(response)) {
+            return {
+              content: response,
+              totalElements: response.length,
+              totalPages: response.length > 0 ? 1 : 0,
+              number: page,
+              currentPage: page,
+            };
+          }
+          return {
+            content: response.content ?? [],
+            totalElements: response.totalElements ?? (response.content?.length ?? 0),
+            totalPages:
+              response.totalPages ??
+              ((response.content?.length ?? 0) > 0 ? 1 : 0),
+            number: response.number ?? page,
+            currentPage: response.currentPage ?? response.number ?? page,
+          };
+        }),
+        tap((response) => {
+          this.predictionsSubject.next(response.content);
+        }),
+        catchError((error) => {
+          const errorMessage = error.error?.message || 'Failed to load predictions';
+          this.errorSubject.next(errorMessage);
+          throw error;
+        })
+      );
+  }
+
+  /**
+   * Trigger a new prediction for a machine.
+   * NOTE: /machines/{id}/predictions/latest does not exist in the backend contract.
+   * This now returns an empty observable so callers degrade gracefully.
+   * Replace with a real POST endpoint when the backend adds one.
+   */
+  triggerPrediction(machineId: string): Observable<Prediction> {
+    this.errorSubject.next(
+      'Trigger prediction endpoint is not available in the current backend contract.'
+    );
+    this.isLoadingSubject.next(false);
+    return of(null as unknown as Prediction);
+  }
+
+  /**
+   * Trigger predictions for all machines (not yet available).
+   */
+  triggerAllPredictions(): Observable<Prediction[]> {
+    return throwError(
+      () => new Error('Run-all predictions endpoint is not available in the current backend contract.')
     );
   }
 
   /**
-   * Trigger a new prediction for a machine
-   */
-  triggerPrediction(machineId: string): Observable<Prediction> {
-    this.isLoadingSubject.next(true);
-    this.errorSubject.next(null);
-
-    return this.http
-      .post<Prediction>(apiEndpoint('/v1/predictions/run'), { machineId })
-      .pipe(
-        tap((prediction) => {
-          const predictions = this.predictionsSubject.value;
-          this.predictionsSubject.next([prediction, ...predictions]);
-          this.isLoadingSubject.next(false);
-        }),
-        catchError((error) => {
-          const errorMessage =
-            error.error?.message || 'Failed to trigger prediction';
-          this.errorSubject.next(errorMessage);
-          this.isLoadingSubject.next(false);
-          throw error;
-        })
-      );
-  }
-
-  /**
-   * Trigger predictions for all machines
-   */
-  triggerAllPredictions(): Observable<Prediction[]> {
-    return this.http
-      .post<Prediction[]>(apiEndpoint('/v1/predictions/run-all'), {})
-      .pipe(
-        tap((predictions) => {
-          this.predictionsSubject.next(predictions);
-        }),
-        catchError((error) => {
-          const errorMessage =
-            error.error?.message || 'Failed to trigger predictions';
-          this.errorSubject.next(errorMessage);
-          throw error;
-        })
-      );
-  }
-
-  /**
-   * Load available ML models
+   * Load available ML models (not yet available).
    */
   loadModels(): void {
-    this.isLoadingSubject.next(true);
-    this.errorSubject.next(null);
-
-    this.http
-      .get<MLModel[]>(apiEndpoint('/v1/ml-models'))
-      .pipe(
-        tap((models) => {
-          this.modelsSubject.next(models);
-          this.isLoadingSubject.next(false);
-        }),
-        catchError((error) => {
-          const errorMessage = error.error?.message || 'Failed to load ML models';
-          this.errorSubject.next(errorMessage);
-          this.isLoadingSubject.next(false);
-          return of(null);
-        })
-      )
-      .subscribe();
+    this.modelsSubject.next([]);
   }
 
   /**
-   * Upload or register a new ML model
+   * Upload or register a new ML model (not yet available).
    */
   uploadModel(modelData: FormData): Observable<MLModel> {
-    this.isLoadingSubject.next(true);
-    this.errorSubject.next(null);
-
-    return this.http
-      .post<MLModel>(apiEndpoint('/v1/ml-models'), modelData)
-      .pipe(
-        tap((model) => {
-          const models = this.modelsSubject.value;
-          this.modelsSubject.next([...models, model]);
-          this.isLoadingSubject.next(false);
-        }),
-        catchError((error) => {
-          const errorMessage = error.error?.message || 'Failed to upload model';
-          this.errorSubject.next(errorMessage);
-          this.isLoadingSubject.next(false);
-          throw error;
-        })
-      );
+    return throwError(
+      () => new Error('Model upload endpoint is not available in the current backend contract.')
+    );
   }
 
   /**
-   * Activate or deactivate a model
+   * Activate or deactivate a model (not yet available).
    */
-  updateModelStatus(modelId: string, status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED'): Observable<MLModel> {
-    return this.http
-      .put<MLModel>(
-        apiEndpoint(`/v1/ml-models/${modelId}/status`),
-        { status }
-      )
-      .pipe(
-        tap((model) => {
-          const models = this.modelsSubject.value.map((m) =>
-            m.id === modelId ? model : m
-          );
-          this.modelsSubject.next(models);
-        }),
-        catchError((error) => {
-          const errorMessage =
-            error.error?.message || 'Failed to update model status';
-          this.errorSubject.next(errorMessage);
-          throw error;
-        })
-      );
+  updateModelStatus(
+    modelId: string,
+    status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED'
+  ): Observable<MLModel> {
+    return throwError(
+      () => new Error('Model status endpoint is not available in the current backend contract.')
+    );
   }
 
-  /**
-   * Activate a model
-   */
   activateModel(modelId: string): Observable<MLModel> {
     return this.updateModelStatus(modelId, 'ACTIVE');
   }
 
-  /**
-   * Deactivate a model
-   */
   deactivateModel(modelId: string): Observable<MLModel> {
     return this.updateModelStatus(modelId, 'INACTIVE');
   }

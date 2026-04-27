@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 import { Component } from '@angular/core';
 import { InventoryAnalyticsComponent } from './inventory-analytics/inventory-analytics.component';
 import { PartsListComponent } from './parts-list/parts-list.component';
@@ -14,7 +15,7 @@ interface InventoryTab {
 @Component({
   selector: 'app-inventory',
   standalone: true,
-  imports: [CommonModule, PartsListComponent, ReorderRequestsComponent, StockOrdersComponent, InventoryAnalyticsComponent],
+  imports: [CommonModule, RouterModule, PartsListComponent, ReorderRequestsComponent, StockOrdersComponent, InventoryAnalyticsComponent],
   templateUrl: './inventory.component.html',
   styleUrls: ['./inventory.component.scss']
 })

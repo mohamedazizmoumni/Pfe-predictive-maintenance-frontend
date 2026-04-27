@@ -1,43 +1,113 @@
 <div class="section-header">
   <div>
-    <h2>Reorder requests</h2>
+    <h2>Reorder Requests</h2>
     <p>Review outstanding replenishment needs and approval status.</p>
   </div>
-  <button type="button" (click)="loadReorders()">Refresh</button>
+  <button class="btn-refresh" type="button" (click)="loadReorders()">Refresh</button>
 </div>
 
-<div class="alert alert-error" *ngIf="error">{{ error }}</div>
+<section class="reorder-form">
+  <h3>Request New Reorder</h3>
+  <div *ngIf="error" class="alert alert-error">{{ error }}</div>
+  <div *ngIf="successMessage" class="alert alert-success">{{ successMessage }}</div>
+
+  <div class="form-row">
+    <label>Part</label>
+    <select [(ngModel)]="newRequest.partId" name="partId">
+      <option [ngValue]="0">Select part…</option>
+      <option *ngFor="let p of parts" [ngValue]="p.id">{{ p.partNumber }} — {{ p.name }}</option>
+    </select>
+  </div>
+
+  <div class="form-row">
+    <label>Quantity</label>
+    <input type="number" [(ngModel)]="newRequest.quantity" name="quantity" min="1" placeholder="Enter quantity" />
+  </div>
+
+  <div class="form-row">
+    <label>Reason</label>
+    <input type="text" [(ngModel)]="newRequest.reason" name="reason" placeholder="Reason for reorder" />
+  </div>
+
+  <div class="form-row">
+    <label>Notes (optional)</label>
+    <textarea [(ngModel)]="newRequest.notes" name="notes" placeholder="Additional details…"></textarea>
+  </div>
+
+  <div class="form-actions">
+    <button type="button" class="btn-submit" (click)="submitReorder()" [disabled]="isSubmitting">
+      {{ isSubmitting ? 'Submitting…' : 'Submit Request' }}
+    </button>
+  </div>
+</section>
+
 <div class="loading" *ngIf="isLoading">Loading requests…</div>
 
-<div class="requests" *ngIf="!isLoading">
+<div class="requests" *ngIf="!isLoading && requests.length">
   <article class="card" *ngFor="let request of requests">
     <header>
       <div>
         <h3>{{ request.partName }}</h3>
-        <p>Requested quantity: {{ request.quantity | number }}</p>
+        <p>Quantity: {{ request.quantity | number }}</p>
       </div>
-      <span class="status" [class]="request.status.toLowerCase()">{{ request.status }}</span>
+      <span class="status" [ngClass]="request.status.toLowerCase()">{{ request.status }}</span>
     </header>
+
     <dl>
       <div>
         <dt>Reason</dt>
         <dd>{{ request.reason }}</dd>
       </div>
       <div>
-        <dt>Approx. cost</dt>
+        <dt>Approx. Cost</dt>
         <dd>{{ request.approximateCost | currency }}</dd>
       </div>
       <div>
-        <dt>Requested by</dt>
+        <dt>Requested By</dt>
         <dd>{{ request.requestedBy }} on {{ request.requestedDate | date:'mediumDate' }}</dd>
       </div>
       <div *ngIf="request.approvedBy">
-        <dt>Approved by</dt>
+        <dt>Approved By</dt>
         <dd>{{ request.approvedBy }} on {{ request.approvedDate | date:'mediumDate' }}</dd>
       </div>
     </dl>
-    <p class="notes" *ngIf="request.notes">{{ request.notes }}</p>
-  </article>
 
-  <p class="empty" *ngIf="requests.length === 0">No reorder activity yet.</p>
+    <p class="notes" *ngIf="request.notes">{{ request.notes }}</p>
+
+    <div class="actions">
+      <button *ngIf="canRequest() && request.status === 'REQUESTED'" class="btn-refresh" (click)="loadReorders()">Refresh</button>
+
+      <div *ngIf="canApprove() && request.status === 'REQUESTED'" class="approval-controls">
+        <input placeholder="Reason (optional)" [(ngModel)]="approvalReason" />
+        <button type="button" class="btn-approve" (click)="approveRequest(request, true)" [disabled]="approvingId === request.id">Approve</button>
+        <button type="button" class="btn-reject" (click)="approveRequest(request, false)" [disabled]="approvingId === request.id">Reject</button>
+      </div>
+
+      <div *ngIf="canManageStock() && request.status === 'APPROVED'">
+        <button type="button" class="btn-create" (click)="startCreateOrder(request.id)" [disabled]="creatingOrderForId === request.id">Create Stock Order</button>
+      </div>
+    </div>
+
+    <section class="create-order" *ngIf="creatingOrderForId === request.id">
+      <h4>Create Stock Order for {{ request.partName }}</h4>
+      <div class="form-row">
+        <label>PO #</label>
+        <input [(ngModel)]="newStockOrder.supplierPurchaseOrder" placeholder="Purchase Order #" />
+      </div>
+      <div class="form-row">
+        <label>Expected Delivery</label>
+        <input type="date" [(ngModel)]="newStockOrder.expectedDeliveryDate" />
+      </div>
+      <div class="form-row">
+        <label>Notes</label>
+        <textarea [(ngModel)]="newStockOrder.notes" placeholder="Optional notes…"></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn-submit" (click)="submitCreateOrder()">Create</button>
+        <button class="btn-cancel" (click)="cancelCreateOrder()">Cancel</button>
+      </div>
+    </section>
+  </article>
 </div>
+
+<p class="empty" *ngIf="!isLoading && requests.length === 0">No reorder activity yet.</p>

@@ -23,8 +23,15 @@ export interface Role {
 
 export interface LoginResponse {
   token: string;
-  refreshToken?: string;
-  user: User;
+  refreshToken: string;
+  id?: number;
+  username?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  department?: string;
+  roles?: string[];
+  user?: User;
 }
 
 export interface RegisterPayload {
@@ -222,8 +229,12 @@ export interface AlertQueryParams {
 }
 
 export interface Prediction {
-  id: string;
-  machineId: string;
+  id: string | number;
+  machineId: string | number;
+  predictedAt?: string;
+  rulValue?: number;
+  confidenceLow?: number;
+  confidenceHigh?: number;
   predictedFailureDate?: string;
   failureProbability: number;
   confidenceScore: number;
@@ -233,6 +244,14 @@ export interface Prediction {
   riskLevel?: string;
   predictionDate?: string;
   predictionValue?: number;
+}
+
+export interface MLModel {
+  id: string | number;
+  name: string;
+  version?: string;
+  status?: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED' | string;
+  metrics?: Record<string, unknown>;
 }
 
 export interface DashboardOverview {

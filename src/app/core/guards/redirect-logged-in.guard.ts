@@ -10,7 +10,7 @@ export const redirectLoggedInGuard: CanActivateFn = (route, state) => {
   return authService.isAuthenticated$.pipe(
     take(1),
     map((isAuthenticated) => {
-      if (isAuthenticated) {
+      if (isAuthenticated && authService.hasToken()) {
         console.log('✅ User already authenticated, redirecting to dashboard');
         router.navigate(['/dashboard']);
         return false;

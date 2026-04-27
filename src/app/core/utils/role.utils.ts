@@ -8,7 +8,9 @@ export function normalizeRoleName(roleName?: string | null): string {
   if (!roleName) {
     return '';
   }
-  const upperName = roleName.toUpperCase();
+  const upperName = roleName.toUpperCase().startsWith('ROLE_')
+    ? roleName.toUpperCase().slice(5)
+    : roleName.toUpperCase();
   return ROLE_ALIASES[upperName] ?? upperName;
 }
 

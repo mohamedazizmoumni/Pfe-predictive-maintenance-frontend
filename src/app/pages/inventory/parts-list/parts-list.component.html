@@ -104,6 +104,7 @@
         <td class="actions">
           <button type="button" (click)="viewPart(part)">View</button>
           <button type="button" (click)="editPart(part)">Edit</button>
+          <button *ngIf="canRequest()" type="button" (click)="requestReorderQuick(part)">Request</button>
         </td>
       </tr>
       <tr *ngIf="filteredParts.length === 0">

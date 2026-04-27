@@ -1,0 +1,66 @@
+.compare-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  align-items: center;
+}
+
+.result-section {
+  margin-top: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.cost-cards {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cost-card {
+  flex: 1;
+  min-width: 180px;
+  padding: 12px;
+}
+
+.cost-card.preventive {
+  border: 2px solid var(--success);
+  border-radius: var(--radius);
+}
+
+.cost-card.corrective {
+  border: 2px solid var(--danger);
+  border-radius: var(--radius);
+}
+
+.cost-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.cost-amount {
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.vs-divider {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.savings-banner {
+  background: #E8F5E9;
+  color: var(--success);
+  padding: 12px;
+  border-radius: var(--radius);
+}
+
+.rec-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}

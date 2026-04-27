@@ -1,0 +1,520 @@
+:host {
+  display: block;
+}
+
+.machine-visual-page {
+  min-height: 100%;
+  padding: 1.4rem;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(17, 94, 89, 0.12), transparent 28%),
+    radial-gradient(circle at 90% 0%, rgba(21, 128, 61, 0.09), transparent 26%),
+    #f4f7f9;
+  color: #102a43;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.back-link {
+  color: #0f766e;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.topbar h1 {
+  margin: 0.35rem 0;
+  font-size: 1.6rem;
+}
+
+.topbar p {
+  margin: 0;
+  color: #486581;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 0.62rem 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn.primary {
+  background: #0f766e;
+  color: #fff;
+}
+
+.btn.secondary {
+  background: #d9f99d;
+  color: #365314;
+}
+
+.status-pill {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-pill.operational {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.status-pill.maintenance {
+  color: #854d0e;
+  background: #fef3c7;
+}
+
+.status-pill.offline,
+.status-pill.decommissioned {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.error-banner {
+  margin-top: 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  background: #ffe3e3;
+  color: #9b1c1c;
+}
+
+.loading {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #0f766e;
+  border-top-color: transparent;
+  animation: spin 0.75s linear infinite;
+}
+
+.kpi-grid {
+  margin-top: 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.kpi {
+  padding: 0.95rem;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #d9e2ec;
+}
+
+.kpi-label {
+  margin: 0;
+  color: #627d98;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+}
+
+.kpi-value {
+  margin: 0.45rem 0 0;
+  font-size: 1.42rem;
+  font-weight: 700;
+}
+
+.kpi-time {
+  font-size: 1.1rem;
+}
+
+.content-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.market-panel {
+  grid-column: 1 / -1;
+}
+
+.market-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.market-head h3 {
+  margin: 0;
+}
+
+.market-head p {
+  margin: 0.35rem 0 0;
+  color: #627d98;
+  font-size: 0.86rem;
+}
+
+.market-control-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: flex-end;
+}
+
+.metric-switcher {
+  display: inline-flex;
+  border: 1px solid #d9e2ec;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.metric-switcher button {
+  border: none;
+  background: transparent;
+  color: #334e68;
+  padding: 0.38rem 0.8rem;
+  font-size: 0.79rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.metric-switcher button.active {
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.zoom-switcher {
+  display: inline-flex;
+  border: 1px solid #d9e2ec;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.zoom-switcher button {
+  border: none;
+  background: transparent;
+  color: #334e68;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.zoom-switcher button.active {
+  background: #134e4a;
+  color: #ffffff;
+}
+
+.market-stats {
+  margin-top: 0.6rem;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.market-stats p {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #486581;
+}
+
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: 0.45rem;
+  background: #22c55e;
+  box-shadow: 0 0 0 rgba(34, 197, 94, 0.55);
+  animation: pulse 1.4s ease-out infinite;
+}
+
+.live-label {
+  margin-left: 0.35rem;
+  font-size: 0.67rem;
+  letter-spacing: 0.06em;
+  color: #166534;
+  font-weight: 700;
+}
+
+.trend {
+  border-radius: 999px;
+  padding: 0.18rem 0.6rem;
+}
+
+.trend--up {
+  background: rgba(34, 197, 94, 0.17);
+  color: #166534;
+}
+
+.trend--down {
+  background: rgba(239, 68, 68, 0.16);
+  color: #991b1b;
+}
+
+.market-svg {
+  width: 100%;
+  height: 320px;
+  margin-top: 0.75rem;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.market-grid line {
+  stroke: rgba(100, 116, 139, 0.25);
+  stroke-width: 1;
+}
+
+.threshold-bands .band-safe {
+  fill: rgba(22, 163, 74, 0.08);
+}
+
+.threshold-bands .band-warning {
+  fill: rgba(245, 158, 11, 0.08);
+}
+
+.threshold-bands .band-critical {
+  fill: rgba(239, 68, 68, 0.08);
+}
+
+.market-area {
+  fill: url(#marketArea);
+}
+
+.market-line {
+  fill: none;
+  stroke: #0f766e;
+  stroke-width: 2.3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.market-ema-line {
+  fill: none;
+  stroke: rgba(30, 41, 59, 0.68);
+  stroke-width: 1.45;
+  stroke-dasharray: 5 4;
+  stroke-linecap: round;
+}
+
+.candles line,
+.candles rect {
+  transition: all 220ms ease;
+}
+
+.candles .up {
+  stroke: #16a34a;
+  fill: rgba(22, 163, 74, 0.5);
+}
+
+.candles .down {
+  stroke: #dc2626;
+  fill: rgba(220, 38, 38, 0.5);
+}
+
+.impulse-bars rect {
+  transition: all 220ms ease;
+}
+
+.impulse-bars .up {
+  fill: rgba(22, 163, 74, 0.45);
+}
+
+.impulse-bars .down {
+  fill: rgba(220, 38, 38, 0.45);
+}
+
+.crosshair-layer line {
+  stroke: rgba(15, 23, 42, 0.45);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.crosshair-layer circle {
+  fill: #0f766e;
+  stroke: #ffffff;
+  stroke-width: 1.2;
+}
+
+.ohlc-tooltip {
+  fill: rgba(15, 23, 42, 0.88);
+  stroke: rgba(148, 163, 184, 0.36);
+  stroke-width: 1;
+}
+
+.ohlc-line {
+  fill: #e2e8f0;
+  font-size: 10.8px;
+  font-weight: 600;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #d9e2ec;
+  border-radius: 14px;
+  padding: 0.9rem;
+}
+
+.panel h3 {
+  margin: 0 0 0.55rem;
+}
+
+.chart-panel svg {
+  width: 100%;
+  height: 95px;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.chart-panel polyline {
+  fill: none;
+  stroke: #0f766e;
+  stroke-width: 2.4;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.report-lines p {
+  margin: 0.35rem 0;
+}
+
+.sensors-panel {
+  margin-top: 0.8rem;
+}
+
+.sensors-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.sensor-card {
+  border: 1px solid #d9e2ec;
+  border-radius: 10px;
+  padding: 0.65rem;
+  background: #f8fafc;
+}
+
+.sensor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.sensor-head p {
+  margin: 0;
+  font-weight: 700;
+}
+
+.sensor-status {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.sensor-status.anomaly {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.sensor-type {
+  margin: 0.35rem 0;
+  color: #627d98;
+  font-size: 0.82rem;
+}
+
+.sensor-value {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.empty-hint {
+  margin-top: 0.6rem;
+  color: #627d98;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+  }
+
+  70% {
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+@media (max-width: 1100px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sensors-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .market-control-groups {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .metric-switcher {
+    width: 100%;
+  }
+
+  .metric-switcher button {
+    flex: 1;
+  }
+
+  .zoom-switcher {
+    width: 100%;
+  }
+
+  .zoom-switcher button {
+    flex: 1;
+  }
+
+  .sensors-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}

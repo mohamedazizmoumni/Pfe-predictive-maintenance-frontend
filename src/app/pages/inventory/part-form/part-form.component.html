@@ -1,53 +1,81 @@
 <div class="part-form-container">
   <h2>{{ isEdit ? 'Edit Part' : 'Add New Part' }}</h2>
-  <form [formGroup]="partForm" (ngSubmit)="onSubmit()">
+
+  <form [formGroup]="partForm" (ngSubmit)="onSubmit()" class="form-grid">
+
+    <!-- Name & Part Number -->
     <div class="form-group">
-      <label for="name">Name</label>
-      <input id="name" formControlName="name" required />
+      <label for="name">Name *</label>
+      <input id="name" formControlName="name" placeholder="Enter part name" required />
     </div>
+
     <div class="form-group">
-      <label for="partNumber">Part Number</label>
-      <input id="partNumber" formControlName="partNumber" required />
+      <label for="partNumber">Part Number *</label>
+      <input id="partNumber" formControlName="partNumber" placeholder="Enter part number" required />
     </div>
+
+    <!-- Category selection -->
     <div class="form-group">
-      <label for="category">Category</label>
-      <input id="category" formControlName="category" />
+      <label for="category">Category *</label>
+      <div class="category-flex">
+        <select id="category" formControlName="category" [disabled]="loadingCategories">
+          <option value="">Select category…</option>
+          <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+        </select>
+
+        <div class="manage-inline">
+          <a class="btn btn-sm" [routerLink]="['/inventory/categories']">Manage</a>
+        </div>
+      </div>
     </div>
+
+    <!-- Cost & Stock info -->
     <div class="form-group">
       <label for="cost">Cost</label>
-      <input id="cost" type="number" formControlName="cost" min="0" />
+      <input id="cost" type="number" formControlName="cost" min="0" placeholder="0.00" />
     </div>
+
     <div class="form-group">
-      <label for="minimumStock">Minimum Stock</label>
-      <input id="minimumStock" type="number" formControlName="minimumStock" required min="0" />
+      <label for="minimumStock">Minimum Stock *</label>
+      <input id="minimumStock" type="number" formControlName="minimumStock" min="0" placeholder="0" required />
     </div>
+
     <div class="form-group">
       <label for="reorderQuantity">Reorder Quantity</label>
-      <input id="reorderQuantity" type="number" formControlName="reorderQuantity" min="0" />
+      <input id="reorderQuantity" type="number" formControlName="reorderQuantity" min="0" placeholder="0" />
     </div>
+
+    <!-- Unit & Supplier -->
     <div class="form-group">
       <label for="unit">Unit</label>
-      <input id="unit" formControlName="unit" />
+      <input id="unit" formControlName="unit" placeholder="e.g. pcs, kg" />
     </div>
+
     <div class="form-group">
       <label for="supplier">Supplier</label>
-      <input id="supplier" formControlName="supplier" />
+      <input id="supplier" formControlName="supplier" placeholder="Supplier name" />
     </div>
+
+    <!-- Description & Notes -->
     <div class="form-group">
       <label for="description">Description</label>
-      <textarea id="description" formControlName="description"></textarea>
+      <textarea id="description" formControlName="description" rows="3" placeholder="Optional description"></textarea>
     </div>
+
     <div class="form-group">
       <label for="notes">Notes</label>
-      <textarea id="notes" formControlName="notes"></textarea>
+      <textarea id="notes" formControlName="notes" rows="3" placeholder="Optional notes"></textarea>
     </div>
+
+    <!-- Actions -->
     <div class="form-actions">
       <button type="submit" [disabled]="loading || partForm.invalid">
         {{ isEdit ? 'Update' : 'Create' }} Part
       </button>
-      <button type="button" (click)="router.navigate(['../'], { relativeTo: route })">Cancel</button>
+      <button type="button" (click)="router.navigate(['../'], { relativeTo: route })" class="cancel-btn">Cancel</button>
     </div>
+
     <div *ngIf="error" class="error">{{ error }}</div>
+    <div *ngIf="loading" class="loading">Loading...</div>
   </form>
-  <div *ngIf="loading" class="loading">Loading...</div>
 </div>

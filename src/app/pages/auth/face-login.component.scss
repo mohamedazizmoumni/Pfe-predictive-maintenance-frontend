@@ -1,0 +1,159 @@
+:host {
+  display: block;
+  color: #102a43;
+}
+
+.face-login-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+}
+
+.face-login-card {
+  width: 100%;
+  max-width: 760px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 14px 32px rgba(16, 42, 67, 0.14);
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.header p {
+  margin: 0.45rem 0 1rem;
+  color: #486581;
+}
+
+.camera-block {
+  border: 1px solid #bcccdc;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #243b53;
+}
+
+video {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  object-fit: cover;
+}
+
+.hidden-canvas {
+  display: none;
+}
+
+.actions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.primary-btn,
+.secondary-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 0.8rem 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-btn {
+  background: #0052cc;
+  color: #ffffff;
+}
+
+.secondary-btn {
+  background: #e4e7eb;
+  color: #243b53;
+}
+
+.primary-btn:disabled,
+.secondary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.upload-fallback {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.upload-fallback label {
+  font-size: 0.9rem;
+  color: #334e68;
+}
+
+.preview {
+  margin-top: 1rem;
+}
+
+.preview p {
+  margin: 0 0 0.45rem;
+  color: #486581;
+}
+
+.preview img {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 10px;
+  border: 1px solid #d9e2ec;
+}
+
+.error-message {
+  margin-top: 1rem;
+  background: #ffe3e3;
+  color: #9b1c1c;
+  padding: 0.7rem 0.85rem;
+  border-radius: 8px;
+}
+
+.loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #ffffff;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.switch-auth {
+  margin-top: 1rem;
+  color: #486581;
+}
+
+.switch-auth a {
+  color: #0052cc;
+  font-weight: 600;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 700px) {
+  .face-login-card {
+    padding: 1rem;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+}

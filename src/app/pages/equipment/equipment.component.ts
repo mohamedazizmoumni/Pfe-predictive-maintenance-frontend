@@ -1,12 +1,27 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { EquipmentService } from '../../core/services/equipment.service';
 import { Machine, CreateMachineRequest } from '../../core/models/sentinel.models';
+import { PredictiveApiService } from '../../core/services/predictive-api.service';
+import {
+  MachineFailureReport,
+  MachineSimulatedReading,
+  NormalizedApiError,
+} from '../../core/models/predictive.models';
+import { forkJoin } from 'rxjs';
 
 interface StatusFilter {
   label: string;
   value: string;
+}
+
+interface MachinePredictiveSummary {
+  loading: boolean;
+  error: string | null;
+  reading: MachineSimulatedReading | null;
+  failureReport: MachineFailureReport | null;
 }
 
 @Component({
@@ -30,6 +45,8 @@ export class EquipmentComponent implements OnInit {
   activeMachineId: string | null = null;
   showForm = false;
   deleteConfirmId: string | null = null;
+  expandedPredictiveMachineId: string | null = null;
+  predictiveSummaryByMachine: Record<string, MachinePredictiveSummary> = {};
 
   readonly statuses: StatusFilter[] = [
     { label: 'All statuses', value: '' },
@@ -41,7 +58,9 @@ export class EquipmentComponent implements OnInit {
 
   constructor(
     private readonly equipmentService: EquipmentService,
-    private readonly fb: FormBuilder
+    private readonly fb: FormBuilder,
+    private readonly predictiveApi: PredictiveApiService,
+    private readonly router: Router
   ) {}
 
   ngOnInit(): void {
@@ -65,7 +84,7 @@ export class EquipmentComponent implements OnInit {
   }
 
   handleStatusChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
+    const { value } = event.target as HTMLSelectElement;
     this.selectedStatus = value;
     this.loadMachines(0);
   }
@@ -148,8 +167,59 @@ export class EquipmentComponent implements OnInit {
       if (this.page > 0) {
         this.loadMachines(this.page);
       }
+      if (this.expandedPredictiveMachineId === id) {
+        this.expandedPredictiveMachineId = null;
+      }
       this.deleteConfirmId = null;
     });
+  }
+
+  togglePredictivePanel(machine: Machine): void {
+    if (this.expandedPredictiveMachineId === machine.id) {
+      this.expandedPredictiveMachineId = null;
+      return;
+    }
+
+    this.expandedPredictiveMachineId = machine.id;
+
+    if (!this.predictiveSummaryByMachine[machine.id]) {
+      this.loadPredictiveSummary(machine);
+    }
+  }
+
+  refreshPredictivePanel(machine: Machine): void {
+    this.loadPredictiveSummary(machine);
+  }
+
+  openPredictiveDashboard(machineId: string): void {
+    this.router.navigate(['/predictive-dashboard'], {
+      queryParams: {
+        machineId,
+        page: 0,
+        size: 20,
+        sort: 'createdAt,desc',
+      },
+    });
+  }
+
+  openMachineVisual(machine: Machine): void {
+    this.router.navigate(['/equipment', machine.id, 'visual']);
+  }
+
+  getPredictiveSummary(machineId: string): MachinePredictiveSummary | undefined {
+    return this.predictiveSummaryByMachine[machineId];
+  }
+
+  getRiskClass(risk: number): string {
+    if (risk >= 0.7) {
+      return 'risk risk--high';
+    }
+
+    if (risk >= 0.4) {
+      return 'risk risk--medium';
+    }
+
+    return 'risk risk--low';
   }
 
   exportCsv(): void {
@@ -182,5 +252,57 @@ export class EquipmentComponent implements OnInit {
 
   trackByMachine(_: number, machine: Machine): string {
     return machine.id;
+  }
+
+  private loadPredictiveSummary(machine: Machine): void {
+    const machineId = Number(machine.id);
+
+    this.predictiveSummaryByMachine[machine.id] = {
+      loading: true,
+      error: null,
+      reading: null,
+      failureReport: null,
+    };
+
+    if (!Number.isFinite(machineId)) {
+      this.predictiveSummaryByMachine[machine.id] = {
+        loading: false,
+        error: 'Machine ID is not numeric, predictive APIs require a numeric machine identifier.',
+        reading: null,
+        failureReport: null,
+      };
+      return;
+    }
+
+    forkJoin({
+      readings: this.predictiveApi.getSimulatedReadings(),
+      reports: this.predictiveApi.getFailureReports({
+        machineId,
+        page: 0,
+        size: 1,
+        sort: 'createdAt,desc',
+      }),
+    }).subscribe({
+      next: ({ readings, reports }) => {
+        const latestReading = readings
+          .filter((reading) => reading.machineId === machineId)
+          .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp))[0] ?? null;
+
+        this.predictiveSummaryByMachine[machine.id] = {
+          loading: false,
+          error: null,
+          reading: latestReading,
+          failureReport: reports.content[0] ?? null,
+        };
+      },
+      error: (error: NormalizedApiError) => {
+        this.predictiveSummaryByMachine[machine.id] = {
+          loading: false,
+          error: error.message,
+          reading: null,
+          failureReport: null,
+        };
+      },
+    });
   }
 }

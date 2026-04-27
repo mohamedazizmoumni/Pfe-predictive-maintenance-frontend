@@ -1,0 +1,80 @@
+<mat-card class="budget-card">
+  <mat-card-header class="budget-header">
+    <div class="title-group">
+      <mat-card-title>Budget Overview</mat-card-title>
+      <span class="subtitle">Track department spending & performance</span>
+    </div>
+
+    <button mat-stroked-button color="primary" (click)="loadBudget()">
+      Refresh
+    </button>
+  </mat-card-header>
+
+  <mat-card-content>
+
+    <!-- FILTERS -->
+    <div class="filter-row" [formGroup]="form">
+      <mat-form-field appearance="outline">
+        <mat-label>Department</mat-label>
+        <mat-select formControlName="department">
+          <mat-option value="Workshop A">Workshop A</mat-option>
+          <mat-option value="Workshop B">Workshop B</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Period</mat-label>
+        <mat-select formControlName="period">
+          <mat-option value="2025-Q2">2025-Q2</mat-option>
+          <mat-option value="2025-Q3">2025-Q3</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <!-- ALERT -->
+    <div class="alert-banner" *ngIf="(budget$ | async)?.alertTriggered">
+      ⚠ Budget threshold exceeded — over 80% consumed
+    </div>
+
+    <!-- DATA -->
+    <ng-container *ngIf="budget$ | async as b">
+
+      <div class="stats-row">
+
+        <div class="stat-card">
+          <span class="label">Allocated</span>
+          <span class="amount">€{{ b.allocatedAmount | number:'1.0-0' }}</span>
+        </div>
+
+        <div class="stat-card danger">
+          <span class="label">Spent</span>
+          <span class="amount">€{{ b.spentAmount | number:'1.0-0' }}</span>
+        </div>
+
+        <div class="stat-card success">
+          <span class="label">Remaining</span>
+          <span class="amount">€{{ b.remainingAmount | number:'1.0-0' }}</span>
+        </div>
+
+      </div>
+
+      <!-- PROGRESS -->
+      <div class="progress-section">
+        <div class="progress-label">
+          <span>Budget Used</span>
+          <span class="percentage">
+            {{ b.percentageUsed | number:'1.0-1' }}%
+          </span>
+        </div>
+
+        <mat-progress-bar
+          class="progress-bar"
+          [value]="b.percentageUsed"
+          [color]="b.percentageUsed > 80 ? 'warn' : b.percentageUsed > 60 ? 'accent' : 'primary'">
+        </mat-progress-bar>
+      </div>
+
+    </ng-container>
+
+  </mat-card-content>
+</mat-card>

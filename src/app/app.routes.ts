@@ -13,7 +13,11 @@ import { AccessDeniedComponent } from './pages/access-denied/access-denied.compo
 import { InventoryComponent } from './pages/inventory/inventory.component';
 import { PartFormComponent } from './pages/inventory/part-form/part-form.component';
 import { PartDetailComponent } from './pages/inventory/part-detail/part-detail.component';
+import { CategoriesComponent } from './pages/inventory/categories/categories.component';
 import { ChatbotComponent } from './pages/chatbot/chatbot.component';
+import { PredictiveDashboardComponent } from './pages/predictive-dashboard/predictive-dashboard.component';
+import { RecommendationPageComponent } from './pages/recommendation/recommendation-page.component';
+import { BudgetOverviewComponent } from './components/budget-overview/budget-overview.component';
 
 export const routes: Routes = [
   {
@@ -27,6 +31,14 @@ export const routes: Routes = [
       {
         path: 'register',
         component: RegisterComponent,
+        canActivate: [redirectLoggedInGuard],
+      },
+      {
+        path: 'face-login',
+        loadComponent: () =>
+          import('./pages/auth/face-login.component').then(
+            (m) => m.FaceLoginComponent
+          ),
         canActivate: [redirectLoggedInGuard],
       },
     ],
@@ -81,6 +93,27 @@ export const routes: Routes = [
         data: { requiredRoles: [] },
       },
       {
+        path: 'predictive-dashboard',
+        component: PredictiveDashboardComponent,
+        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'VIEWER', 'DATA_SCIENTIST'] },
+        canActivate: [dataRoleGuard],
+      },
+      {
+        path: 'recommendations',
+        component: RecommendationPageComponent,
+        data: { requiredRoles: [] },
+      },
+      {
+        path: 'recommendations/:machineId',
+        component: RecommendationPageComponent,
+        data: { requiredRoles: [] },
+      },
+      {
+        path: 'budgets',
+        component: BudgetOverviewComponent,
+        data: { requiredRoles: [] },
+      },
+      {
         path: 'inventory/part-detail/:id',
         component: PartDetailComponent,
         data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'STOCK_MANAGER', 'MANAGER'] },
@@ -96,6 +129,21 @@ export const routes: Routes = [
         path: 'inventory/part-form/:id',
         component: PartFormComponent,
         data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'STOCK_MANAGER', 'MANAGER'] },
+        canActivate: [dataRoleGuard],
+      },
+      {
+        path: 'inventory/categories',
+        component: CategoriesComponent,
+        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'STOCK_MANAGER', 'MANAGER'] },
+        canActivate: [dataRoleGuard],
+      },
+      {
+        path: 'equipment/:id/visual',
+        loadComponent: () =>
+          import('./pages/equipment/machine-visualization.component').then(
+            (m) => m.MachineVisualizationComponent
+          ),
+        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'VIEWER'] },
         canActivate: [dataRoleGuard],
       },
       {

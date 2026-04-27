@@ -1,0 +1,28 @@
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.list-header h2 {
+  margin: 0;
+}
+
+.machine-table {
+  width: 100%;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  background: var(--surface);
+}
+
+.status-badge { padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+.status-running           { background: #E8F5E9; color: #2E7D32; }
+.status-under-maintenance { background: #FFF8E1; color: #F57C00; }
+.status-failed            { background: #FFEBEE; color: #C62828; }
+
+button mat-icon {
+  font-size: 12px;
+  width: 12px;
+  height: 12px;
+}

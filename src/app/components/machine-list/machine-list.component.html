@@ -1,0 +1,51 @@
+<div class="list-header">
+  <h2>Machines</h2>
+  <mat-spinner *ngIf="loading()" diameter="24"></mat-spinner>
+</div>
+
+<mat-table [dataSource]="(machines$ | async) ?? []" class="machine-table">
+
+  <ng-container matColumnDef="name">
+    <mat-header-cell *matHeaderCellDef>Name</mat-header-cell>
+    <mat-cell *matCellDef="let m">{{ m.name }}</mat-cell>
+  </ng-container>
+
+  <ng-container matColumnDef="location">
+    <mat-header-cell *matHeaderCellDef>Location</mat-header-cell>
+    <mat-cell *matCellDef="let m">{{ m.location }}</mat-cell>
+  </ng-container>
+
+  <ng-container matColumnDef="status">
+    <mat-header-cell *matHeaderCellDef>Status</mat-header-cell>
+    <mat-cell *matCellDef="let m">
+      <span class="status-badge status-{{m.status.toLowerCase().replace('_','-')}}">
+        {{ m.status | titlecase }}
+      </span>
+    </mat-cell>
+  </ng-container>
+
+  <ng-container matColumnDef="criticality">
+    <mat-header-cell *matHeaderCellDef>Criticality</mat-header-cell>
+    <mat-cell *matCellDef="let m">
+      <app-urgency-badge [urgency]="m.criticalityLevel"></app-urgency-badge>
+    </mat-cell>
+  </ng-container>
+
+  <ng-container matColumnDef="hourlyValue">
+    <mat-header-cell *matHeaderCellDef>€/hr Lost</mat-header-cell>
+    <mat-cell *matCellDef="let m">€{{ m.hourlyProductionValue | number:'1.0-0' }}</mat-cell>
+  </ng-container>
+
+  <ng-container matColumnDef="actions">
+    <mat-header-cell *matHeaderCellDef></mat-header-cell>
+    <mat-cell *matCellDef="let m">
+      <button mat-stroked-button color="primary"
+              (click)="viewRecommendation(m.id)">
+        <mat-icon>insights</mat-icon> Recommendation
+      </button>
+    </mat-cell>
+  </ng-container>
+
+  <mat-header-row *matHeaderRowDef="columns"></mat-header-row>
+  <mat-row *matRowDef="let row; columns: columns"></mat-row>
+</mat-table>

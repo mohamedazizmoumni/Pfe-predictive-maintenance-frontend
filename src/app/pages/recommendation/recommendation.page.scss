@@ -1,0 +1,8 @@
+.rec-page { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+.page-header { display: flex; align-items: center; gap: 16px; }
+.page-header h1 { margin: 0; font-size: 24px; font-weight: 700; }
+.subtitle { color: var(--text-secondary); font-size: 13px; }
+.sim-card mat-card-title { display: flex; align-items: center; gap: 8px; }
+.sim-form { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin-top: 8px; }
+.loading-center { display: flex; justify-content: center; padding: 40px; }
+.cost-section h3 { margin: 0 0 16px; font-size: 16px; font-weight: 600; }

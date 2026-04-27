@@ -135,6 +135,41 @@
               />
             </div>
 
+            <div class="input-group">
+              <label for="facePhoto">Upload your face photo</label>
+              <input
+                id="facePhoto"
+                type="file"
+                class="ui-file"
+                accept="image/*"
+                (change)="onFileSelected($event)"
+              />
+              <span class="file-hint" *ngIf="selectedFile">Selected: {{ selectedFile.name }}</span>
+            </div>
+
+            <div class="camera-capture">
+              <p class="camera-title">Or take a photo</p>
+              <video #cameraVideo autoplay playsinline muted></video>
+              <canvas #faceCanvas class="hidden-canvas"></canvas>
+
+              <div class="camera-actions">
+                <button type="button" class="ghost" (click)="startCamera()" [disabled]="isStartingCamera">
+                  {{ isStartingCamera ? 'Starting...' : 'Start Camera' }}
+                </button>
+                <button type="button" class="cta" (click)="capturePhoto()" [disabled]="!cameraReady">
+                  Capture Photo
+                </button>
+                <button type="button" class="ghost" (click)="stopCamera()" [disabled]="!cameraReady">
+                  Stop Camera
+                </button>
+              </div>
+
+              <div class="camera-preview" *ngIf="previewImageUrl">
+                <p>Face photo preview</p>
+                <img [src]="previewImageUrl" alt="Captured face photo" />
+              </div>
+            </div>
+
             <div class="profile-hint">
               <h4>Why we need this</h4>
               <p>

@@ -1,0 +1,63 @@
+<div class="dashboard">
+  <div class="page-header">
+    <h1>Operations Dashboard</h1>
+    <span class="subtitle">Real-time maintenance decision support</span>
+  </div>
+
+  <div class="kpi-row">
+    <app-stat-card
+      title="Total Machines"
+      [value]="totalMachines()"
+      icon="precision_manufacturing"
+      accent="primary"
+      [subtitle]="runningCount() + ' running'">
+    </app-stat-card>
+
+    <app-stat-card
+      title="Active Alerts"
+      [value]="criticalAlerts()"
+      icon="notification_important"
+      accent="danger"
+      subtitle="High or critical urgency">
+    </app-stat-card>
+
+    <app-stat-card
+      title="Under Maintenance"
+      [value]="maintenanceCount()"
+      icon="build"
+      accent="warning"
+      subtitle="Machines currently being repaired">
+    </app-stat-card>
+
+    <app-stat-card
+      title="Potential Savings"
+      [value]="'€' + (totalSavings() | number:'1.0-0')"
+      icon="savings"
+      accent="success"
+      subtitle="If all preventive actions taken">
+    </app-stat-card>
+  </div>
+
+  <div *ngIf="loading()" class="loading-center">
+    <mat-spinner diameter="48"></mat-spinner>
+    <p>Loading dashboard data...</p>
+  </div>
+
+  <div class="main-grid" *ngIf="!loading()">
+    <div class="grid-left">
+      <app-machine-list></app-machine-list>
+    </div>
+
+    <div class="grid-right">
+      <app-budget-overview></app-budget-overview>
+
+      <div class="rec-preview" *ngIf="recommendations().length > 0">
+        <h3>Top Recommendations</h3>
+        <app-recommendation-card
+          *ngFor="let rec of recommendations().slice(0, 2)"
+          [recommendation]="rec">
+        </app-recommendation-card>
+      </div>
+    </div>
+  </div>
+</div>

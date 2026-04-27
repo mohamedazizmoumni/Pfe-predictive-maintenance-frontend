@@ -46,22 +46,88 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let machine of machines; trackBy: trackByMachine">
-          <td><strong>{{ machine.serialNumber }}</strong></td>
-          <td>{{ machine.model }}</td>
-          <td>{{ machine.location }}</td>
-          <td>{{ machine.manufacturer }}</td>
-          <td>
-            <span class="status-pill" [ngClass]="(machine.status || 'UNKNOWN').toLowerCase()">
-              {{ machine.status || 'UNKNOWN' }}
-            </span>
-          </td>
-          <td>{{ machine.installationYear || '—' }}</td>
-          <td class="cell-actions">
-            <button type="button" class="btn btn-ghost-sm" (click)="openEdit(machine)">Edit</button>
-            <button type="button" class="btn btn-danger-sm" (click)="requestDelete(machine)">Delete</button>
-          </td>
-        </tr>
+        <ng-container *ngFor="let machine of machines; trackBy: trackByMachine">
+          <tr class="machine-row" (click)="openMachineVisual(machine)">
+            <td><strong>{{ machine.serialNumber }}</strong></td>
+            <td>{{ machine.model }}</td>
+            <td>{{ machine.location }}</td>
+            <td>{{ machine.manufacturer }}</td>
+            <td>
+              <span class="status-pill" [ngClass]="(machine.status || 'UNKNOWN').toLowerCase()">
+                {{ machine.status || 'UNKNOWN' }}
+              </span>
+            </td>
+            <td>{{ machine.installationYear || '—' }}</td>
+            <td class="cell-actions">
+              <button type="button" class="btn btn-ghost-sm" (click)="$event.stopPropagation(); togglePredictivePanel(machine)">
+                {{ expandedPredictiveMachineId === machine.id ? 'Hide Predictive' : 'Predictive' }}
+              </button>
+              <button type="button" class="btn btn-secondary" (click)="$event.stopPropagation(); openMachineVisual(machine)">Live View</button>
+              <button type="button" class="btn btn-ghost-sm" (click)="$event.stopPropagation(); openEdit(machine)">Edit</button>
+              <button type="button" class="btn btn-danger-sm" (click)="$event.stopPropagation(); requestDelete(machine)">Delete</button>
+            </td>
+          </tr>
+
+          <tr *ngIf="expandedPredictiveMachineId === machine.id">
+            <td colspan="7" class="predictive-cell">
+              <div class="predictive-panel" *ngIf="getPredictiveSummary(machine.id) as summary">
+                <div class="predictive-head">
+                  <h3>Predictive Snapshot</h3>
+                  <div class="predictive-actions">
+                    <button type="button" class="btn btn-ghost" (click)="refreshPredictivePanel(machine)">Refresh</button>
+                    <button type="button" class="btn btn-secondary" (click)="openPredictiveDashboard(machine.id)">
+                      Open Full Dashboard
+                    </button>
+                  </div>
+                </div>
+
+                <div class="loading-state loading-state--inline" *ngIf="summary.loading">
+                  <div class="spinner"></div>
+                  <p>Loading predictive data...</p>
+                </div>
+
+                <div class="alert alert-error" *ngIf="!summary.loading && summary.error">
+                  {{ summary.error }}
+                </div>
+
+                <div class="predictive-grid" *ngIf="!summary.loading && !summary.error">
+                  <article>
+                    <p class="predictive-label">Current simulated reading</p>
+                    <ng-container *ngIf="summary.reading as reading; else noReading">
+                      <p><strong>Timestamp:</strong> {{ reading.timestamp | date : 'medium' }}</p>
+                      <p><strong>Usage Hours:</strong> {{ reading.usageHours }}</p>
+                      <p>
+                        <strong>Risk:</strong>
+                        <span [class]="getRiskClass(reading.risk)">{{ reading.risk | number : '1.2-2' }}</span>
+                      </p>
+                      <p><strong>Predicted Failure Days:</strong> {{ reading.predictedFailureDays }}</p>
+                    </ng-container>
+                    <ng-template #noReading>
+                      <p class="predictive-empty">No simulated reading available for this machine.</p>
+                    </ng-template>
+                  </article>
+
+                  <article>
+                    <p class="predictive-label">Latest failure report</p>
+                    <ng-container *ngIf="summary.failureReport as report; else noReport">
+                      <p><strong>Report ID:</strong> #{{ report.id }}</p>
+                      <p>
+                        <strong>Risk:</strong>
+                        <span [class]="getRiskClass(report.risk)">{{ report.risk | number : '1.2-2' }}</span>
+                      </p>
+                      <p><strong>Predicted Failure Days:</strong> {{ report.predictedFailureDays }}</p>
+                      <p><strong>Estimated Cost:</strong> {{ report.estimatedCost | currency }}</p>
+                      <p><strong>Recommended Action:</strong> {{ report.recommendedAction || '—' }}</p>
+                    </ng-container>
+                    <ng-template #noReport>
+                      <p class="predictive-empty">No failure report available for this machine.</p>
+                    </ng-template>
+                  </article>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </ng-container>
         <tr *ngIf="machines.length === 0">
           <td colspan="7" class="empty-state">
             <p>No machines found for the selected filter.</p>

@@ -19,6 +19,7 @@
         <th>Status</th>
         <th>Cost</th>
         <th>Expected delivery</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
@@ -29,10 +30,29 @@
         <td><span class="status" [class]="order.status.toLowerCase()">{{ order.status }}</span></td>
         <td>{{ order.cost | currency }}</td>
         <td>{{ order.expectedDeliveryDate | date:'mediumDate' }}</td>
+        <td>
+          <div *ngIf="canReceive() && (order.status === 'PENDING' || order.status === 'SHIPPED')">
+            <button (click)="startReceive(order)">Receive</button>
+          </div>
+        </td>
       </tr>
       <tr *ngIf="orders.length === 0">
         <td colspan="6" class="empty">No stock orders yet.</td>
       </tr>
     </tbody>
   </table>
+
+  <section *ngIf="receivingId">
+    <h3>Record receipt for PO #{{ receivingId }}</h3>
+    <label>Quantity received</label>
+    <input type="number" [(ngModel)]="receipt.quantityReceived" />
+    <label>Proof of delivery (URL or ref)</label>
+    <input [(ngModel)]="receipt.proofOfDelivery" />
+    <label>Notes</label>
+    <textarea [(ngModel)]="receipt.notes"></textarea>
+    <div class="form-actions">
+      <button (click)="submitReceive(receivingId)">Submit receipt</button>
+      <button (click)="cancelReceive()">Cancel</button>
+    </div>
+  </section>
 </div>

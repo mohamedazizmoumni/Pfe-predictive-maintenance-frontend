@@ -1,0 +1,211 @@
+<section class="machine-visual-page">
+  <header class="topbar">
+    <div>
+      <a routerLink="/equipment" class="back-link">← Back to Machines</a>
+      <h1>{{ machine?.name || machine?.serialNumber || 'Machine' }} Live Visual</h1>
+      <p>
+        {{ machine?.model || 'Unknown model' }} · {{ machine?.manufacturer || 'Unknown manufacturer' }}
+        · {{ machine?.location || 'Unknown location' }}
+      </p>
+    </div>
+    <div class="topbar-actions">
+      <span [class]="statusClass">{{ machine?.status || 'UNKNOWN' }}</span>
+      <button type="button" class="btn secondary" (click)="refreshNow()">Refresh Now</button>
+      <button type="button" class="btn primary" (click)="downloadRapport()">Download Rapport</button>
+    </div>
+  </header>
+
+  <div *ngIf="errorMessage" class="error-banner">{{ errorMessage }}</div>
+
+  <div class="loading" *ngIf="isLoading">
+    <span class="spinner"></span>
+    <p>Loading real-time machine data...</p>
+  </div>
+
+  <ng-container *ngIf="!isLoading && !errorMessage">
+    <section class="kpi-grid">
+      <article class="kpi">
+        <p class="kpi-label">Temperature</p>
+        <p class="kpi-value">{{ temperatureNow | number : '1.1-1' }} °C</p>
+      </article>
+      <article class="kpi">
+        <p class="kpi-label">Utilisation</p>
+        <p class="kpi-value">{{ utilizationNow | number : '1.0-1' }} %</p>
+      </article>
+      <article class="kpi">
+        <p class="kpi-label">Risk Score</p>
+        <p class="kpi-value">{{ riskNowPercent | number : '1.0-1' }} %</p>
+      </article>
+      <article class="kpi">
+        <p class="kpi-label">Last Update</p>
+        <p class="kpi-value kpi-time">{{ lastUpdated | date : 'mediumTime' }}</p>
+      </article>
+    </section>
+
+    <section class="content-grid">
+      <article class="panel market-panel">
+        <div class="market-head">
+          <div>
+            <h3>{{ marketChartTitle }}</h3>
+            <p>Live market-style movement based on incoming machine telemetry.</p>
+          </div>
+          <div class="market-control-groups">
+            <div class="metric-switcher">
+              <button
+                type="button"
+                [class.active]="marketMetric === 'temperature'"
+                (click)="setMarketMetric('temperature')"
+              >
+                Temperature
+              </button>
+              <button
+                type="button"
+                [class.active]="marketMetric === 'utilization'"
+                (click)="setMarketMetric('utilization')"
+              >
+                Utilization
+              </button>
+              <button
+                type="button"
+                [class.active]="marketMetric === 'risk'"
+                (click)="setMarketMetric('risk')"
+              >
+                Risk
+              </button>
+            </div>
+
+            <div class="zoom-switcher">
+              <button type="button" [class.active]="marketZoom === '1m'" (click)="setMarketZoom('1m')">1m</button>
+              <button type="button" [class.active]="marketZoom === '5m'" (click)="setMarketZoom('5m')">5m</button>
+              <button type="button" [class.active]="marketZoom === '15m'" (click)="setMarketZoom('15m')">15m</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="market-stats">
+          <p>
+            Last close:
+            <strong>{{ marketCloseValue | number : '1.2-2' }} {{ marketMetricUnit }}</strong>
+            <span class="live-dot" aria-hidden="true"></span>
+            <span class="live-label">LIVE</span>
+          </p>
+          <p [class]="marketTrendClass">
+            Change:
+            <strong>{{ marketChangePercent | number : '1.2-2' }}%</strong>
+          </p>
+        </div>
+
+        <svg
+          class="market-svg"
+          viewBox="0 0 700 280"
+          role="img"
+          aria-label="Trading-style machine chart"
+          (mousemove)="onMarketMouseMove($event)"
+          (mouseleave)="onMarketMouseLeave()"
+        >
+          <defs>
+            <linearGradient id="marketArea" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(15,118,110,0.35)"></stop>
+              <stop offset="100%" stop-color="rgba(15,118,110,0.02)"></stop>
+            </linearGradient>
+          </defs>
+
+          <g class="threshold-bands">
+            <rect
+              *ngFor="let band of thresholdBandRects"
+              [attr.x]="0"
+              [attr.y]="band.y"
+              [attr.width]="marketChartWidth"
+              [attr.height]="band.height"
+              [class]="'band-' + band.label"
+            ></rect>
+          </g>
+
+          <g class="market-grid">
+            <line x1="0" y1="42" x2="700" y2="42"></line>
+            <line x1="0" y1="84" x2="700" y2="84"></line>
+            <line x1="0" y1="126" x2="700" y2="126"></line>
+            <line x1="0" y1="168" x2="700" y2="168"></line>
+            <line x1="0" y1="210" x2="700" y2="210"></line>
+          </g>
+
+          <path class="market-area" [attr.d]="marketAreaPath"></path>
+          <path class="market-line" [attr.d]="marketPathLine"></path>
+          <path class="market-ema-line" [attr.d]="marketEmaPath"></path>
+
+          <g class="candles">
+            <g *ngFor="let candle of marketCandles">
+              <line
+                [attr.x1]="candle.x"
+                [attr.y1]="candle.wickTop"
+                [attr.x2]="candle.x"
+                [attr.y2]="candle.wickBottom"
+                [class.up]="candle.up"
+                [class.down]="!candle.up"
+              ></line>
+              <rect
+                [attr.x]="candle.x - (candle.bodyWidth / 2)"
+                [attr.y]="candle.bodyTop"
+                [attr.width]="candle.bodyWidth"
+                [attr.height]="candle.bodyHeight"
+                [class.up]="candle.up"
+                [class.down]="!candle.up"
+              ></rect>
+            </g>
+          </g>
+
+          <g class="impulse-bars">
+            <rect
+              *ngFor="let bar of marketImpulseBars"
+              [attr.x]="bar.x"
+              [attr.y]="bar.y"
+              [attr.width]="bar.width"
+              [attr.height]="bar.height"
+              [class.up]="bar.up"
+              [class.down]="!bar.up"
+            ></rect>
+          </g>
+
+          <g *ngIf="hoveredCandle as hovered" class="crosshair-layer">
+            <line [attr.x1]="crosshairX" [attr.y1]="marketChartTop" [attr.x2]="crosshairX" [attr.y2]="marketChartBaseY"></line>
+            <line [attr.x1]="0" [attr.y1]="crosshairY" [attr.x2]="marketChartWidth" [attr.y2]="crosshairY"></line>
+
+            <circle [attr.cx]="crosshairX" [attr.cy]="crosshairY" r="3.5"></circle>
+
+            <rect class="ohlc-tooltip" [attr.x]="tooltipX" [attr.y]="tooltipY" width="154" height="86" rx="8"></rect>
+            <text [attr.x]="tooltipX + 8" [attr.y]="tooltipY + 16" class="ohlc-line">{{ hovered.timestamp | date : 'HH:mm:ss' }}</text>
+            <text [attr.x]="tooltipX + 8" [attr.y]="tooltipY + 32" class="ohlc-line">O: {{ hovered.open | number : '1.2-2' }}</text>
+            <text [attr.x]="tooltipX + 8" [attr.y]="tooltipY + 46" class="ohlc-line">H: {{ hovered.high | number : '1.2-2' }}</text>
+            <text [attr.x]="tooltipX + 8" [attr.y]="tooltipY + 60" class="ohlc-line">L: {{ hovered.low | number : '1.2-2' }}</text>
+            <text [attr.x]="tooltipX + 8" [attr.y]="tooltipY + 74" class="ohlc-line">C: {{ hovered.close | number : '1.2-2' }}</text>
+          </g>
+        </svg>
+      </article>
+
+      <article class="panel report-panel">
+        <h3>Latest Predictive Rapport</h3>
+        <div class="report-lines">
+          <p><strong>Predicted failure in:</strong> {{ latestReport?.predictedFailureDays ?? 'N/A' }} days</p>
+          <p><strong>Estimated cost:</strong> {{ latestReport?.estimatedCost ?? 0 | currency }}</p>
+          <p><strong>Risk:</strong> {{ reportRiskPercent | number : '1.0-1' }} %</p>
+          <p><strong>Action:</strong> {{ latestReport?.recommendedAction || 'No action available yet.' }}</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel sensors-panel">
+      <h3>Sensors Live Snapshot</h3>
+      <div class="sensors-grid">
+        <article class="sensor-card" *ngFor="let sensor of sensors">
+          <div class="sensor-head">
+            <p>{{ sensor.code }}</p>
+            <span class="sensor-status" [class.anomaly]="sensor.isAnomaly">{{ sensor.status }}</span>
+          </div>
+          <p class="sensor-type">{{ sensor.type }}</p>
+          <p class="sensor-value">{{ sensor.value === null ? 'N/A' : (sensor.value | number : '1.2-2') }} {{ sensor.unit }}</p>
+        </article>
+      </div>
+      <p *ngIf="sensors.length === 0" class="empty-hint">No sensor data available for this machine yet.</p>
+    </section>
+  </ng-container>
+</section>

@@ -32,18 +32,11 @@ export class AuthService {
     return typeof window !== 'undefined' && typeof localStorage !== 'undefined';
   }
 
-  // ============================================================================
-  // LOGIN & REGISTRATION
-  // ============================================================================
-
-  /**
-   * Login with username and password
-   */
   login(credentials: LoginPayload): Observable<LoginResponse> {
     console.log('🔐 Attempting login for user:', credentials.username);
 
     return this.http
-      .post<LoginResponse>(apiEndpoint('/v1/auth/login'), credentials)
+      .post<LoginResponse>(apiEndpoint('/auth/login'), credentials)
       .pipe(
         tap((response) => {
           console.log('✅ Login successful for user:', credentials.username);
@@ -56,14 +49,28 @@ export class AuthService {
       );
   }
 
-  /**
-   * Register a new user
-   */
+  faceLogin(payload: FormData): Observable<LoginResponse> {
+    console.log('📷 Attempting face login...');
+
+    return this.http
+      .post<LoginResponse>(apiEndpoint('/auth/face-login'), payload)
+      .pipe(
+        tap((response) => {
+          console.log('✅ Face login successful');
+          this.persistSession(response);
+        }),
+        catchError((error) => {
+          console.error('❌ Face login failed:', error.status, error.message);
+          return throwError(() => error);
+        })
+      );
+  }
+
   register(payload: RegisterPayload): Observable<LoginResponse> {
     console.log('📝 Attempting registration for user:', payload.username);
 
     return this.http
-      .post<LoginResponse>(apiEndpoint('/v1/auth/register'), payload)
+      .post<LoginResponse>(apiEndpoint('/auth/register'), payload)
       .pipe(
         tap((response) => {
           console.log('✅ Registration successful for user:', payload.username);
@@ -76,13 +83,19 @@ export class AuthService {
       );
   }
 
-  // ============================================================================
-  // TOKEN MANAGEMENT
-  // ============================================================================
+  signupWithFace(formData: FormData): Observable<LoginResponse> {
+    return this.http
+      .post<LoginResponse>(apiEndpoint('/auth/signup'), formData)
+      .pipe(
+        tap((response) => {
+          this.persistSession(response);
+        }),
+        catchError((error) => {
+          return throwError(() => error);
+        })
+      );
+  }
 
-  /**
-   * Refresh JWT token
-   */
   refreshToken(): Observable<LoginResponse> {
     console.log('🔄 Attempting to refresh token...');
     const refreshToken = this.getStorageItem(this.REFRESH_TOKEN_KEY);
@@ -94,7 +107,7 @@ export class AuthService {
 
     console.log('🔄 Refresh token found, sending to backend...');
     return this.http
-      .post<LoginResponse>(apiEndpoint('/v1/auth/refresh'), { refreshToken })
+      .post<LoginResponse>(apiEndpoint('/auth/refresh'), { refreshToken })
       .pipe(
         tap((response) => {
           console.log('✅ Token refreshed successfully');
@@ -109,19 +122,12 @@ export class AuthService {
       );
   }
 
-  // ============================================================================
-  // LOGOUT & SESSION
-  // ============================================================================
-
-  /**
-   * Logout user and clear session
-   */
   logout(): Observable<any> {
     console.log('🚪 Logging out user...');
     const refreshToken = this.getStorageItem(this.REFRESH_TOKEN_KEY);
 
     return this.http
-      .post(apiEndpoint('/v1/auth/logout'), { refreshToken })
+      .post(apiEndpoint('/auth/logout'), { refreshToken })
       .pipe(
         tap(() => {
           this.clearAuth();
@@ -135,9 +141,10 @@ export class AuthService {
       );
   }
 
-  /**
-   * Clear authentication from storage and subjects
-   */
+  clearSession(): void {
+    this.clearAuth();
+  }
+
   private clearAuth(): void {
     if (!this.isBrowser()) {
       return;
@@ -178,6 +185,9 @@ export class AuthService {
       response?.token ??
       response?.accessToken ??
       response?.access_token ??
+      response?.data?.token ??
+      response?.data?.accessToken ??
+      response?.data?.access_token ??
       null
     );
   }
@@ -187,39 +197,26 @@ export class AuthService {
       response?.refreshToken ??
       response?.refresh_token ??
       response?.refresh ??
+      response?.data?.refreshToken ??
+      response?.data?.refresh_token ??
+      response?.data?.refresh ??
       null
     );
   }
 
-  // ============================================================================
-  // TOKEN HELPERS
-  // ============================================================================
-
-  /**
-   * Get access token from storage
-   */
   getAccessToken(): string | null {
     return this.getStorageItem(this.ACCESS_TOKEN_KEY);
   }
 
-  /**
-   * Get refresh token from storage
-   */
   getRefreshToken(): string | null {
     return this.getStorageItem(this.REFRESH_TOKEN_KEY);
   }
 
-  /**
-   * Check if user has valid token
-   */
   hasToken(): boolean {
     const token = this.getAccessToken();
     return !!token && !this.isTokenExpired(token);
   }
 
-  /**
-   * Check if token is expired (basic check - decode payload)
-   */
   private isTokenExpired(token: string): boolean {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
@@ -231,9 +228,6 @@ export class AuthService {
     }
   }
 
-  /**
-   * Build user object from JWT token and user data
-   */
   private buildUserFromToken(token: string, user?: User | null): User {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
@@ -290,13 +284,6 @@ export class AuthService {
     return `role-${Math.random().toString(36).slice(2, 10)}`;
   }
 
-  // ============================================================================
-  // STORAGE HELPERS
-  // ============================================================================
-
-  /**
-   * Get item from localStorage
-   */
   private getStorageItem(key: string): string | null {
     if (!this.isBrowser()) {
       return null;
@@ -310,9 +297,6 @@ export class AuthService {
     return item;
   }
 
-  /**
-   * Set item in localStorage
-   */
   private setStorageItem(key: string, value: string): void {
     if (!this.isBrowser()) {
       return;
@@ -321,13 +305,6 @@ export class AuthService {
     console.log(`💾 Stored to localStorage: ${key}`);
   }
 
-  // ============================================================================
-  // USER HELPERS
-  // ============================================================================
-
-  /**
-   * Get current user from storage
-   */
   private getUserFromStorage(): User | null {
     if (!this.isBrowser()) {
       return null;

@@ -1,0 +1,36 @@
+<section class="categories-page">
+  <header class="page-header">
+    <div class="header-info">
+      <h2>Categories</h2>
+      <p>Manage spare part categories used across inventory.</p>
+    </div>
+    <div class="actions">
+      <button class="back-btn" (click)="back()">Back to Inventory</button>
+    </div>
+  </header>
+
+  <section class="list-and-form">
+    <!-- Category List -->
+    <div class="list">
+      <h3>Existing Categories</h3>
+      <div *ngIf="loading" class="loading">Loading...</div>
+      <ul *ngIf="!loading">
+        <li *ngFor="let c of categories">
+          <span>{{ c.name }}</span>
+          <small class="muted">#{{ c.id }}</small>
+        </li>
+        <li *ngIf="categories.length === 0" class="empty">No categories yet.</li>
+      </ul>
+    </div>
+
+    <!-- Add Category Form -->
+    <div class="form">
+      <h3>Add Category</h3>
+      <div *ngIf="error" class="error">{{ error }}</div>
+      <div class="input-group">
+        <input [(ngModel)]="newCategory" placeholder="Category name" />
+        <button (click)="addCategory()" [disabled]="adding || !newCategory.trim()">Add</button>
+      </div>
+    </div>
+  </section>
+</section>

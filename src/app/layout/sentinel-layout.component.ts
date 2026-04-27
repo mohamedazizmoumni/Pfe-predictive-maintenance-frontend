@@ -42,10 +42,24 @@ export class SentinelLayoutComponent implements OnInit {
   menuItems: MenuItem[] = [
     {
       label: 'Dashboard',
-      path: '/dashboard',
+      path: '/',
       icon: '📊',
-      caption: 'Live KPIs & AI health',
+      caption: 'Maintenance KPIs',
       requiredRoles: [], // All authenticated users
+    },
+    {
+      label: 'Recommendations',
+      path: '/recommendations',
+      icon: '🧭',
+      caption: 'Action planning by urgency',
+      requiredRoles: [],
+    },
+    {
+      label: 'Budget',
+      path: '/budgets',
+      icon: '💰',
+      caption: 'Spend tracking and alerts',
+      requiredRoles: [],
     },
     {
       label: 'Equipment',
@@ -62,11 +76,11 @@ export class SentinelLayoutComponent implements OnInit {
       requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN'],
     },
     {
-      label: 'Predictions',
-      path: '/predictions',
+      label: 'Predictive Dashboard',
+      path: '/predictive-dashboard',
       icon: '🔮',
-      caption: 'Model insights',
-      requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'DATA_SCIENTIST'],
+      caption: 'Risk & failure intelligence',
+      requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'VIEWER', 'DATA_SCIENTIST'],
     },
     {
       label: 'Alerts',

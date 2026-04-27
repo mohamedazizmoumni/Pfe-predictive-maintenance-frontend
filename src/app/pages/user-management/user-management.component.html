@@ -1,6 +1,5 @@
 <div class="user-management">
 
-  <!-- HEADER -->
   <header class="header">
     <div class="header__left">
       <h1>User Management</h1>
@@ -15,7 +14,6 @@
     </div>
   </header>
 
-  <!-- STATS STRIP -->
   <section class="card stats-strip" *ngIf="users.length">
     <div class="stat">
       <span class="stat__label">Total users</span>
@@ -41,7 +39,6 @@
     </div>
   </section>
 
- <!-- FORM CARD -->
 <section class="card form-card" *ngIf="showCreateForm">
   <div class="card__header">
     <h2>{{ selectedUser ? 'Edit User' : 'Create User' }}</h2>
@@ -49,37 +46,31 @@
 
   <form (ngSubmit)="onSubmitForm()" class="form-grid">
 
-    <!-- USERNAME -->
     <div class="input-group">
       <label>Username *</label>
       <input [(ngModel)]="formModel.username" name="username" required />
     </div>
 
-    <!-- EMAIL -->
     <div class="input-group">
       <label>Email *</label>
       <input [(ngModel)]="formModel.email" name="email" type="email" required />
     </div>
 
-    <!-- PASSWORD (only for create mode) -->
     <div class="input-group" *ngIf="!selectedUser">
       <label>Password *</label>
       <input [(ngModel)]="formModel.password" name="password" type="password" required />
     </div>
 
-    <!-- FIRST NAME -->
     <div class="input-group">
       <label>First Name *</label>
       <input [(ngModel)]="formModel.firstName" name="firstName" required />
     </div>
 
-    <!-- LAST NAME -->
     <div class="input-group">
       <label>Last Name *</label>
       <input [(ngModel)]="formModel.lastName" name="lastName" required />
     </div>
 
-    <!-- DEPARTMENT -->
     <div class="input-group">
       <label>Department</label>
       <input [(ngModel)]="formModel.department" name="department" />
@@ -99,7 +90,6 @@
         </select>
       </div>
 
-    <!-- FORM ACTIONS -->
     <div class="form-actions">
       <button class="btn primary" [disabled]="isLoading">
         {{ selectedUser ? 'Save Changes' : 'Create User' }}
@@ -109,7 +99,6 @@
   </form>
 </section>
 
-  <!-- STATES -->
   <div *ngIf="isLoading" class="state loading">Loading users...</div>
   <div *ngIf="error" class="state error">{{ error }}</div>
 
@@ -157,6 +146,7 @@
             <span class="sort-indicator" *ngIf="isSorted('status', 'asc')">▲</span>
             <span class="sort-indicator" *ngIf="isSorted('status', 'desc')">▼</span>
           </th>
+          <th>Roles</th>
           <th>Email</th>
           <th (click)="onSort('lastLoginDate')">
             Last Login
@@ -182,6 +172,7 @@
             </span>
           </td>
           <td>{{ getUserRoles(user) }}</td>
+          <td>{{ user.email || '-' }}</td>
           <td>{{ user.lastLoginDate ? (user.lastLoginDate | date:'short') : '-' }}</td>
           <td class="actions">
             <button class="icon-btn" (click)="onEditUser(user)">✏️</button>
