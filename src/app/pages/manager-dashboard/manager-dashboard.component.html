@@ -1,0 +1,538 @@
+<div class="manager-dashboard">
+
+  <!-- Error Banner -->
+  <div class="error-banner" *ngIf="errorMessage()">
+    <span>⚠️ {{ errorMessage() }}</span>
+    <button class="btn-close-sm" (click)="dismissError()">✕</button>
+  </div>
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay" *ngIf="isLoading()">
+    <div class="spinner"></div>
+    <p>Loading dashboard data…</p>
+  </div>
+
+  <!-- Header -->
+  <div class="dashboard-header">
+    <div class="header-content">
+      <h1>Manager Dashboard</h1>
+      <p class="subtitle">Budget Management &amp; Maintenance Monitoring</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" (click)="loadAllData()">
+        <span class="icon">🔄</span> Refresh
+      </button>
+      <button class="btn btn-primary" (click)="openBudgetModal()">
+        <span class="icon">➕</span> New Budget
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Cards — sourced from DashboardService overview + FinanceService -->
+  <div class="stats-grid">
+    <div class="stat-card budget-card">
+      <div class="stat-icon">💰</div>
+      <div class="stat-content">
+        <h3>Total Budget</h3>
+        <p class="stat-value">{{ formatCurrency(stats().totalBudget) }}</p>
+        <p class="stat-label">Allocated this year</p>
+      </div>
+    </div>
+
+    <div class="stat-card spent-card">
+      <div class="stat-icon">💸</div>
+      <div class="stat-content">
+        <h3>Total Spent</h3>
+        <p class="stat-value">{{ formatCurrency(stats().totalSpent) }}</p>
+        <p class="stat-label">
+          {{ formatCurrency(getRemainingBudget()) }} remaining
+        </p>
+      </div>
+    </div>
+
+    <div class="stat-card utilization-card"
+         [ngClass]="'util-' + getBudgetStatusClass(stats().budgetUtilization)">
+      <div class="stat-icon">📊</div>
+      <div class="stat-content">
+        <h3>Budget Utilization</h3>
+        <p class="stat-value">{{ stats().budgetUtilization }}%</p>
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="stats().budgetUtilization"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stat-card tasks-card">
+      <div class="stat-icon">📋</div>
+      <div class="stat-content">
+        <h3>Maintenance Tasks</h3>
+        <p class="stat-value">{{ stats().totalTasks }}</p>
+        <p class="stat-label">
+          <span class="badge pending">{{ stats().pendingTasks }} pending</span>
+          <span class="badge in-progress">{{ stats().inProgressTasks }} active</span>
+          <span class="badge completed">{{ stats().completedTasks }} done</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Extra KPIs from DashboardOverview -->
+    <ng-container *ngIf="dashboardOverview() as overview">
+      <div class="stat-card">
+        <div class="stat-icon">🏭</div>
+        <div class="stat-content">
+          <h3>Asset Uptime</h3>
+          <p class="stat-value">{{ overview.uptimePercentage ?? 0 }}%</p>
+          <p class="stat-label">{{ overview.operationalMachines ?? overview.operationalMachinesCount ?? 0 }} / {{ overview.totalMachines ?? overview.totalMachinesCount ?? 0 }} machines</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">🚨</div>
+        <div class="stat-content">
+          <h3>Active Alerts</h3>
+          <p class="stat-value">{{ overview.criticalAlerts ?? overview.openAlertsCount ?? 0 }}</p>
+          <p class="stat-label">{{ overview.predictedFailures ?? 0 }} predicted failures</p>
+        </div>
+      </div>
+    </ng-container>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="tab-navigation">
+    <button class="tab-btn" [class.active]="activeTab() === 'overview'" (click)="activeTab.set('overview')">
+      <span class="icon">📊</span> Overview
+    </button>
+    <button class="tab-btn" [class.active]="activeTab() === 'budgets'" (click)="activeTab.set('budgets')">
+      <span class="icon">💰</span> Budgets
+    </button>
+    <button class="tab-btn" [class.active]="activeTab() === 'expenses'" (click)="activeTab.set('expenses')">
+      <span class="icon">💳</span> Expenses
+    </button>
+    <button class="tab-btn" [class.active]="activeTab() === 'monitoring'" (click)="activeTab.set('monitoring')">
+      <span class="icon">📅</span> Monitoring
+    </button>
+  </div>
+
+  <!-- ── OVERVIEW TAB ─────────────────────────────────────────────────────── -->
+  <div class="dashboard-content">
+    <div class="tab-content" *ngIf="activeTab() === 'overview'">
+      <div class="overview-grid">
+
+        <!-- Budget Summary -->
+        <div class="section budget-summary">
+          <h2>Budget Summary</h2>
+          <div class="budget-list">
+            <div class="budget-item" *ngFor="let budget of budgets()">
+              <div class="budget-header">
+                <h4>{{ budget.name }}</h4>
+                <span class="badge" [ngClass]="'status-' + budget.status">{{ budget.status }}</span>
+              </div>
+              <p class="budget-description">{{ budget.description }}</p>
+              <div class="budget-progress">
+                <div class="progress-info">
+                  <span>{{ formatCurrency(budget.spent) }} / {{ formatCurrency(budget.totalAmount) }}</span>
+                  <span class="percentage">{{ getBudgetPercentage(budget) }}%</span>
+                </div>
+                <div class="progress-bar" [ngClass]="getBudgetStatusClass(getBudgetPercentage(budget))">
+                  <div class="progress-fill" [style.width.%]="getBudgetPercentage(budget)"></div>
+                </div>
+              </div>
+              <div class="budget-actions">
+                <button class="btn btn-sm btn-secondary" (click)="openExpenseModal(budget)">Add Expense</button>
+                <button class="btn btn-sm btn-info" (click)="editBudget(budget)">Edit</button>
+              </div>
+            </div>
+            <div class="empty-state" *ngIf="budgets().length === 0 && !isLoading()">
+              <p>No budget found for this year.</p>
+              <button class="btn btn-primary" (click)="openBudgetModal()">Create Budget</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="section quick-stats">
+          <h2>Quick Stats</h2>
+          <div class="stats-list">
+            <div class="stat-row">
+              <span class="label">Active Budgets</span>
+              <span class="value">{{ getActiveBudgetsCount() }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">Remaining Budget</span>
+              <span class="value">{{ formatCurrency(getRemainingBudget()) }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">Pending Tasks</span>
+              <span class="value">{{ stats().pendingTasks }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">In-Progress Tasks</span>
+              <span class="value">{{ stats().inProgressTasks }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">Completed Tasks</span>
+              <span class="value">{{ stats().completedTasks }}</span>
+            </div>
+            <ng-container *ngIf="financeDashboard() as fin">
+              <div class="stat-row">
+                <span class="label">Pending Expenses</span>
+                <span class="value warning">{{ fin.pendingCount }}</span>
+              </div>
+              <div class="stat-row">
+                <span class="label">Approved Expenses</span>
+                <span class="value">{{ fin.approvedCount }}</span>
+              </div>
+            </ng-container>
+          </div>
+        </div>
+
+        <!-- Recent Alerts -->
+        <div class="section recent-alerts" *ngIf="recentAlerts().length > 0">
+          <h2>Recent Alerts</h2>
+          <div class="alerts-list">
+            <div class="alert-item" *ngFor="let alert of recentAlerts()"
+                 [ngClass]="getAlertSeverityClass(alert.severity)">
+              <div class="alert-header">
+                <span class="alert-title">{{ alert.title }}</span>
+                <span class="badge" [ngClass]="getAlertSeverityClass(alert.severity)">{{ alert.severity }}</span>
+              </div>
+              <p class="alert-meta">{{ alert.machineSerial ?? 'Machine #' + alert.machineId }} · {{ formatDate(alert.createdDate) }}</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── BUDGETS TAB ───────────────────────────────────────────────────── -->
+    <div class="tab-content" *ngIf="activeTab() === 'budgets'">
+      <div class="section">
+        <div class="section-header">
+          <h2>Budget Management</h2>
+          <button class="btn btn-primary" (click)="openBudgetModal()">
+            <span class="icon">➕</span> New Budget
+          </button>
+        </div>
+
+        <div class="budgets-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Budget Name</th>
+                <th>Category</th>
+                <th>Total Amount</th>
+                <th>Spent</th>
+                <th>Remaining</th>
+                <th>Progress</th>
+                <th>Status</th>
+                <th>Period</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let budget of budgets()" class="budget-row">
+                <td class="budget-name">{{ budget.name }}</td>
+                <td class="category">{{ budget.category }}</td>
+                <td class="amount">{{ formatCurrency(budget.totalAmount) }}</td>
+                <td class="amount spent">{{ formatCurrency(budget.spent) }}</td>
+                <td class="amount remaining">{{ formatCurrency(budget.totalAmount - budget.spent) }}</td>
+                <td class="progress">
+                  <div class="progress-bar-small" [ngClass]="getBudgetStatusClass(getBudgetPercentage(budget))">
+                    <div class="progress-fill" [style.width.%]="getBudgetPercentage(budget)"></div>
+                  </div>
+                  <span class="percentage">{{ getBudgetPercentage(budget) }}%</span>
+                </td>
+                <td class="status">
+                  <span class="badge" [ngClass]="'status-' + budget.status">{{ budget.status }}</span>
+                </td>
+                <td class="period">{{ formatDate(budget.startDate) }} – {{ formatDate(budget.endDate) }}</td>
+                <td class="actions">
+                  <button class="btn-icon" title="Edit" (click)="editBudget(budget)">✏️</button>
+                  <button class="btn-icon" title="Add Expense" (click)="openExpenseModal(budget)">💳</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="empty-state" *ngIf="budgets().length === 0 && !isLoading()">
+            <p>No budgets found. Create one to get started.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EXPENSES TAB ──────────────────────────────────────────────────── -->
+    <div class="tab-content" *ngIf="activeTab() === 'expenses'">
+      <div class="section">
+        <div class="section-header">
+          <h2>Expense Tracking</h2>
+          <button class="btn btn-primary" (click)="openExpenseModal(budgets()[0])" [disabled]="budgets().length === 0">
+            <span class="icon">➕</span> New Expense
+          </button>
+        </div>
+
+        <div class="expenses-grid">
+          <div class="budget-expenses" *ngFor="let budget of budgets()">
+            <div class="budget-header">
+              <h3>{{ budget.name }}</h3>
+              <button class="btn btn-sm btn-primary" (click)="openExpenseModal(budget)">Add Expense</button>
+            </div>
+            <div class="expenses-list">
+              <div class="expense-item" *ngFor="let expense of budget.expenses">
+                <div class="expense-info">
+                  <div class="expense-description">
+                    <p class="description">{{ expense.title }}</p>
+                    <p class="category">{{ getExpenseCategoryLabel(expense.category) }}</p>
+                    <p class="status-badge" [ngClass]="'expense-' + expense.status.toLowerCase()">{{ expense.status }}</p>
+                  </div>
+                  <div class="expense-date">{{ formatDate(expense.createdDate) }}</div>
+                </div>
+                <div class="expense-amount">{{ formatCurrency(expense.amount) }}</div>
+                <button class="btn-icon danger" title="Delete" (click)="deleteExpense(expense.id)">🗑️</button>
+              </div>
+              <div class="empty-state" *ngIf="budget.expenses.length === 0">
+                <p>No expenses recorded for this budget.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="empty-state" *ngIf="budgets().length === 0 && !isLoading()">
+            <p>Create a budget first to start tracking expenses.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MONITORING TAB ────────────────────────────────────────────────── -->
+    <div class="tab-content" *ngIf="activeTab() === 'monitoring'">
+      <div class="monitoring-grid">
+
+        <!-- Calendar -->
+        <div class="section calendar-section">
+          <div class="calendar-header">
+            <button class="btn-nav" (click)="previousMonth()">◀</button>
+            <h2>{{ getMonthName() }} {{ getYear() }}</h2>
+            <button class="btn-nav" (click)="nextMonth()">▶</button>
+            <button class="btn btn-sm btn-secondary" (click)="goToToday()">Today</button>
+          </div>
+
+          <div class="calendar-weekdays">
+            <div class="weekday" *ngFor="let d of ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']">{{ d }}</div>
+          </div>
+
+          <div class="calendar-days">
+            <ng-container *ngFor="let day of getCalendarDays()">
+              <div class="calendar-day"
+                   *ngIf="day"
+                   [class.other-month]="day.getMonth() !== currentDate().getMonth()"
+                   [class.today]="isToday(day)"
+                   [class.has-events]="hasEvents(day)"
+                   (click)="selectDate(day)">
+                <div class="day-number">{{ day.getDate() }}</div>
+                <div class="day-events" *ngIf="hasEvents(day)">
+                  <span class="event-count">{{ getTasksForDate(day).length }}</span>
+                </div>
+              </div>
+            </ng-container>
+          </div>
+        </div>
+
+        <!-- Tasks Sidebar -->
+        <div class="section tasks-sidebar">
+          <div class="tasks-section">
+            <h3>Upcoming Tasks</h3>
+            <div class="tasks-list">
+              <div class="task-item" *ngFor="let task of getUpcomingTasks()"
+                   [ngClass]="getTaskPriorityClass(task.priority)">
+                <div class="task-header">
+                  <p class="task-title">{{ task.description }}</p>
+                  <span class="badge" [ngClass]="getTaskStatusClass(task.status)">{{ task.status }}</span>
+                </div>
+                <p class="task-date">{{ formatDate(task.scheduledDate) }}</p>
+                <p class="task-machine">Machine #{{ task.machineId }}</p>
+              </div>
+              <div class="empty-state" *ngIf="getUpcomingTasks().length === 0">
+                <p>No upcoming tasks</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="tasks-section">
+            <h3>Overdue Tasks</h3>
+            <div class="tasks-list">
+              <div class="task-item overdue" *ngFor="let task of getOverdueTasks()">
+                <div class="task-header">
+                  <p class="task-title">{{ task.description }}</p>
+                  <span class="badge status-overdue">OVERDUE</span>
+                </div>
+                <p class="task-date">{{ formatDate(task.scheduledDate) }}</p>
+                <p class="task-machine">Machine #{{ task.machineId }}</p>
+              </div>
+              <div class="empty-state" *ngIf="getOverdueTasks().length === 0">
+                <p>No overdue tasks</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected Date Tasks -->
+      <div class="section selected-date-tasks" *ngIf="selectedDate() as date">
+        <div class="section-header">
+          <h3>Tasks for {{ formatDate(date.toISOString()) }}</h3>
+          <button class="btn-close" (click)="selectedDate.set(null)">✕</button>
+        </div>
+        <div class="tasks-list">
+          <div class="task-item" *ngFor="let task of getTasksForDate(date)"
+               [ngClass]="getTaskPriorityClass(task.priority)">
+            <div class="task-header">
+              <p class="task-title">{{ task.description }}</p>
+              <span class="badge" [ngClass]="getTaskStatusClass(task.status)">{{ task.status }}</span>
+            </div>
+            <p class="task-date">{{ formatDate(task.scheduledDate) }}</p>
+            <p class="task-machine">Machine #{{ task.machineId }}</p>
+            <p class="task-technician">Technician: {{ task.assignedTechnicianId || 'Unassigned' }}</p>
+          </div>
+          <div class="empty-state" *ngIf="getTasksForDate(date).length === 0">
+            <p>No tasks scheduled for this date</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Budget Modal ──────────────────────────────────────────────────────── -->
+  <div class="modal-overlay" *ngIf="showBudgetModal()" (click)="closeModals()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ selectedBudget() ? 'Edit Budget' : 'Create New Budget' }}</h2>
+        <button class="btn-close" (click)="closeModals()">✕</button>
+      </div>
+
+      <form [formGroup]="budgetForm" class="modal-form">
+        <div class="form-group">
+          <label for="name">Budget Name *</label>
+          <input type="text" id="name" formControlName="name" placeholder="e.g., Q1 Maintenance Budget" />
+          <span class="error" *ngIf="budgetForm.get('name')?.hasError('required') && budgetForm.get('name')?.touched">
+            Budget name is required
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Notes</label>
+          <textarea id="description" formControlName="description" placeholder="Optional notes" rows="2"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="totalAmount">Total Amount ($) *</label>
+            <input type="number" id="totalAmount" formControlName="totalAmount" placeholder="0.00" min="0" step="0.01" />
+            <span class="error" *ngIf="budgetForm.get('totalAmount')?.hasError('required') && budgetForm.get('totalAmount')?.touched">
+              Amount is required
+            </span>
+          </div>
+
+          <div class="form-group">
+            <label for="category">Category *</label>
+            <select id="category" formControlName="category">
+              <option value="maintenance">Maintenance</option>
+              <option value="repairs">Repairs</option>
+              <option value="parts">Parts &amp; Equipment</option>
+              <option value="labor">Labor</option>
+              <option value="annual">Annual</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="startDate">Start Date *</label>
+            <input type="date" id="startDate" formControlName="startDate" />
+            <span class="error" *ngIf="budgetForm.get('startDate')?.hasError('required') && budgetForm.get('startDate')?.touched">
+              Start date is required
+            </span>
+          </div>
+
+          <div class="form-group">
+            <label for="endDate">End Date *</label>
+            <input type="date" id="endDate" formControlName="endDate" />
+            <span class="error" *ngIf="budgetForm.get('endDate')?.hasError('required') && budgetForm.get('endDate')?.touched">
+              End date is required
+            </span>
+          </div>
+        </div>
+      </form>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeModals()">Cancel</button>
+        <button class="btn btn-primary" (click)="createBudget()" [disabled]="isLoading()">
+          {{ selectedBudget() ? 'Update Budget' : 'Create Budget' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Expense Modal ─────────────────────────────────────────────────────── -->
+  <div class="modal-overlay" *ngIf="showExpenseModal()" (click)="closeModals()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Register Expense</h2>
+        <button class="btn-close" (click)="closeModals()">✕</button>
+      </div>
+
+      <div class="modal-info" *ngIf="selectedBudget() as b">
+        <p>Budget: <strong>{{ b.name }}</strong></p>
+        <p>Available: <strong>{{ formatCurrency(b.totalAmount - b.spent) }}</strong></p>
+      </div>
+
+      <form [formGroup]="expenseForm" class="modal-form">
+        <div class="form-group">
+          <label for="expTitle">Title *</label>
+          <input type="text" id="expTitle" formControlName="title" placeholder="e.g., Oil change for Machine A" />
+          <span class="error" *ngIf="expenseForm.get('title')?.hasError('required') && expenseForm.get('title')?.touched">
+            Title is required
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label for="expDescription">Description</label>
+          <textarea id="expDescription" formControlName="description" rows="2" placeholder="Optional details"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="expAmount">Amount ($) *</label>
+            <input type="number" id="expAmount" formControlName="amount" placeholder="0.00" min="0" step="0.01" />
+            <span class="error" *ngIf="expenseForm.get('amount')?.hasError('required') && expenseForm.get('amount')?.touched">
+              Amount is required
+            </span>
+          </div>
+
+          <div class="form-group">
+            <label for="expCategory">Category *</label>
+            <select id="expCategory" formControlName="category">
+              <option [value]="ExpenseCategory.MAINTENANCE">Maintenance</option>
+              <option [value]="ExpenseCategory.PARTS">Parts</option>
+              <option [value]="ExpenseCategory.LABOR">Labor</option>
+              <option [value]="ExpenseCategory.EQUIPMENT">Equipment</option>
+              <option [value]="ExpenseCategory.OTHER">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="expNotes">Notes</label>
+          <input type="text" id="expNotes" formControlName="notes" placeholder="e.g., Invoice #12345" />
+        </div>
+      </form>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeModals()">Cancel</button>
+        <button class="btn btn-primary" (click)="registerExpense()" [disabled]="isLoading()">
+          Submit Expense
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>

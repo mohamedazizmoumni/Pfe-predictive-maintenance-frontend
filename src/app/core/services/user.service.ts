@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { tap, catchError } from 'rxjs/operators';
+import { tap, catchError, map } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { User, Role } from '../models/sentinel.models';
 import { apiEndpoint } from '../http/api-base';
@@ -135,17 +135,17 @@ export class UserService {
   /**
    * Update a user
    */
-  updateUser(userId: string | number, updates: UpdateUserPayload): Observable<User> {
+  updateUser(username: string, updates: UpdateUserPayload): Observable<User> {
     this.isLoadingSubject.next(true);
     this.errorSubject.next(null);
 
     return this.http
-      .put<User>(apiEndpoint(`/v1/users/${userId}`), updates)
+      .put<User>(apiEndpoint(`/v1/users/${username}`), updates)
       .pipe(
         tap((user) => {
           const mappedUser = this.mapUser(user);
           const users = this.usersSubject.value.map((u) =>
-            String(u.id) === String(userId) ? mappedUser : u
+            u.username === username ? mappedUser : u
           );
           this.usersSubject.next(users);
           this.isLoadingSubject.next(false);
@@ -229,6 +229,68 @@ export class UserService {
       );
   }
 
+  /**
+   * Upload profile picture for a user
+   */
+  uploadProfilePicture(username: string, file: File): Observable<User> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return this.http
+      .post<User>(apiEndpoint(`/v1/users/${username}/profile-picture`), formData)
+      .pipe(
+        tap((user) => {
+          const mappedUser = this.mapUser(user);
+          const users = this.usersSubject.value.map((u) =>
+            u.username === username ? mappedUser : u
+          );
+          this.usersSubject.next(users);
+        }),
+        catchError((error) => {
+          const errorMessage = error.error?.error || error.error?.message || 'Failed to upload profile picture';
+          this.errorSubject.next(errorMessage);
+          throw error;
+        })
+      );
+  }
+
+  /**
+   * Get profile picture URL for a user
+   */
+  getProfilePictureUrl(username: string): string {
+    return apiEndpoint(`/v1/users/${username}/profile-picture`);
+  }
+
+  /**
+   * Delete profile picture for a user
+   */
+  deleteProfilePicture(username: string): Observable<void> {
+    return this.http
+      .delete<void>(apiEndpoint(`/v1/users/${username}/profile-picture`))
+      .pipe(
+        catchError((error) => {
+          const errorMessage = error.error?.error || error.error?.message || 'Failed to delete profile picture';
+          this.errorSubject.next(errorMessage);
+          throw error;
+        })
+      );
+  }
+
+  profilePictureExists(username: string): Observable<boolean> {
+    return this.http
+      .get<{ exists: boolean }>(apiEndpoint(`/v1/users/${username}/profile-picture/exists`))
+      .pipe(
+        map((response) => response.exists),
+        catchError((error) => {
+          // If 404, picture doesn't exist
+          if (error.status === 404) {
+            return of(false);
+          }
+          return of(false);
+        })
+      );
+  }
+
   private extractUsers(response: User[] | UsersResponse): User[] {
     if (Array.isArray(response)) {
       return response;
@@ -254,11 +316,12 @@ export class UserService {
       } as Role;
     }
 
-    const normalizedName = normalizeRoleName(role?.name || role?.id || '');
+    const roleNameSource = role?.name || role?.authority || role?.role || role?.code || role?.id || '';
+    const normalizedName = normalizeRoleName(roleNameSource);
 
     return {
       id: role?.id ?? normalizedName,
-      name: normalizedName || role?.name || role?.id || 'UNKNOWN_ROLE',
+      name: normalizedName || roleNameSource || 'UNKNOWN_ROLE',
       description: role?.description,
     } as Role;
   }

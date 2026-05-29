@@ -1,10 +1,19 @@
 export interface Machine {
-  id?: number;
+  id: number;
+  serialNumber: string;
   name: string;
+  description?: string;
+  model: string;
+  manufacturer?: string;
   location: string;
-  status: 'RUNNING' | 'UNDER_MAINTENANCE' | 'FAILED';
-  hourlyProductionValue: number;
-  replacementCost: number;
-  criticalityLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  age: number;
+  category?: string;
+  subCategory?: string;
+  status?: string;
+  photoUrl?: string;
+  installationDate?: string;
+  lastMaintenanceDate?: string;
+  nextMaintenanceDate?: string;
+  operatingHours?: number;
+  riskScore?: number;
+  createdDate?: string;
 }

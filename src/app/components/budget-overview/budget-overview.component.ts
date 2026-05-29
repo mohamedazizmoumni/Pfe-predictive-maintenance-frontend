@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
-import { AsyncPipe, DecimalPipe, NgIf } from '@angular/common';
+import { AsyncPipe, CurrencyPipe, DecimalPipe, NgIf } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -24,6 +24,7 @@ import { NotificationService } from '../../core/services/notification.service';
     AsyncPipe,
     NgIf,
     DecimalPipe,
+    CurrencyPipe,
   ],
   templateUrl: './budget-overview.component.html',
   styleUrl: './budget-overview.component.scss',

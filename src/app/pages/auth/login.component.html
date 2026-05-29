@@ -1,68 +1,101 @@
 <div class="login-shell">
-  <div class="login-background">
-    <div class="glow"></div>
-  </div>
+  <div class="login-container">
 
-  <div class="login-center">
-    <section class="login-card">
-      <header class="login-header">
-        <span class="eyebrow">Sentinel Guardian</span>
-        <h1>Secure Access</h1>
-        <p class="subtitle">Predictive maintenance cockpit for critical assets.</p>
-      </header>
-
-      <form class="login-form" [formGroup]="loginForm" (ngSubmit)="onSubmit()">
-        <div class="input-group" [class.has-error]="loginForm.get('username')?.invalid && loginForm.get('username')?.touched">
-          <label for="username">Username</label>
-          <input
-            id="username"
-            type="text"
-            formControlName="username"
-            class="ui-input"
-            placeholder="Enter your username"
-            autocomplete="username"
-          />
-          <div *ngIf="loginForm.get('username')?.invalid && loginForm.get('username')?.touched" class="field-error">
-            Username is required
-          </div>
+    <!-- Left Branding Side -->
+    <div class="login-branding">
+      <div class="branding-content">
+        <div class="logo">
+          <span class="logo-dot"></span>
+          <strong>SENTINEL</strong>
         </div>
-
-        <div class="input-group" [class.has-error]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched">
-          <label for="password">Password</label>
-          <div class="input-wrapper">
-            <input
-              id="password"
-              [type]="getPasswordType()"
-              formControlName="password"
-              class="ui-input"
-              placeholder="Enter your password"
-              autocomplete="current-password"
-            />
-            <button type="button" class="toggle-password" (click)="togglePasswordVisibility()" aria-label="Toggle password visibility">
-              👁️
-            </button>
-          </div>
-          <div *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched" class="field-error">
-            Invalid password
-          </div>
+        <h1>Predictive Maintenance</h1>
+        <p class="tagline">Protecting your critical assets with intelligence</p>
+        
+        <div class="trust-badges">
+          <div class="badge">AI-Powered</div>
+          <div class="badge">Real-time Monitoring</div>
+          <div class="badge">Enterprise Grade</div>
         </div>
-
-        <div *ngIf="errorMessage" class="error-banner">
-          {{ errorMessage }}
-        </div>
-
-        <button type="submit" class="login-btn" [disabled]="loginForm.invalid || isLoading">
-          <span *ngIf="!isLoading">Access Sentinel</span>
-          <span *ngIf="isLoading" class="loading">
-            <span class="spinner" aria-hidden="true"></span>
-            Authorizing...
-          </span>
-        </button>
-      </form>
-      <div class="footnote">       
-        <p class="register-cta">Use facial recognition? <a routerLink="/auth/face-login">Login with Face</a></p>
-        <p class="register-cta">Need access? <a routerLink="/auth/register">Request onboarding</a></p>
       </div>
-    </section>
+    </div>
+
+    <!-- Login Form -->
+    <div class="login-form-container">
+      <div class="login-card">
+        <header class="login-header">
+          <h2>Welcome Back</h2>
+          <p class="subtitle">Sign in to access your operations cockpit</p>
+        </header>
+
+        <form class="login-form" [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+          
+          <div class="input-group">
+            <label for="username">Username or Email</label>
+            <input
+              id="username"
+              type="text"
+              formControlName="username"
+              class="ui-input"
+              placeholder="Enter your username"
+              autocomplete="username"
+            />
+            <div *ngIf="loginForm.get('username')?.invalid && loginForm.get('username')?.touched" 
+                 class="field-error">
+              Username is required
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="password">Password</label>
+            <div class="input-wrapper">
+              <input
+                id="password"
+                [type]="getPasswordType()"
+                formControlName="password"
+                class="ui-input"
+                placeholder="Enter your password"
+                autocomplete="current-password"
+              />
+              <button type="button" class="toggle-password" (click)="togglePasswordVisibility()">
+                {{ hidePassword ? '👁️' : '🙈' }}
+              </button>
+            </div>
+            <div *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched" 
+                 class="field-error">
+              Password is required
+            </div>
+          </div>
+
+          <div *ngIf="errorMessage" class="error-banner">
+            {{ errorMessage }}
+          </div>
+
+          <button type="submit" class="login-btn" [disabled]="loginForm.invalid || isLoading">
+            <span *ngIf="!isLoading">Sign In</span>
+            <span *ngIf="isLoading" class="loading">
+              <span class="spinner"></span>
+              Authenticating...
+            </span>
+          </button>
+
+          <div class="forgot-password">
+            <a href="#" routerLink="/auth/forgot-password">Forgot Password?</a>
+          </div>
+        </form>
+
+        <div class="divider">
+          <span>or</span>
+        </div>
+
+        <button class="face-login-btn" routerLink="/auth/face-login">
+          <span>👤</span>
+          Login with Face Recognition
+        </button>
+
+        <div class="footer-links">
+          <p>New to Sentinel? <a routerLink="/auth/register">Request Access</a></p>
+        </div>
+      </div>
+    </div>
   </div>
 </div>

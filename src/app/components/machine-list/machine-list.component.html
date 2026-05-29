@@ -10,6 +10,11 @@
     <mat-cell *matCellDef="let m">{{ m.name }}</mat-cell>
   </ng-container>
 
+  <ng-container matColumnDef="model">
+    <mat-header-cell *matHeaderCellDef>Model</mat-header-cell>
+    <mat-cell *matCellDef="let m">{{ m.model }}</mat-cell>
+  </ng-container>
+
   <ng-container matColumnDef="location">
     <mat-header-cell *matHeaderCellDef>Location</mat-header-cell>
     <mat-cell *matCellDef="let m">{{ m.location }}</mat-cell>
@@ -18,30 +23,25 @@
   <ng-container matColumnDef="status">
     <mat-header-cell *matHeaderCellDef>Status</mat-header-cell>
     <mat-cell *matCellDef="let m">
-      <span class="status-badge status-{{m.status.toLowerCase().replace('_','-')}}">
-        {{ m.status | titlecase }}
+      <span class="status-badge status-{{(m.status || 'unknown').toLowerCase().replace('_','-')}}">
+        {{ (m.status || 'Unknown') | titlecase }}
       </span>
     </mat-cell>
   </ng-container>
 
-  <ng-container matColumnDef="criticality">
-    <mat-header-cell *matHeaderCellDef>Criticality</mat-header-cell>
-    <mat-cell *matCellDef="let m">
-      <app-urgency-badge [urgency]="m.criticalityLevel"></app-urgency-badge>
-    </mat-cell>
-  </ng-container>
-
-  <ng-container matColumnDef="hourlyValue">
-    <mat-header-cell *matHeaderCellDef>€/hr Lost</mat-header-cell>
-    <mat-cell *matCellDef="let m">€{{ m.hourlyProductionValue | number:'1.0-0' }}</mat-cell>
+  <ng-container matColumnDef="risk">
+    <mat-header-cell *matHeaderCellDef>Risk</mat-header-cell>
+    <mat-cell *matCellDef="let m">{{ m.riskScore != null ? (m.riskScore | number:'1.0-2') : '—' }}</mat-cell>
   </ng-container>
 
   <ng-container matColumnDef="actions">
     <mat-header-cell *matHeaderCellDef></mat-header-cell>
     <mat-cell *matCellDef="let m">
-      <button mat-stroked-button color="primary"
-              (click)="viewRecommendation(m.id)">
+      <button mat-stroked-button color="primary" (click)="viewRecommendation(m.id)">
         <mat-icon>insights</mat-icon> Recommendation
+      </button>
+      <button mat-flat-button color="accent" (click)="useForAssistant(m)">
+        <mat-icon>smart_toy</mat-icon> Use for AI Assistant
       </button>
     </mat-cell>
   </ng-container>

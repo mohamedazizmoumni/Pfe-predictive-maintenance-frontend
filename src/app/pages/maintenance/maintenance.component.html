@@ -1,18 +1,21 @@
 <div class="maintenance-shell">
+
   <div *ngIf="error$ | async as error" class="error-banner" role="alert">
     <strong>Service interruption:</strong> {{ error }}
   </div>
 
+  <!-- Hero -->
   <section class="maintenance-hero" data-card>
-    <div>
+    <div class="hero-text">
       <p>Maintenance Command</p>
       <h1>Operations Board</h1>
       <span>Coordinate technicians, unblock the pipeline, and keep Sentinel Guardian running.</span>
       <div class="hero-actions">
-        <button type="button" (click)="openCreateModal()">Schedule Maintenance</button>
+        <button type="button" *ngIf="canCreateMaintenance" (click)="openCreateModal()">Schedule Maintenance</button>
         <button type="button" class="ghost" (click)="handleRefresh()">Sync Data</button>
       </div>
     </div>
+
     <div class="hero-stats" *ngIf="pipeline$ | async as pipeline">
       <article>
         <p>Scheduled</p>
@@ -37,15 +40,17 @@
     </div>
   </section>
 
+  <!-- List + Detail -->
   <section class="maintenance-grid">
     <app-maintenance-list
-      [tasks]="maintenance$ | async"
+      [tasks]="visibleMaintenance$ | async"
       [pagination]="pagination$ | async"
       [isLoading]="isLoading$ | async"
       [error]="error$ | async"
       [activeStatus]="statusFilter"
       [activePriority]="priorityFilter"
       [selectedTaskId]="selectedTaskId"
+      [canCreate]="canCreateMaintenance"
       (filtersChange)="handleFiltersChange($event)"
       (pageChange)="handlePageChange($event)"
       (selectTask)="handleSelect($event)"
@@ -64,12 +69,14 @@
     ></app-maintenance-detail>
   </section>
 
+  <!-- Create Modal -->
   <app-maintenance-create
-    [visible]="showCreateModal"
+    [visible]="showCreateModal && canCreateMaintenance"
     [machines]="machines$ | async"
     [technicians]="technicians$ | async"
     [isSubmitting]="isCreating"
     (close)="closeCreateModal()"
     (submitRequest)="handleCreate($event)"
   ></app-maintenance-create>
+
 </div>

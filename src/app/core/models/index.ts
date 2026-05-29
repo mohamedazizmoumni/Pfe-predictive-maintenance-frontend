@@ -4,3 +4,4 @@ export * from './maintenance-action.model';
 export * from './cost-comparison.model';
 export * from './budget.model';
 export * from './recommendation.model';
+export * from './nlp.models';

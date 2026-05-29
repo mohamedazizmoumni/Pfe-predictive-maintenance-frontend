@@ -29,6 +29,7 @@ export class AlertListComponent implements OnChanges {
   @Input() error: string | null = null;
   @Input() filters: AlertListFilters | null = null;
   @Input() selectedAlertId: number | null = null;
+  @Input() canCreate = true;
 
   @Output() filtersChange = new EventEmitter<AlertListFilters>();
   @Output() pageChange = new EventEmitter<number>();

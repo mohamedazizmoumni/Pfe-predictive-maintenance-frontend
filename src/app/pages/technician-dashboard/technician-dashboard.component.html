@@ -1,0 +1,264 @@
+<div class="technician-dashboard">
+  <!-- Header -->
+  <div class="dashboard-header">
+    <div class="header-left">
+      <div class="logo">
+        <span class="logo-icon">⚙️</span>
+        <span class="logo-text">TechOps Maintenance</span>
+      </div>
+    </div>
+
+    <div class="header-tabs">
+      <button class="tab-btn" [class.active]="activeTab() === 'tasks'" (click)="activeTab.set('tasks')">
+        Tasks
+      </button>
+      <button class="tab-btn" [class.active]="activeTab() === 'equipment'" (click)="activeTab.set('equipment')">
+        Equipment
+      </button>
+      <button class="tab-btn" [class.active]="activeTab() === 'inventory'" (click)="activeTab.set('inventory')">
+        Inventory
+      </button>
+    </div>
+
+    <div class="header-right">
+      <button class="header-btn" title="View Intervention History">
+        <span class="icon">📋</span>
+        View Intervention History
+      </button>
+      <button class="header-btn icon-btn" title="Toggle Theme" (click)="toggleTheme()">
+        <span class="icon">{{ isDarkMode() ? '☀️' : '🌙' }}</span>
+      </button>
+      <button class="header-btn icon-btn" title="Notifications">
+        <span class="icon">🔔</span>
+      </button>
+      <button class="header-btn icon-btn" title="Profile">
+        <span class="icon">👤</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="dashboard-content">
+    <!-- Left Column: Today's Tasks -->
+    <div class="left-column">
+      <div class="section todays-tasks">
+        <div class="section-header">
+          <h2>Today's Tasks</h2>
+          <p class="task-count">{{ stats().totalTasks }} priority actions required for HVAC and Conveyor systems</p>
+        </div>
+
+        <div class="task-stats">
+          <div class="stat-badge all">
+            <span class="label">All</span>
+            <span class="value">{{ stats().totalTasks }}</span>
+          </div>
+          <div class="stat-badge urgent">
+            <span class="label">Urgent</span>
+            <span class="value">{{ stats().urgentTasks }}</span>
+          </div>
+        </div>
+
+        <div class="tasks-list">
+          <div class="task-card" *ngFor="let task of todaysTasks()" [ngClass]="getTaskPriorityClass(task.priority)" (click)="selectTask(task)">
+            <div class="task-image">
+              <img [src]="getTaskImage(task)" alt="Equipment" />
+            </div>
+
+            <div class="task-content">
+              <div class="task-header">
+                <span class="priority-badge" [ngClass]="getTaskPriorityClass(task.priority)">
+                  {{ task.priority }}
+                </span>
+                <span class="scheduled-time" *ngIf="task.status === 'SCHEDULED'">
+                  Scheduled for {{ getScheduledTime(task) }}
+                </span>
+              </div>
+
+              <h3 class="task-title">{{ task.description }}</h3>
+
+              <p class="task-recommendation">
+                Recommendation: {{ task.notes || 'Check equipment status and perform routine maintenance' }}
+              </p>
+
+              <div class="required-parts" *ngIf="task.notes">
+                <p class="parts-label">REQUIRED PARTS</p>
+                <p class="parts-list">6205-2RS Ball Bearing</p>
+                <p class="parts-list">Lithium Grease</p>
+                <p class="parts-list">MB Bolt (x4)</p>
+              </div>
+
+              <button class="btn-completed" (click)="markAsCompleted(task); $event.stopPropagation()">
+                <span class="icon">✓</span> Mark as Completed
+              </button>
+            </div>
+
+            <div class="task-menu">
+              <button class="menu-btn">⋯</button>
+            </div>
+          </div>
+
+          <div class="empty-state" *ngIf="todaysTasks().length === 0">
+            <p>No tasks scheduled for today</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Equipment Telemetry & Alerts -->
+    <div class="right-column">
+      <!-- Equipment Telemetry -->
+      <div class="section equipment-telemetry">
+        <div class="section-header">
+          <h3>Equipment Telemetry</h3>
+          <span class="status-badge live">LIVE</span>
+        </div>
+
+        <div class="telemetry-metric">
+          <div class="metric-header">
+            <span class="metric-label">Temperature (°C)</span>
+            <span class="metric-value">42.5°C</span>
+          </div>
+          <div class="metric-chart">
+            <div class="chart-bar" style="height: 30%"></div>
+            <div class="chart-bar" style="height: 40%"></div>
+            <div class="chart-bar" style="height: 35%"></div>
+            <div class="chart-bar" style="height: 50%"></div>
+            <div class="chart-bar active" style="height: 70%"></div>
+            <div class="chart-bar active" style="height: 75%"></div>
+            <div class="chart-bar" style="height: 45%"></div>
+            <div class="chart-bar" style="height: 35%"></div>
+            <div class="chart-bar" style="height: 25%"></div>
+          </div>
+        </div>
+
+        <div class="telemetry-metric">
+          <div class="metric-header">
+            <span class="metric-label">Vibration (mm/s)</span>
+            <span class="metric-value warning">12.8 mm/s</span>
+          </div>
+          <div class="metric-chart">
+            <div class="chart-bar" style="height: 20%"></div>
+            <div class="chart-bar" style="height: 25%"></div>
+            <div class="chart-bar" style="height: 22%"></div>
+            <div class="chart-bar" style="height: 30%"></div>
+            <div class="chart-bar warning" style="height: 65%"></div>
+            <div class="chart-bar warning" style="height: 70%"></div>
+            <div class="chart-bar" style="height: 35%"></div>
+            <div class="chart-bar" style="height: 28%"></div>
+            <div class="chart-bar" style="height: 18%"></div>
+          </div>
+          <p class="warning-text">⚠️ Threshold (8 mm/s) exceeded</p>
+        </div>
+      </div>
+
+      <!-- Quick Log -->
+      <div class="section quick-log">
+        <div class="section-header">
+          <h3>Quick Log</h3>
+        </div>
+
+        <form [formGroup]="logForm" class="log-form">
+          <div class="form-group">
+            <label>WHAT DID YOU FIX?</label>
+            <textarea formControlName="description" placeholder="Description of work" rows="3"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>PARTS USED</label>
+            <input type="text" formControlName="partsUsed" placeholder="6205-2RS Ball Bearing&#10;Lithium Grease&#10;MB Bolt" />
+          </div>
+
+          <div class="form-group">
+            <label>TIME SPENT (MIN)</label>
+            <input type="number" formControlName="timeSpent" placeholder="45" />
+          </div>
+
+          <button type="button" class="btn-submit" (click)="submitLog()" [disabled]="!logForm.valid">
+            Submit Log
+          </button>
+        </form>
+      </div>
+
+      <!-- Personal Alerts -->
+      <div class="section personal-alerts">
+        <div class="section-header">
+          <h3>Personal Alerts</h3>
+          <span class="new-badge">2 NEW</span>
+        </div>
+
+        <div class="alerts-list">
+          <div class="alert-item" *ngFor="let alert of alerts()" [ngClass]="getAlertSeverityClass(alert.severity)">
+            <div class="alert-icon">
+              <span *ngIf="alert.severity === 'CRITICAL'">🔴</span>
+              <span *ngIf="alert.severity === 'HIGH'">🟠</span>
+              <span *ngIf="alert.severity === 'MEDIUM'">🟡</span>
+              <span *ngIf="alert.severity === 'LOW'">🟢</span>
+            </div>
+            <div class="alert-content">
+              <p class="alert-title">{{ alert.title }}</p>
+              <p class="alert-description">{{ alert.description }}</p>
+            </div>
+          </div>
+
+          <div class="empty-state" *ngIf="alerts().length === 0">
+            <p>No new alerts</p>
+          </div>
+        </div>
+
+        <button class="btn-clear-all">Clear All Notifications</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log Modal -->
+  <div class="modal-overlay" *ngIf="showLogModal()" (click)="closeModals()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Submit Work Log</h2>
+        <button class="btn-close" (click)="closeModals()">✕</button>
+      </div>
+
+      <form [formGroup]="logForm" class="modal-form">
+        <div class="form-group">
+          <label>Description of Work *</label>
+          <textarea formControlName="description" placeholder="Describe what you did..." rows="4"></textarea>
+          <span class="error" *ngIf="logForm.get('description')?.hasError('required') && logForm.get('description')?.touched">
+            Description is required
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label>Parts Used *</label>
+          <textarea formControlName="partsUsed" placeholder="List parts used..." rows="3"></textarea>
+          <span class="error" *ngIf="logForm.get('partsUsed')?.hasError('required') && logForm.get('partsUsed')?.touched">
+            Parts list is required
+          </span>
+        </div>
+
+        <div class="form-group">
+          <label>Time Spent (Minutes) *</label>
+          <input type="number" formControlName="timeSpent" placeholder="45" min="1" />
+          <span class="error" *ngIf="logForm.get('timeSpent')?.hasError('required') && logForm.get('timeSpent')?.touched">
+            Time spent is required
+          </span>
+        </div>
+      </form>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeModals()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitLog()" [disabled]="!logForm.valid">
+          Submit Log
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Task Completion Modal -->
+<app-task-completion-modal
+  *ngIf="showCompletionModal()"
+  [task]="selectedTask()"
+  (completed)="handleTaskCompletion($event)"
+  (cancelled)="closeCompletionModal()"
+/>

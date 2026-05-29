@@ -1,172 +1,325 @@
-<section class="alert-list-panel">
-  <header class="toolbar">
-    <div class="filters">
-      <div class="filter-stack">
-        <p>Severity</p>
-        <div class="chip-row">
-          <button
-            type="button"
-            *ngFor="let option of severityOptions"
-            (click)="setSeverityFilter(option.value)"
-            [class.active]="filters?.severity === option.value || (!filters?.severity && !option.value)"
-          >
-            {{ option.label }}
-          </button>
-        </div>
-      </div>
+<section class="alert-page">
 
-      <div class="filter-stack">
-        <p>Status</p>
-        <div class="chip-row">
-          <button
-            type="button"
-            *ngFor="let option of statusOptions"
-            (click)="setStatusFilter(option.value)"
-            [class.active]="filters?.status === option.value || (!filters?.status && !option.value)"
-          >
-            <span>{{ option.label }}</span>
-            <small *ngIf="option.hint">{{ option.hint }}</small>
-          </button>
-        </div>
-      </div>
+  <!-- ═════════════ HEADER ═════════════ -->
+  <div class="alert-header">
 
-      <div class="filter-stack">
-        <label>
-          Assigned to
-          <div class="input-inline">
-            <input
-              #assignedInput
-              type="text"
-              [value]="assignedSearch"
-              placeholder="username or email"
-              (keyup.enter)="applyAssignedSearch(assignedInput.value)"
-              (blur)="applyAssignedSearch(assignedInput.value)"
-            />
-            <button type="button" class="ghost" (click)="applyAssignedSearch('')">Clear</button>
-          </div>
-        </label>
-      </div>
-
-      <div class="filter-stack">
-        <label>
-          Search
-          <input
-            #searchInput
-            type="search"
-            [value]="filters?.search || ''"
-            placeholder="Title, machine, source..."
-            (keyup.enter)="applySearchTerm(searchInput.value)"
-            (blur)="applySearchTerm(searchInput.value)"
-          />
-        </label>
-      </div>
-
-      <div class="filter-stack toggle">
-        <p>Focus</p>
-        <button type="button" (click)="toggleUnviewed()" [class.active]="filters?.viewedOnly">
-          {{ filters?.viewedOnly ? 'Showing unviewed' : 'Show unviewed only' }}
-        </button>
-      </div>
+    <div class="header-left">
+      <p class="eyebrow">Operations Center</p>
+      <h1>Alerts Monitoring</h1>
+      <p class="subtitle">
+        Monitor critical incidents, machine failures, warning signals, and technician assignments in real time.
+      </p>
     </div>
 
-    <div class="toolbar-actions">
-      <button type="button" class="ghost" (click)="refreshRequested.emit()">Sync feed</button>
-      <button type="button" class="ghost" (click)="clearFilters()">Reset filters</button>
-      <button type="button" (click)="createRequested.emit()">Create alert</button>
-    </div>
-  </header>
+    <div class="header-actions">
+      <button type="button" class="btn ghost" (click)="refreshRequested.emit()">
+        ↻ Sync Feed
+      </button>
 
-  <div *ngIf="error" class="error-banner" role="alert">
-    <strong>Alert service:</strong> {{ error }}
-  </div>
+      <button type="button" class="btn ghost" (click)="clearFilters()">
+        Reset
+      </button>
 
-  <div class="table-wrapper" [class.loading]="isLoading">
-    <div class="loading-indicator" *ngIf="isLoading">
-      <p>Loading alerts feed…</p>
-    </div>
-
-    <table *ngIf="alerts?.length">
-      <thead>
-        <tr>
-          <th>Severity</th>
-          <th>Title</th>
-          <th>Machine</th>
-          <th>Status</th>
-          <th>Assigned</th>
-          <th>Created</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          *ngFor="let alert of alerts; trackBy: trackByAlertId"
-          (click)="handleSelect(alert)"
-          [class.active]="selectedAlertId === alert.id"
-        >
-          <td>
-            <span [class]="getSeverityBadgeClass(alert.severity)">
-              {{ alert.severity }}
-            </span>
-          </td>
-          <td>
-            <div class="title-cell">
-              <strong>{{ alert.title }}</strong>
-              <small>{{ alert.category || 'UNCATEGORIZED' }}</small>
-            </div>
-          </td>
-          <td>
-            <div class="machine-cell">
-              <span>{{ alert.machineSerial || ('#' + alert.machineId) }}</span>
-              <small>{{ alert.machineLocation || alert.machineModel }}</small>
-            </div>
-          </td>
-          <td>
-            <span [class]="getStatusChipClass(alert.status)">{{ alert.status }}</span>
-          </td>
-          <td>
-            <div class="assigned-cell">
-              <span>{{ alert.assignedToDisplayName || alert.assignedTo || 'Unassigned' }}</span>
-              <small *ngIf="alert.viewed === false" class="pill">new</small>
-            </div>
-          </td>
-          <td>
-            <time>{{ alert.createdDate | date: 'MMM d, HH:mm' }}</time>
-          </td>
-          <td>
-            <span class="view-indicator" [class.unread]="alert.viewed === false"></span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="empty-state" *ngIf="!isLoading && (!alerts || alerts.length === 0)">
-      <p>No alerts match the current filters.</p>
-      <button type="button" class="ghost" (click)="clearFilters()">Clear filters</button>
-    </div>
-  </div>
-
-  <footer class="pagination" *ngIf="page">
-    <span>
-      Page {{ page.number + 1 }} of {{ page.totalPages || 1 }} ·
-      {{ page.totalElements }} total alerts
-    </span>
-    <div class="controls">
       <button
         type="button"
-        class="ghost"
+        class="btn primary"
+        *ngIf="canCreate"
+        (click)="createRequested.emit()"
+      >
+        + Create Alert
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ═════════════ FILTERS ═════════════ -->
+  <section class="filters-panel">
+
+    <div class="filter-card">
+
+      <span class="filter-label">Severity</span>
+
+      <div class="chips">
+
+        <button
+          type="button"
+          *ngFor="let option of severityOptions"
+          (click)="setSeverityFilter(option.value)"
+          [class.active]="filters?.severity === option.value || (!filters?.severity && !option.value)"
+        >
+          {{ option.label }}
+        </button>
+
+      </div>
+
+    </div>
+
+    <div class="filter-card">
+
+      <span class="filter-label">Status</span>
+
+      <div class="chips">
+
+        <button
+          type="button"
+          *ngFor="let option of statusOptions"
+          (click)="setStatusFilter(option.value)"
+          [class.active]="filters?.status === option.value || (!filters?.status && !option.value)"
+        >
+          {{ option.label }}
+        </button>
+
+      </div>
+
+    </div>
+
+    <div class="filter-card search">
+
+      <span class="filter-label">Assigned Technician</span>
+
+      <div class="search-input">
+
+        <input
+          #assignedInput
+          type="text"
+          [value]="assignedSearch"
+          placeholder="Search technician..."
+          (keyup.enter)="applyAssignedSearch(assignedInput.value)"
+          (blur)="applyAssignedSearch(assignedInput.value)"
+        />
+
+        <button type="button" (click)="applyAssignedSearch('')">
+          Clear
+        </button>
+
+      </div>
+
+    </div>
+
+    <div class="filter-card search">
+
+      <span class="filter-label">Search Alerts</span>
+
+      <div class="search-input">
+
+        <input
+          #searchInput
+          type="search"
+          [value]="filters?.search || ''"
+          placeholder="Title, machine, category..."
+          (keyup.enter)="applySearchTerm(searchInput.value)"
+          (blur)="applySearchTerm(searchInput.value)"
+        />
+
+      </div>
+
+    </div>
+
+    <div class="filter-card toggle-card">
+
+      <span class="filter-label">Focus Mode</span>
+
+      <button
+        type="button"
+        class="toggle-btn"
+        (click)="toggleUnviewed()"
+        [class.active]="filters?.viewedOnly"
+      >
+        {{ filters?.viewedOnly ? 'Showing Unviewed Only' : 'Show Unviewed Alerts' }}
+      </button>
+
+    </div>
+
+  </section>
+
+  <!-- ═════════════ ERROR ═════════════ -->
+  <div *ngIf="error" class="error-banner">
+    <strong>Alert Service:</strong> {{ error }}
+  </div>
+
+  <!-- ═════════════ TABLE ═════════════ -->
+  <section class="alerts-table-card">
+
+    <div class="table-header">
+
+      <div>
+        <h2>Alerts Feed</h2>
+        <p>Live operational incidents and machine monitoring events</p>
+      </div>
+
+      <div class="table-meta" *ngIf="page">
+        {{ page.totalElements }} alerts
+      </div>
+
+    </div>
+
+    <div class="table-wrapper" [class.loading]="isLoading">
+
+      <div class="loading-overlay" *ngIf="isLoading">
+        <div class="spinner"></div>
+        <p>Loading alerts feed...</p>
+      </div>
+
+      <table *ngIf="alerts?.length">
+
+        <thead>
+          <tr>
+            <th>Severity</th>
+            <th>Alert</th>
+            <th>Machine</th>
+            <th>Status</th>
+            <th>Assigned</th>
+            <th>Created</th>
+            <th></th>
+          </tr>
+        </thead>
+
+        <tbody>
+
+          <tr
+            *ngFor="let alert of alerts; trackBy: trackByAlertId"
+            (click)="handleSelect(alert)"
+            [class.active]="selectedAlertId === alert.id"
+          >
+
+            <td>
+              <span [class]="getSeverityBadgeClass(alert.severity)">
+                {{ alert.severity }}
+              </span>
+            </td>
+
+            <td>
+
+              <div class="alert-cell">
+
+                <strong>{{ alert.title }}</strong>
+
+                <small>
+                  {{ alert.category || 'UNCATEGORIZED' }}
+                </small>
+
+              </div>
+
+            </td>
+
+            <td>
+
+              <div class="machine-cell">
+
+                <span>
+                  {{ alert.machineSerial || ('#' + alert.machineId) }}
+                </span>
+
+                <small>
+                  {{ alert.machineLocation || alert.machineModel }}
+                </small>
+
+              </div>
+
+            </td>
+
+            <td>
+
+              <span [class]="getStatusChipClass(alert.status)">
+                {{ alert.status }}
+              </span>
+
+            </td>
+
+            <td>
+
+              <div class="assigned-cell">
+
+                <span>
+                  {{ alert.assignedToDisplayName || alert.assignedTo || 'Unassigned' }}
+                </span>
+
+                <small
+                  *ngIf="alert.viewed === false"
+                  class="new-pill"
+                >
+                  NEW
+                </small>
+
+              </div>
+
+            </td>
+
+            <td>
+
+              <time>
+                {{ alert.createdDate | date:'MMM d, HH:mm' }}
+              </time>
+
+            </td>
+
+            <td>
+
+              <span
+                class="status-dot"
+                [class.unread]="alert.viewed === false"
+              ></span>
+
+            </td>
+
+          </tr>
+
+        </tbody>
+
+      </table>
+
+      <!-- EMPTY -->
+      <div
+        class="empty-state"
+        *ngIf="!isLoading && (!alerts || alerts.length === 0)"
+      >
+
+        <div class="empty-icon">⚠</div>
+
+        <h3>No Alerts Found</h3>
+
+        <p>
+          No alerts match the current filters and search criteria.
+        </p>
+
+        <button type="button" (click)="clearFilters()">
+          Clear Filters
+        </button>
+
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- ═════════════ PAGINATION ═════════════ -->
+  <footer class="pagination" *ngIf="page">
+
+    <div class="pagination-info">
+      Page {{ page.number + 1 }}
+      of {{ page.totalPages || 1 }}
+    </div>
+
+    <div class="pagination-controls">
+
+      <button
+        type="button"
         (click)="onPageChange('prev')"
         [disabled]="page.number === 0"
       >
-        Previous
+        ← Previous
       </button>
+
       <button
         type="button"
-        class="ghost"
         (click)="onPageChange('next')"
         [disabled]="page.number >= page.totalPages - 1"
       >
-        Next
+        Next →
       </button>
+
     </div>
+
   </footer>
+
 </section>

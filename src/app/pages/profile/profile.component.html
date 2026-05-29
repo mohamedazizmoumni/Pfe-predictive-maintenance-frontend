@@ -1,0 +1,147 @@
+<div class="profile-canvas">
+
+  <!-- BACKGROUND LAYERS -->
+  <div class="bg-orb orb1"></div>
+  <div class="bg-orb orb2"></div>
+  <div class="bg-grid"></div>
+
+  <!-- MAIN -->
+  <div class="profile-shell" *ngIf="!isLoading && currentUser">
+
+    <!-- HERO IDENTITY PANEL -->
+    <section class="identity-hero">
+
+      <div class="identity-card">
+
+        <div class="avatar-ring">
+          <img
+            *ngIf="previewImageUrl || profilePictureUrl || currentUser.profilePictureUrl"
+            [src]="previewImageUrl || profilePictureUrl || currentUser.profilePictureUrl"
+            (error)="onImageError()"
+          />
+
+          <div *ngIf="!previewImageUrl && !profilePictureUrl && !currentUser.profilePictureUrl"
+               class="avatar-fallback">
+            {{ getInitials() }}
+          </div>
+
+          <!-- Photo upload overlay (visible in edit mode) -->
+          <div class="avatar-overlay" *ngIf="isEditMode" (click)="triggerFileInput()">
+            <span class="overlay-icon">📷</span>
+            <span class="overlay-label">Change Photo</span>
+          </div>
+
+          <!-- Hidden file input -->
+          <input
+            #fileInput
+            type="file"
+            accept="image/*"
+            style="display:none"
+            (change)="onFileSelected($event)"
+          />
+        </div>
+
+        <!-- Photo action buttons (edit mode only) -->
+        <div class="photo-actions" *ngIf="isEditMode">
+          <button type="button" class="photo-btn" (click)="triggerFileInput()">
+            📁 Upload Photo
+          </button>
+          <button type="button" class="photo-btn" (click)="startCamera()" [disabled]="isStartingCamera">
+            {{ isStartingCamera ? 'Starting…' : '📸 Take Photo' }}
+          </button>
+        </div>
+
+        <div class="identity-meta">
+          <h1>
+            {{ currentUser.firstName }} {{ currentUser.lastName }}
+          </h1>
+
+          <p>{{ currentUser.email }}</p>
+
+          <div class="pill-row">
+            <span class="pill active">{{ currentUser.status }}</span>
+            <span class="pill role">{{ getRoleDisplay() }}</span>
+            <span class="pill id">#{{ currentUser.id }}</span>
+          </div>
+        </div>
+
+        <button class="edit-btn" *ngIf="!isEditMode" (click)="toggleEditMode()">
+          Edit Profile
+        </button>
+
+        <button class="edit-btn ghost" *ngIf="isEditMode" (click)="cancelEdit()">
+          Done
+        </button>
+
+      </div>
+
+    </section>
+
+    <!-- MESSAGES -->
+    <div class="msg success" *ngIf="successMessage">{{ successMessage }}</div>
+    <div class="msg error"   *ngIf="errorMessage">{{ errorMessage }}</div>
+
+    <!-- CONTROL CONSOLE -->
+    <section class="control-console">
+
+      <!-- SYSTEM INFO STRIP -->
+      <div class="system-strip">
+        <div>LAST LOGIN: {{ currentUser.lastLoginDate | date:'short' }}</div>
+        <div>SECURITY: {{ currentUser.mfaEnabled ? 'ENABLED' : 'STANDARD' }}</div>
+        <div>DEPARTMENT: {{ currentUser.department }}</div>
+      </div>
+
+      <!-- FORM GRID -->
+      <form [formGroup]="profileForm" class="console-grid">
+
+        <div class="field">
+          <label>First Name</label>
+          <input formControlName="firstName" [readonly]="!isEditMode" />
+        </div>
+
+        <div class="field">
+          <label>Last Name</label>
+          <input formControlName="lastName" [readonly]="!isEditMode" />
+        </div>
+
+        <div class="field wide">
+          <label>Email</label>
+          <input formControlName="email" [readonly]="true" />
+        </div>
+
+        <div class="field">
+          <label>Phone</label>
+          <input formControlName="phoneNumber" [readonly]="!isEditMode" />
+        </div>
+
+        <div class="field">
+          <label>Department</label>
+          <select formControlName="department" [disabled]="!isEditMode">
+            <option *ngFor="let d of departments">{{ d }}</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Display Name</label>
+          <input formControlName="displayName" [readonly]="!isEditMode" />
+        </div>
+
+      </form>
+    </section>
+
+  </div>
+
+  <!-- CAMERA MODAL -->
+  <div class="camera-modal-backdrop" *ngIf="showCameraModal" (click)="closeCameraModal()">
+    <div class="camera-modal" (click)="$event.stopPropagation()">
+      <h3>Take a Photo</h3>
+      <video #cameraVideo autoplay playsinline class="camera-preview"></video>
+      <canvas #faceCanvas style="display:none"></canvas>
+      <div class="camera-modal-actions">
+        <button type="button" class="photo-btn" (click)="capturePhoto()">📸 Capture</button>
+        <button type="button" class="photo-btn ghost" (click)="closeCameraModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+</div>

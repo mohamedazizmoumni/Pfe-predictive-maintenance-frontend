@@ -32,17 +32,17 @@
       <div class="cost-cards">
         <div class="cost-card preventive">
           <div class="cost-label">Preventive Cost</div>
-          <div class="cost-amount">€{{ result.preventiveCost | number:'1.0-0' }}</div>
+          <div class="cost-amount">{{ result.preventiveCost | currency:'TND':'symbol':'1.0-0' }}</div>
         </div>
         <div class="vs-divider">VS</div>
         <div class="cost-card corrective">
           <div class="cost-label">Corrective Cost</div>
-          <div class="cost-amount">€{{ result.correctiveCost | number:'1.0-0' }}</div>
+          <div class="cost-amount">{{ result.correctiveCost | currency:'TND':'symbol':'1.0-0' }}</div>
         </div>
       </div>
 
       <div class="savings-banner">
-        💰 Estimated Savings: <strong>€{{ result.estimatedSavings | number:'1.0-0' }}</strong>
+        💰 Estimated Savings: <strong>{{ result.estimatedSavings | currency:'TND':'symbol':'1.0-0' }}</strong>
       </div>
 
       <div class="rec-text">

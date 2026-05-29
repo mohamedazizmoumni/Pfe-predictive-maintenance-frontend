@@ -40,7 +40,7 @@ export class AlertCreateComponent {
 
   constructor(private fb: FormBuilder) {}
 
-  trackMachine(_: number, machine: Machine): string {
+  trackMachine(_: number, machine: Machine): number {
     return machine.id;
   }
 

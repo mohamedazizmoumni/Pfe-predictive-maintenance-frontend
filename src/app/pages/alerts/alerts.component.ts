@@ -11,9 +11,12 @@ import {
   CreateAlertPayload,
   EscalateAlertPayload,
   Page,
+  User,
 } from '../../core/models/sentinel.models';
 import { AlertApiService } from '../../core/services/alert.service';
 import { EquipmentService } from '../../core/services/equipment.service';
+import { AuthService } from '../../core/services/auth.service';
+import { normalizeRoleName } from '../../core/utils/role.utils';
 import { AlertListComponent } from './components/alert-list/alert-list.component';
 import { AlertDetailComponent } from './components/alert-detail/alert-detail.component';
 import { AlertCreateComponent } from './components/alert-create/alert-create.component';
@@ -60,16 +63,24 @@ export class AlertsComponent implements OnInit {
   private currentPage = 0;
   private readonly pageSize = 10;
   private pendingActionId: number | null = null;
+  private currentUser: User | null = null;
+  canCreateAlerts = true;
 
   constructor(
     private readonly alertApi: AlertApiService,
-    private readonly equipmentService: EquipmentService
+    private readonly equipmentService: EquipmentService,
+    private readonly authService: AuthService
   ) {}
 
   ngOnInit(): void {
     this.fetchAlerts();
     this.fetchStats();
     this.equipmentService.loadMachines(0, 100);
+
+    this.authService.currentUser$.subscribe((user) => {
+      this.currentUser = user;
+      this.canCreateAlerts = !this.isTechnician(user);
+    });
   }
 
   handleFiltersChange(filters: AlertListFilters): void {
@@ -91,6 +102,9 @@ export class AlertsComponent implements OnInit {
   }
 
   openCreateModal(): void {
+    if (!this.canCreateAlerts) {
+      return;
+    }
     this.showCreateModal = true;
   }
 
@@ -99,6 +113,9 @@ export class AlertsComponent implements OnInit {
   }
 
   submitCreate(payload: CreateAlertPayload): void {
+    if (!this.canCreateAlerts) {
+      return;
+    }
     this.isCreateSubmitting = true;
     this.alertApi.create(payload).subscribe({
       next: (alert) => {
@@ -187,10 +204,13 @@ export class AlertsComponent implements OnInit {
     this.alertApi.list(params).subscribe({
       next: (response) => {
         this.isListLoading = false;
-        this.alertsSubject.next(response.content);
+        const visibleAlerts = this.isTechnician(this.currentUser)
+          ? this.filterAssignedAlerts(response.content, this.currentUser)
+          : response.content;
+        this.alertsSubject.next(visibleAlerts);
         this.pageSubject.next(response);
-        if (response.content.length && !this.selectedAlertSubject.value) {
-          this.loadAlertDetail(response.content[0].id);
+        if (visibleAlerts.length && !this.selectedAlertSubject.value) {
+          this.loadAlertDetail(visibleAlerts[0].id);
         }
       },
       error: (error) => {
@@ -245,14 +265,46 @@ export class AlertsComponent implements OnInit {
     search?: string;
     viewed?: boolean;
   } {
+    const technicianAssignedTo = this.isTechnician(this.currentUser)
+      ? (this.currentUser?.username || this.currentUser?.email)
+      : undefined;
+
     return {
       page,
       size: this.pageSize,
       status: this.filters.status,
       severity: this.filters.severity,
-      assignedTo: this.filters.assignedTo,
+      assignedTo: technicianAssignedTo || this.filters.assignedTo,
       search: this.filters.search,
       viewed: this.filters.viewedOnly ? false : undefined,
     };
+  }
+
+  private isTechnician(user: User | null): boolean {
+    if (!user?.roles) {
+      return false;
+    }
+    return user.roles.some((role) => normalizeRoleName(role.name) === 'TECHNICIAN');
+  }
+
+  private filterAssignedAlerts(alerts: AlertResponse[], user: User | null): AlertResponse[] {
+    if (!user) {
+      return alerts;
+    }
+    const userId = user.id;
+    const username = user.username;
+    const email = user.email;
+    const userDisplayName = user.displayName;
+    return alerts.filter((alert) => {
+      const assigned = alert.assignedTo;
+      const alertDisplayName = alert.assignedToDisplayName;
+      return (
+        assigned === userId ||
+        assigned === username ||
+        assigned === email ||
+        alertDisplayName === username ||
+        alertDisplayName === userDisplayName
+      );
+    });
   }
 }

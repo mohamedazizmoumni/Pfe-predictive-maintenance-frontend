@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Part, ReorderRequest, ReorderRequestRequest, ReorderApprovalRequest, StockOrderRequest } from '../../../core/models/sentinel.models';
+import { Part, ReorderRequest, ReorderApprovalRequest, StockOrderRequest } from '../../../core/models/sentinel.models';
 import { InventoryService } from '../../../core/services/inventory.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { rolesCollectionHasAny } from '../../../core/utils/role.utils';
@@ -15,19 +15,9 @@ import { rolesCollectionHasAny } from '../../../core/utils/role.utils';
 })
 export class ReorderRequestsComponent implements OnInit {
   requests: ReorderRequest[] = [];
-  parts: Part[] = [];
-  pending: ReorderRequest[] = [];
   isLoading = false;
   error: string | null = null;
-  isSubmitting = false;
   successMessage: string | null = null;
-
-  newRequest: ReorderRequestRequest = {
-    partId: 0,
-    quantity: 1,
-    reason: '',
-    notes: ''
-  };
 
   // UI state for per-request actions
   approvingId: number | null = null;
@@ -39,7 +29,6 @@ export class ReorderRequestsComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadReorders();
-    this.loadParts();
   }
 
   loadReorders(): void {
@@ -50,7 +39,6 @@ export class ReorderRequestsComponent implements OnInit {
       next: (response) => {
         const content = response?.content ?? response ?? [];
         this.requests = content;
-        this.pending = content.filter((req: ReorderRequest) => req.status === 'REQUESTED');
         this.isLoading = false;
       },
       error: (err) => {
@@ -60,49 +48,10 @@ export class ReorderRequestsComponent implements OnInit {
     });
   }
 
-  loadParts(): void {
-    this.inventoryService.getParts(0, 1000).subscribe({
-      next: (response) => {
-        const content = response?.content ?? response ?? [];
-        this.parts = content;
-      },
-      error: (err) => {
-        console.warn('Failed to load parts for reorder form', err);
-      }
-    });
-  }
-
-  submitReorder(): void {
-    this.error = null;
-    this.successMessage = null;
-    if (!this.newRequest.partId || this.newRequest.quantity <= 0) {
-      this.error = 'Please select a part and enter a valid quantity.';
-      return;
-    }
-    this.isSubmitting = true;
-
-    this.inventoryService.requestReorder(this.newRequest).subscribe({
-      next: (res) => {
-        this.successMessage = 'Reorder request submitted successfully.';
-        this.newRequest = { partId: 0, quantity: 1, reason: '', notes: '' };
-        this.loadReorders();
-        this.isSubmitting = false;
-      },
-      error: (err) => {
-        this.error = err?.error?.message ?? 'Failed to submit reorder request.';
-        this.isSubmitting = false;
-      }
-    });
-  }
-
   // Role helpers
   private get currentRoles() {
     const user = this.authService.getCurrentUser();
     return user?.roles ?? [];
-  }
-
-  canRequest(): boolean {
-    return rolesCollectionHasAny(this.currentRoles, ['SUPER_ADMIN', 'ADMIN', 'STOCK_MANAGER', 'MANAGER', 'TECHNICIAN']);
   }
 
   canApprove(): boolean {

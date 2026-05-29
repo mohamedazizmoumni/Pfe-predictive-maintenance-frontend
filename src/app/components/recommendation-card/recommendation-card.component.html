@@ -23,11 +23,11 @@
     <div class="cost-row">
       <div class="cost-box">
         <span class="cost-label">Estimated Cost</span>
-        <span class="cost-value">€{{ recommendation.estimatedCost | number:'1.0-0' }}</span>
+        <span class="cost-value">{{ recommendation.estimatedCost | currency:'TND':'symbol':'1.0-0' }}</span>
       </div>
       <div class="cost-box success-box">
         <span class="cost-label">Potential Savings</span>
-        <span class="cost-value success">€{{ recommendation.estimatedSavings | number:'1.0-0' }}</span>
+        <span class="cost-value success">{{ recommendation.estimatedSavings | currency:'TND':'symbol':'1.0-0' }}</span>
       </div>
     </div>
 

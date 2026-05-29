@@ -1,0 +1,136 @@
+<section class="finance-page">
+
+  <!-- Hero -->
+  <header class="finance-hero">
+    <div class="hero-text">
+      <p class="hero-kicker">Warehouse</p>
+      <h1 class="hero-title">Budget Management</h1>
+      <p class="hero-subtitle">Define and track the annual operating budget with full visibility.</p>
+    </div>
+
+    <button
+      class="btn btn-primary"
+      type="button"
+      *ngIf="budget && !showForm"
+      (click)="switchToEdit()"
+    >
+      ✏️ Edit Budget
+    </button>
+  </header>
+
+  <!-- Alerts -->
+  <div class="alert alert-success" *ngIf="successMessage">
+    <span>✅ {{ successMessage }}</span>
+    <button type="button" class="alert-close" (click)="dismissSuccess()">✕</button>
+  </div>
+
+  <div class="alert alert-error" *ngIf="error">
+    <span>⚠️ {{ error }}</span>
+    <button type="button" class="alert-close" (click)="dismissError()">✕</button>
+  </div>
+
+  <!-- Checking Status -->
+  <div class="checking-bar" *ngIf="isChecking">
+    <div class="checking-dot"></div>
+    <span>Checking for existing budget…</span>
+  </div>
+
+  <!-- Budget Overview Card -->
+  <div class="section-card" *ngIf="budget && !showForm">
+    <div class="section-header">
+      <div>
+        <h2 class="section-title">📅 {{ budget.year }} Annual Budget</h2>
+        <p class="section-subtitle">Financial overview for the year</p>
+      </div>
+      <span class="health-badge" [class]="healthClass(budget.utilizationPercentage)">
+        {{ healthLabel(budget.utilizationPercentage) }}
+      </span>
+    </div>
+
+    <div class="budget-stats">
+      <div class="bstat">
+        <span class="bstat-label">Total Budget</span>
+        <span class="bstat-value">{{ budget.totalBudget | currency:'TND':'symbol':'1.2-2' }}</span>
+      </div>
+      <div class="bstat">
+        <span class="bstat-label">Spent</span>
+        <span class="bstat-value spent">{{ budget.spentAmount | currency:'TND':'symbol':'1.2-2' }}</span>
+      </div>
+      <div class="bstat">
+        <span class="bstat-label">Remaining</span>
+        <span class="bstat-value remaining">{{ budget.remainingBudget | currency:'TND':'symbol':'1.2-2' }}</span>
+      </div>
+      <div class="bstat">
+        <span class="bstat-label">Utilization</span>
+        <span class="bstat-value" 
+              [class.text-warning]="budget.utilizationPercentage >= 70"
+              [class.text-danger]="budget.utilizationPercentage >= 90">
+          {{ budget.utilizationPercentage | number:'1.1-1' }}%
+        </span>
+      </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-container">
+      <div class="progress-track">
+        <div 
+          class="progress-fill" 
+          [class]="utilizationClass(budget.utilizationPercentage)"
+          [style.width.%]="budget.utilizationPercentage > 100 ? 100 : budget.utilizationPercentage">
+        </div>
+      </div>
+      <div class="progress-labels">
+        <span>0%</span>
+        <span>{{ budget.utilizationPercentage | number:'1.1-1' }}% used</span>
+        <span>100%</span>
+      </div>
+    </div>
+
+    <div class="budget-meta">
+      <span>Created by <strong>{{ budget.createdBy || 'System' }}</strong></span>
+      <span>Created {{ budget.createdDate | date:'mediumDate' }}</span>
+      <span>Last updated {{ budget.lastModifiedDate | date:'mediumDate' }}</span>
+    </div>
+
+    <p class="budget-notes" *ngIf="budget.notes">{{ budget.notes }}</p>
+  </div>
+
+  <!-- Budget Form -->
+  <div class="section-card" *ngIf="showForm">
+    <div class="section-header">
+      <h2 class="section-title">
+        {{ isEditMode ? '✏️ Update Budget' : '➕ Create ' + currentYear + ' Budget' }}
+      </h2>
+    </div>
+
+    <div class="info-banner" *ngIf="!isEditMode">
+      <span class="info-icon">ℹ️</span>
+      <p>No budget defined for <strong>{{ currentYear }}</strong> yet. Create one below.</p>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="handleSubmit()" class="budget-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Year <span class="required">*</span></label>
+          <input type="number" formControlName="year" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Total Budget (TND) <span class="required">*</span></label>
+          <input type="number" formControlName="totalBudget" step="0.01" class="form-control" placeholder="50000.00" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Notes <span class="optional">(optional)</span></label>
+        <textarea formControlName="notes" class="form-control" rows="4" placeholder="Additional information about this budget..."></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-ghost" *ngIf="isEditMode" (click)="cancelEdit()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="isSubmitting">
+          {{ isSubmitting ? 'Saving...' : (isEditMode ? 'Update Budget' : 'Create Budget') }}
+        </button>
+      </div>
+    </form>
+  </div>
+</section>

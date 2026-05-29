@@ -1,0 +1,246 @@
+<div class="industrial-dashboard">
+  <!-- Header Bar -->
+  <div class="dashboard-header">
+    <div class="header-left">
+      <h1 class="dashboard-title">
+        <span class="title-icon">🏭</span>
+        Sentinel Guardian
+        <span class="title-subtitle">Industrial Monitoring System</span>
+      </h1>
+    </div>
+    
+    <div class="header-center">
+      <div class="system-status">
+        <span class="status-indicator online"></span>
+        <span class="status-text">SYSTEM ONLINE</span>
+      </div>
+    </div>
+    
+    <div class="header-right">
+      <div class="current-time">
+        <span class="time-label">SYSTEM TIME</span>
+        <span class="time-value">{{ currentTime | date:'HH:mm:ss' }}</span>
+        <span class="time-date">{{ currentTime | date:'dd MMM yyyy' }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI Cards Grid -->
+  <div class="kpi-grid">
+    <div *ngFor="let kpi of kpiCards" class="kpi-card" [style.--kpi-color]="kpi.color">
+      <div class="kpi-icon" [style.background]="kpi.color + '20'">
+        <span [style.filter]="'drop-shadow(0 0 8px ' + kpi.color + ')'">{{ kpi.icon }}</span>
+      </div>
+      <div class="kpi-content">
+        <div class="kpi-label">{{ kpi.label }}</div>
+        <div class="kpi-value">{{ kpi.value }}</div>
+        <div *ngIf="kpi.trend" class="kpi-trend" [class.positive]="kpi.trend.positive" [class.negative]="!kpi.trend.positive">
+          <span class="trend-icon">{{ kpi.trend.positive ? '↑' : '↓' }}</span>
+          <span class="trend-value">{{ kpi.trend.value }}</span>
+        </div>
+      </div>
+      <div class="kpi-glow" [style.background]="'radial-gradient(circle, ' + kpi.color + '40 0%, transparent 70%)'"></div>
+    </div>
+  </div>
+
+  <!-- Main Content Grid -->
+  <div class="content-grid">
+    <!-- Machine Status Table -->
+    <div class="content-section machines-section">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="title-icon">⚙️</span>
+          Real-Time Machine Status
+        </h2>
+        <div class="section-actions">
+          <button class="btn-icon" title="Refresh">
+            <span>🔄</span>
+          </button>
+          <button class="btn-icon" title="Filter">
+            <span>🔍</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="machines-table-container">
+        <table class="data-table-industrial">
+          <thead>
+            <tr>
+              <th>MACHINE</th>
+              <th>STATUS</th>
+              <th>TEMP (°C)</th>
+              <th>VIBRATION</th>
+              <th>PRESSURE</th>
+              <th>FAILURE RISK</th>
+              <th>RUL</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let machine of machines" 
+                class="machine-row" 
+                [class.critical]="machine.status === 'critical'"
+                [class.warning]="machine.status === 'warning'"
+                (click)="viewMachineDetails(machine.id)">
+              <td class="machine-info">
+                <div class="machine-name">{{ machine.name }}</div>
+                <div class="machine-serial">{{ machine.serialNumber }}</div>
+                <div class="machine-location">📍 {{ machine.location }}</div>
+              </td>
+              
+              <td class="machine-status">
+                <span class="status-badge" [class]="machine.status">
+                  {{ machine.status | uppercase }}
+                </span>
+              </td>
+              
+              <td class="sensor-value">
+                <div class="sensor-reading" [class.high]="machine.temperature > 80">
+                  <span class="reading-value">{{ machine.temperature | number:'1.1-1' }}</span>
+                  <span class="reading-unit">°C</span>
+                </div>
+                <div class="sensor-bar">
+                  <div class="sensor-bar-fill" 
+                       [style.width.%]="(machine.temperature / 100) * 100"
+                       [style.background]="machine.temperature > 80 ? '#ff1744' : machine.temperature > 70 ? '#ffa726' : '#00e676'">
+                  </div>
+                </div>
+              </td>
+              
+              <td class="sensor-value">
+                <div class="sensor-reading" [class.high]="machine.vibration > 8">
+                  <span class="reading-value">{{ machine.vibration | number:'1.1-1' }}</span>
+                  <span class="reading-unit">mm/s</span>
+                </div>
+                <div class="sensor-bar">
+                  <div class="sensor-bar-fill" 
+                       [style.width.%]="(machine.vibration / 12) * 100"
+                       [style.background]="machine.vibration > 8 ? '#ff1744' : machine.vibration > 6 ? '#ffa726' : '#00e676'">
+                  </div>
+                </div>
+              </td>
+              
+              <td class="sensor-value">
+                <div class="sensor-reading">
+                  <span class="reading-value">{{ machine.pressure | number:'1.0-0' }}</span>
+                  <span class="reading-unit">bar</span>
+                </div>
+              </td>
+              
+              <td class="risk-cell">
+                <div class="risk-container">
+                  <div class="risk-percentage" [style.color]="getRiskColor(machine.failureProbability)">
+                    {{ (machine.failureProbability * 100) | number:'1.0-0' }}%
+                  </div>
+                  <div class="risk-bar">
+                    <div class="risk-bar-fill" 
+                         [style.width.%]="machine.failureProbability * 100"
+                         [style.background]="getRiskColor(machine.failureProbability)">
+                    </div>
+                  </div>
+                  <div class="risk-label" [style.color]="getRiskColor(machine.failureProbability)">
+                    {{ getRiskLevel(machine.failureProbability) }}
+                  </div>
+                </div>
+              </td>
+              
+              <td class="rul-cell">
+                <div class="rul-value" [class.critical]="machine.rulHours < 48">
+                  <span class="rul-icon">⏱️</span>
+                  <span class="rul-time">{{ formatRUL(machine.rulHours) }}</span>
+                </div>
+                <div class="rul-label">Remaining Life</div>
+              </td>
+              
+              <td class="actions-cell">
+                <button class="btn-action primary" 
+                        (click)="createMaintenanceTask(machine.id); $event.stopPropagation()"
+                        *ngIf="machine.status === 'critical' || machine.status === 'warning'">
+                  <span>🔧</span>
+                  <span>Maintain</span>
+                </button>
+                <button class="btn-action ghost" 
+                        (click)="viewMachineDetails(machine.id); $event.stopPropagation()">
+                  <span>📊</span>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Alerts Panel -->
+    <div class="content-section alerts-section">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="title-icon">🚨</span>
+          Active Alerts
+          <span class="alert-count">{{ alerts.length }}</span>
+        </h2>
+      </div>
+
+      <div class="alerts-container">
+        <div *ngFor="let alert of alerts" 
+             class="alert-card-industrial" 
+             [class]="alert.severity"
+             [@fadeIn]>
+          <div class="alert-header">
+            <div class="alert-title-row">
+              <span class="alert-severity-icon">
+                {{ alert.severity === 'critical' ? '🔴' : alert.severity === 'warning' ? '⚠️' : 'ℹ️' }}
+              </span>
+              <span class="alert-machine">{{ alert.machine }}</span>
+            </div>
+            <div class="alert-time">{{ getTimeAgo(alert.timestamp) }}</div>
+          </div>
+          
+          <div class="alert-message">{{ alert.message }}</div>
+          
+          <div class="alert-recommendation">
+            <span class="recommendation-icon">💡</span>
+            <span class="recommendation-text">{{ alert.recommendation }}</span>
+          </div>
+          
+          <div class="alert-actions">
+            <button class="btn-industrial primary" (click)="createMaintenanceTask(alert.id)">
+              Create Task
+            </button>
+            <button class="btn-industrial ghost" (click)="acknowledgeAlert(alert.id)">
+              Acknowledge
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="alerts.length === 0" class="no-alerts">
+          <div class="no-alerts-icon">✅</div>
+          <div class="no-alerts-text">All systems operational</div>
+          <div class="no-alerts-subtext">No active alerts at this time</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Stats Bar -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <span class="stat-label">TOTAL OPERATING HOURS</span>
+      <span class="stat-value">127,450</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-label">ENERGY CONSUMPTION</span>
+      <span class="stat-value">1,245 kWh</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-label">PRODUCTION OUTPUT</span>
+      <span class="stat-value">8,920 units</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-item">
+      <span class="stat-label">EFFICIENCY RATE</span>
+      <span class="stat-value">94.5%</span>
+    </div>
+  </div>
+</div>

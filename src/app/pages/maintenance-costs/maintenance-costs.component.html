@@ -1,0 +1,495 @@
+<!-- 🏭 INDUSTRIAL FINANCE & BUDGET DASHBOARD -->
+<div class="finance-dashboard">
+  
+  <!-- ═══ HEADER SECTION ═══ -->
+  <header class="dashboard-header">
+    <div class="header-content">
+      <div class="header-info">
+        <div class="breadcrumb">
+          <span class="breadcrumb-item">Finance & Budget</span>
+          <span class="breadcrumb-separator">›</span>
+          <span class="breadcrumb-current">Maintenance Costs</span>
+        </div>
+        <h1 class="dashboard-title">
+          <span class="title-icon">💰</span>
+          Financial Control Center
+        </h1>
+        <p class="dashboard-subtitle">Real-time budget tracking and cost analysis for predictive maintenance</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-refresh" (click)="loadAll()" [disabled]="loading()">
+          <span class="btn-icon" [class.spinning]="loading()">⟳</span>
+          <span>Refresh Data</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══ LOADING STATE ═══ -->
+  <div class="loading-overlay" *ngIf="loading()">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <span class="loading-text">Loading financial data...</span>
+    </div>
+  </div>
+
+  <!-- ═══ MAIN DASHBOARD CONTENT ═══ -->
+  <div class="dashboard-content" *ngIf="!loading()">
+
+    <!-- ── 1. 💰 BUDGET OVERVIEW CARDS ── -->
+    <section class="budget-overview" *ngIf="summary() as s">
+      <div class="overview-grid">
+        
+        <!-- Total Budget Card -->
+        <div class="kpi-card budget-total">
+          <div class="card-header">
+            <div class="card-icon budget-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </div>
+            <div class="card-trend positive">
+              <span class="trend-icon">↗</span>
+              <span class="trend-value">+2.3%</span>
+            </div>
+          </div>
+          <div class="card-content">
+            <h3 class="card-label">Total Budget</h3>
+            <div class="card-value">{{ s.totalBudgetAllocated | currency:'EUR':'symbol':'1.0-0' }}</div>
+            <p class="card-subtitle">Allocated this quarter</p>
+          </div>
+        </div>
+
+        <!-- Spent Amount Card -->
+        <div class="kpi-card budget-spent">
+          <div class="card-header">
+            <div class="card-icon spent-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="m22 2-5 10-5-5-5 10"/>
+              </svg>
+            </div>
+            <div class="card-trend negative">
+              <span class="trend-icon">↘</span>
+              <span class="trend-value">-{{ s.budgetUsagePercent | number:'1.0-1' }}%</span>
+            </div>
+          </div>
+          <div class="card-content">
+            <h3 class="card-label">Total Spent</h3>
+            <div class="card-value danger">{{ s.totalBudgetSpent | currency:'EUR':'symbol':'1.0-0' }}</div>
+            <p class="card-subtitle">{{ s.budgetUsagePercent | number:'1.0-1' }}% of budget consumed</p>
+          </div>
+        </div>
+
+        <!-- Remaining Budget Card -->
+        <div class="kpi-card budget-remaining">
+          <div class="card-header">
+            <div class="card-icon remaining-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect width="20" height="14" x="2" y="5" rx="2"/>
+                <path d="M2 10h20"/>
+              </svg>
+            </div>
+            <div class="card-trend positive">
+              <span class="trend-icon">↗</span>
+              <span class="trend-value">{{ 100 - s.budgetUsagePercent | number:'1.0-1' }}%</span>
+            </div>
+          </div>
+          <div class="card-content">
+            <h3 class="card-label">Remaining</h3>
+            <div class="card-value success">{{ s.totalBudgetRemaining | currency:'EUR':'symbol':'1.0-0' }}</div>
+            <p class="card-subtitle">Available for operations</p>
+          </div>
+        </div>
+
+        <!-- Budget Progress Card -->
+        <div class="kpi-card budget-progress" *ngIf="budget() as b">
+          <div class="card-header">
+            <div class="card-icon progress-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+              </svg>
+            </div>
+            <div class="card-alert" *ngIf="b.alertTriggered">
+              <span class="alert-icon">⚠</span>
+            </div>
+          </div>
+          <div class="card-content">
+            <h3 class="card-label">Budget Status</h3>
+            <div class="progress-container">
+              <div class="progress-bar">
+                <div class="progress-fill" 
+                     [style.width.%]="getBudgetBarWidth(b)"
+                     [class]="getBudgetProgressClass(b.percentageUsed)">
+                </div>
+              </div>
+              <div class="progress-labels">
+                <span class="progress-current">{{ b.percentageUsed | number:'1.0-1' }}%</span>
+                <span class="progress-target">100%</span>
+              </div>
+            </div>
+            <p class="card-subtitle">{{ b.department }} - {{ b.period }}</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── 2. ⚙️ MACHINE COST BREAKDOWN TABLE ── -->
+    <section class="machine-breakdown">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="section-icon">⚙️</span>
+          Machine Cost Breakdown
+        </h2>
+        <div class="section-meta">
+          <span class="item-count">{{ machineCosts().length }} machines</span>
+          <button class="btn-export">
+            <span class="btn-icon">📊</span>
+            Export
+          </button>
+        </div>
+      </div>
+
+      <div class="industrial-table-container">
+        <table class="industrial-table">
+          <thead>
+            <tr>
+              <th class="col-machine">Machine</th>
+              <th class="col-value">Hourly Value</th>
+              <th class="col-cost">Downtime Cost</th>
+              <th class="col-cost">Replacement Cost</th>
+              <th class="col-criticality">Criticality</th>
+              <th class="col-risk">Risk Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let machine of machineCosts()" 
+                class="table-row"
+                [class.row-critical]="machine.criticalityLevel === 'CRITICAL'"
+                [class.row-high-risk]="machine.riskScore >= 0.7">
+              
+              <td class="col-machine">
+                <div class="machine-info">
+                  <div class="machine-name">{{ machine.machineName }}</div>
+                  <div class="machine-location">{{ machine.location }}</div>
+                  <div class="machine-status" [class]="'status-' + (machine.status || 'unknown').toLowerCase()">
+                    {{ machine.status }}
+                  </div>
+                </div>
+              </td>
+
+              <td class="col-value">
+                <div class="value-display">
+                  <span class="value-amount">{{ machine.hourlyProductionValue | currency:'EUR':'symbol':'1.0-0' }}</span>
+                  <span class="value-unit">/hour</span>
+                </div>
+              </td>
+
+              <td class="col-cost">
+                <div class="cost-display danger">
+                  {{ machine.totalDowntimeCost | currency:'EUR':'symbol':'1.0-0' }}
+                </div>
+              </td>
+
+              <td class="col-cost">
+                <div class="cost-display">
+                  {{ machine.replacementCost | currency:'EUR':'symbol':'1.0-0' }}
+                </div>
+              </td>
+
+              <td class="col-criticality">
+                <div class="criticality-badge" [class]="getCriticalityClass(machine.criticalityLevel)">
+                  <span class="badge-dot"></span>
+                  <span class="badge-text">{{ machine.criticalityLevel }}</span>
+                </div>
+              </td>
+
+              <td class="col-risk">
+                <div class="risk-indicator">
+                  <div class="risk-bar-container">
+                    <div class="risk-bar-track">
+                      <div class="risk-bar-fill" 
+                           [style.width.%]="machine.riskScore * 100"
+                           [class]="getRiskClass(machine.riskScore)">
+                      </div>
+                    </div>
+                    <span class="risk-percentage" [class]="getRiskClass(machine.riskScore)">
+                      {{ machine.riskScore * 100 | number:'1.0-0' }}%
+                    </span>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── 3. 🔧 MAINTENANCE COST LIST ── -->
+    <section class="maintenance-costs">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="section-icon">🔧</span>
+          Maintenance Cost Log
+        </h2>
+        <div class="section-filters">
+          <div class="filter-group">
+            <label class="filter-label">Type:</label>
+            <div class="filter-buttons">
+              <button class="filter-btn" 
+                      [class.active]="costTypeFilter() === 'ALL'" 
+                      (click)="setCostTypeFilter('ALL')">All</button>
+              <button class="filter-btn" 
+                      [class.active]="costTypeFilter() === 'PREVENTIVE'" 
+                      (click)="setCostTypeFilter('PREVENTIVE')">Preventive</button>
+              <button class="filter-btn" 
+                      [class.active]="costTypeFilter() === 'CORRECTIVE'" 
+                      (click)="setCostTypeFilter('CORRECTIVE')">Corrective</button>
+              <button class="filter-btn" 
+                      [class.active]="costTypeFilter() === 'EMERGENCY'" 
+                      (click)="setCostTypeFilter('EMERGENCY')">Emergency</button>
+            </div>
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">Status:</label>
+            <div class="filter-buttons">
+              <button class="filter-btn" 
+                      [class.active]="costStatusFilter() === 'ALL'" 
+                      (click)="setCostStatusFilter('ALL')">All</button>
+              <button class="filter-btn" 
+                      [class.active]="costStatusFilter() === 'PLANNED'" 
+                      (click)="setCostStatusFilter('PLANNED')">Planned</button>
+              <button class="filter-btn" 
+                      [class.active]="costStatusFilter() === 'COMPLETED'" 
+                      (click)="setCostStatusFilter('COMPLETED')">Done</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cost-summary-bar">
+        <div class="summary-info">
+          <span class="summary-count">{{ filteredCosts().length }} entries</span>
+          <span class="summary-total">
+            Total: <strong>{{ totalFilteredCost() | currency:'EUR':'symbol':'1.0-0' }}</strong>
+          </span>
+        </div>
+      </div>
+
+      <div class="maintenance-list">
+        <div class="maintenance-item" 
+             *ngFor="let cost of filteredCosts()" 
+             (click)="openDetail(cost)"
+             [class.item-critical]="cost.type === 'EMERGENCY'">
+          
+          <div class="item-header">
+            <div class="item-machine">
+              <span class="machine-name">{{ cost.machineName }}</span>
+              <div class="item-badges">
+                <span class="type-badge" [class]="getTypeClass(cost.type)">
+                  {{ cost.type }}
+                </span>
+                <span class="status-badge" [class]="getStatusClass(cost.status)">
+                  {{ cost.status }}
+                </span>
+              </div>
+            </div>
+            <div class="item-total">
+              <span class="total-amount">{{ cost.totalCost | currency:'EUR':'symbol':'1.0-0' }}</span>
+            </div>
+          </div>
+
+          <div class="item-details">
+            <div class="cost-breakdown">
+              <div class="cost-item">
+                <span class="cost-label">Labor:</span>
+                <span class="cost-value">{{ cost.laborCost | currency:'EUR':'symbol':'1.0-0' }}</span>
+              </div>
+              <div class="cost-item">
+                <span class="cost-label">Parts:</span>
+                <span class="cost-value">{{ cost.partsCost | currency:'EUR':'symbol':'1.0-0' }}</span>
+              </div>
+            </div>
+            <div class="item-meta">
+              <span class="meta-item">
+                <span class="meta-icon">📅</span>
+                {{ cost.scheduledDate | date:'dd MMM yyyy' }}
+              </span>
+              <span class="meta-item" *ngIf="cost.technician">
+                <span class="meta-icon">👨‍🔧</span>
+                {{ cost.technician }}
+              </span>
+            </div>
+          </div>
+
+          <button class="item-action" (click)="$event.stopPropagation(); openDetail(cost)">
+            <span class="action-icon">👁</span>
+            <span class="action-text">View Details</span>
+          </button>
+        </div>
+
+        <div class="empty-state" *ngIf="filteredCosts().length === 0">
+          <div class="empty-icon">🔍</div>
+          <div class="empty-text">No maintenance entries match the selected filters</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 4. 📦 PARTS IMPACT SECTION ── -->
+    <section class="parts-impact">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="section-icon">📦</span>
+          Parts Cost Impact
+        </h2>
+        <div class="section-meta">
+          <span class="item-count">Top {{ partsImpact().length }} parts by cost</span>
+        </div>
+      </div>
+
+      <div class="parts-grid">
+        <div class="part-card" *ngFor="let part of partsImpact()">
+          <div class="part-header">
+            <div class="part-info">
+              <h3 class="part-name">{{ part.partName }}</h3>
+              <p class="part-number">{{ part.partNumber }}</p>
+            </div>
+            <div class="stock-indicator" [class]="getStockClass(part.stockStatus)">
+              <span class="stock-dot"></span>
+              <span class="stock-text">{{ part.stockStatus }}</span>
+            </div>
+          </div>
+
+          <div class="part-metrics">
+            <div class="metric-row">
+              <div class="metric">
+                <span class="metric-label">Unit Cost</span>
+                <span class="metric-value">{{ part.unitCost | currency:'EUR':'symbol':'1.0-0' }}</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Quantity Used</span>
+                <span class="metric-value">{{ part.totalUsed }}</span>
+              </div>
+            </div>
+            <div class="metric-row">
+              <div class="metric">
+                <span class="metric-label">Total Cost</span>
+                <span class="metric-value primary">{{ part.totalCost | currency:'EUR':'symbol':'1.0-0' }}</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Stock Level</span>
+                <span class="metric-value" 
+                      [class.danger]="part.currentStock === 0"
+                      [class.warning]="part.currentStock <= part.minimumStock && part.currentStock > 0">
+                  {{ part.currentStock }} / {{ part.minimumStock }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="part-usage-bar">
+            <div class="usage-track">
+              <div class="usage-fill" 
+                   [style.width.%]="getPartBarWidth(part)"
+                   [class]="getStockClass(part.stockStatus)">
+              </div>
+            </div>
+            <span class="usage-percentage">{{ part.usagePercentage }}% usage impact</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ═══ DETAIL MODAL ═══ -->
+  <div class="modal-overlay" *ngIf="showModal()" (click)="closeModal()">
+    <div class="modal-container" (click)="$event.stopPropagation()" *ngIf="selectedEntry() as entry">
+      <div class="modal-header">
+        <h2 class="modal-title">
+          <span class="modal-icon">🔧</span>
+          Maintenance Details
+        </h2>
+        <button class="modal-close" (click)="closeModal()">
+          <span class="close-icon">✕</span>
+        </button>
+      </div>
+
+      <div class="modal-content">
+        <div class="detail-section">
+          <h3 class="detail-section-title">General Information</h3>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">Machine</span>
+              <span class="detail-value primary">{{ entry.machineName }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Type</span>
+              <span class="detail-badge" [class]="getTypeClass(entry.type)">
+                {{ entry.type }}
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Status</span>
+              <span class="detail-badge" [class]="getStatusClass(entry.status)">
+                {{ entry.status }}
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Technician</span>
+              <span class="detail-value">{{ entry.technician || 'Unassigned' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Scheduled Date</span>
+              <span class="detail-value">{{ entry.scheduledDate | date:'dd MMM yyyy' }}</span>
+            </div>
+            <div class="detail-item" *ngIf="entry.completedDate">
+              <span class="detail-label">Completed Date</span>
+              <span class="detail-value success">{{ entry.completedDate | date:'dd MMM yyyy' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section" *ngIf="entry.description">
+          <h3 class="detail-section-title">Description</h3>
+          <p class="detail-description">{{ entry.description }}</p>
+        </div>
+
+        <div class="detail-section">
+          <h3 class="detail-section-title">Cost Breakdown</h3>
+          <div class="cost-breakdown-grid">
+            <div class="cost-item">
+              <div class="cost-icon labor-icon">👨‍🔧</div>
+              <div class="cost-info">
+                <span class="cost-label">Labor Cost</span>
+                <span class="cost-amount">{{ entry.laborCost | currency:'EUR':'symbol':'1.0-0' }}</span>
+              </div>
+            </div>
+            <div class="cost-item">
+              <div class="cost-icon parts-icon">🔧</div>
+              <div class="cost-info">
+                <span class="cost-label">Parts Cost</span>
+                <span class="cost-amount">{{ entry.partsCost | currency:'EUR':'symbol':'1.0-0' }}</span>
+              </div>
+            </div>
+            <div class="cost-item total-cost">
+              <div class="cost-icon total-icon">💰</div>
+              <div class="cost-info">
+                <span class="cost-label">Total Cost</span>
+                <span class="cost-amount primary">{{ entry.totalCost | currency:'EUR':'symbol':'1.0-0' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="closeModal()">Close</button>
+        <button class="btn-primary">Edit Entry</button>
+      </div>
+    </div>
+  </div>
+
+</div>

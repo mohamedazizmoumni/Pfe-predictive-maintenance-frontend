@@ -43,19 +43,46 @@
 
         <div class="stat-card">
           <span class="label">Allocated</span>
-          <span class="amount">€{{ b.allocatedAmount | number:'1.0-0' }}</span>
+          <span class="amount">{{ b.allocatedAmount | currency:'TND':'symbol':'1.0-0' }}</span>
         </div>
 
         <div class="stat-card danger">
           <span class="label">Spent</span>
-          <span class="amount">€{{ b.spentAmount | number:'1.0-0' }}</span>
+          <span class="amount">{{ b.spentAmount | currency:'TND':'symbol':'1.0-0' }}</span>
         </div>
 
         <div class="stat-card success">
           <span class="label">Remaining</span>
-          <span class="amount">€{{ b.remainingAmount | number:'1.0-0' }}</span>
+          <span class="amount">{{ b.remainingAmount | currency:'TND':'symbol':'1.0-0' }}</span>
         </div>
 
+      </div>
+
+      <div class="budget-visuals">
+        <div class="usage-ring" [style.--usage]="b.percentageUsed + '%'">
+          <span>{{ b.percentageUsed | number:'1.0-0' }}%</span>
+          <small>Used</small>
+        </div>
+
+        <div class="budget-bars">
+          <div class="bar-row">
+            <span>Allocated</span>
+            <div class="bar-track">
+              <span class="bar-fill allocated" [style.width.%]="100"></span>
+            </div>
+            <span>100%</span>
+          </div>
+          <div class="bar-row">
+            <span>Spent</span>
+            <div class="bar-track">
+              <span
+                class="bar-fill spent"
+                [style.width.%]="b.allocatedAmount ? (b.spentAmount / b.allocatedAmount) * 100 : 0"
+              ></span>
+            </div>
+            <span>{{ b.percentageUsed | number:'1.0-0' }}%</span>
+          </div>
+        </div>
       </div>
 
       <!-- PROGRESS -->

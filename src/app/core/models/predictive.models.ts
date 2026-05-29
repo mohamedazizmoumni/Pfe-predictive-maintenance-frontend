@@ -45,15 +45,33 @@ export interface MachineSensor {
   lastReadingDate?: string;
 }
 
+/**
+ * Unified machine prediction response from backend
+ * Backend aggregates ML service output - frontend MUST NOT call ML directly
+ */
 export interface MachineSimulatedReading {
   machineId: number;
   machineName: string;
   timestamp: string;
   usageHours: number;
   anomalyCount: number;
-  risk: number;
-  predictedFailureDays: number;
+  
+  // ML Prediction (aggregated by backend)
+  mlPrediction?: {
+    rul: number;                    // Raw RUL from ML model
+    anomalyProbability: number;     // 0-1 probability
+    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  };
+  
+  // Normalized values (calculated by backend)
+  normalizedRisk?: number;          // 0-1 risk score (single source of truth)
+  predictedFailureDays: number;     // Days until predicted failure
+  
+  // Live sensor snapshot
   sensorValues: Record<string, number>;
+  
+  // Legacy field for backward compatibility (deprecated - use normalizedRisk)
+  risk?: number;
 }
 
 export interface SensorDataPoint {

@@ -1,4 +1,5 @@
 <section class="equipment-page">
+
   <!-- Page Header -->
   <header class="page-header">
     <div class="header-text">
@@ -14,14 +15,14 @@
         </select>
       </div>
 
-      <button type="button" class="btn btn-secondary" (click)="refresh()">
+      <button type="button" class="btn btn-ghost" (click)="refresh()">
         <span class="icon">↻</span> Refresh
       </button>
-      <button type="button" class="btn btn-primary" (click)="openCreate()">
-        + Add Machine
-      </button>
       <button type="button" class="btn btn-ghost" (click)="exportCsv()">
-        Export (.csv)
+        ↓ Export (.csv)
+      </button>
+      <button type="button" class="btn btn-primary" (click)="openCreate()" *ngIf="canCreateMachine">
+        + Add Machine
       </button>
     </div>
   </header>
@@ -47,6 +48,7 @@
       </thead>
       <tbody>
         <ng-container *ngFor="let machine of machines; trackBy: trackByMachine">
+
           <tr class="machine-row" (click)="openMachineVisual(machine)">
             <td><strong>{{ machine.serialNumber }}</strong></td>
             <td>{{ machine.model }}</td>
@@ -57,26 +59,42 @@
                 {{ machine.status || 'UNKNOWN' }}
               </span>
             </td>
-            <td>{{ machine.installationYear || '—' }}</td>
+            <td>{{ getInstallationYear(machine) || '—' }}</td>
             <td class="cell-actions">
-              <button type="button" class="btn btn-ghost-sm" (click)="$event.stopPropagation(); togglePredictivePanel(machine)">
-                {{ expandedPredictiveMachineId === machine.id ? 'Hide Predictive' : 'Predictive' }}
+              <button type="button" class="btn btn-ghost-sm"
+                (click)="$event.stopPropagation(); togglePredictivePanel(machine)">
+                {{ expandedPredictiveMachineId === machine.id ? 'Hide' : 'Predictive' }}
               </button>
-              <button type="button" class="btn btn-secondary" (click)="$event.stopPropagation(); openMachineVisual(machine)">Live View</button>
-              <button type="button" class="btn btn-ghost-sm" (click)="$event.stopPropagation(); openEdit(machine)">Edit</button>
-              <button type="button" class="btn btn-danger-sm" (click)="$event.stopPropagation(); requestDelete(machine)">Delete</button>
+              <button type="button" class="btn btn-secondary"
+                (click)="$event.stopPropagation(); openMachineVisual(machine)">
+                Live View
+              </button>
+              <button type="button" class="btn btn-ghost-sm"
+                (click)="$event.stopPropagation(); openEdit(machine)"
+                *ngIf="canCreateMachine">
+                Edit
+              </button>
+              <button type="button" class="btn btn-danger-sm"
+                (click)="$event.stopPropagation(); requestDelete(machine)"
+                *ngIf="canCreateMachine">
+                Delete
+              </button>
             </td>
           </tr>
 
+          <!-- Predictive Expanded Row -->
           <tr *ngIf="expandedPredictiveMachineId === machine.id">
             <td colspan="7" class="predictive-cell">
               <div class="predictive-panel" *ngIf="getPredictiveSummary(machine.id) as summary">
                 <div class="predictive-head">
-                  <h3>Predictive Snapshot</h3>
+                  <h3>⚡ Predictive Snapshot — {{ machine.serialNumber }}</h3>
                   <div class="predictive-actions">
-                    <button type="button" class="btn btn-ghost" (click)="refreshPredictivePanel(machine)">Refresh</button>
-                    <button type="button" class="btn btn-secondary" (click)="openPredictiveDashboard(machine.id)">
-                      Open Full Dashboard
+                    <button type="button" class="btn btn-ghost" (click)="refreshPredictivePanel(machine)">
+                      ↻ Refresh
+                    </button>
+                    <button type="button" class="btn btn-secondary"
+                      (click)="openPredictiveDashboard(machine.id)">
+                      Open Full Dashboard →
                     </button>
                   </div>
                 </div>
@@ -94,16 +112,16 @@
                   <article>
                     <p class="predictive-label">Current simulated reading</p>
                     <ng-container *ngIf="summary.reading as reading; else noReading">
-                      <p><strong>Timestamp:</strong> {{ reading.timestamp | date : 'medium' }}</p>
+                      <p><strong>Timestamp:</strong> {{ reading.timestamp | date:'medium' }}</p>
                       <p><strong>Usage Hours:</strong> {{ reading.usageHours }}</p>
                       <p>
                         <strong>Risk:</strong>
-                        <span [class]="getRiskClass(reading.risk)">{{ reading.risk | number : '1.2-2' }}</span>
+                        <span [class]="getRiskClass(reading.normalizedRisk ?? reading.risk ?? 0)">{{ (reading.normalizedRisk ?? reading.risk ?? 0) | number:'1.2-2' }}</span>
                       </p>
                       <p><strong>Predicted Failure Days:</strong> {{ reading.predictedFailureDays }}</p>
                     </ng-container>
                     <ng-template #noReading>
-                      <p class="predictive-empty">No simulated reading available for this machine.</p>
+                      <p class="predictive-empty">No simulated reading available.</p>
                     </ng-template>
                   </article>
 
@@ -113,35 +131,35 @@
                       <p><strong>Report ID:</strong> #{{ report.id }}</p>
                       <p>
                         <strong>Risk:</strong>
-                        <span [class]="getRiskClass(report.risk)">{{ report.risk | number : '1.2-2' }}</span>
+                        <span [class]="getRiskClass(report.risk)">{{ report.risk | number:'1.2-2' }}</span>
                       </p>
                       <p><strong>Predicted Failure Days:</strong> {{ report.predictedFailureDays }}</p>
-                      <p><strong>Estimated Cost:</strong> {{ report.estimatedCost | currency }}</p>
+                      <p><strong>Estimated Cost:</strong> {{ report.estimatedCost | currency:'TND':'symbol' }}</p>
                       <p><strong>Recommended Action:</strong> {{ report.recommendedAction || '—' }}</p>
                     </ng-container>
                     <ng-template #noReport>
-                      <p class="predictive-empty">No failure report available for this machine.</p>
+                      <p class="predictive-empty">No failure report available.</p>
                     </ng-template>
                   </article>
                 </div>
               </div>
             </td>
           </tr>
+
         </ng-container>
+
         <tr *ngIf="machines.length === 0">
-          <td colspan="7" class="empty-state">
-            <p>No machines found for the selected filter.</p>
-          </td>
+          <td colspan="7" class="empty-state">No machines found for the selected filter.</td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <!-- Create / Edit Modal -->
+  <!-- ─── Create / Edit Modal ──────────────────────────────────────────────── -->
   <div class="modal-backdrop" *ngIf="showForm" (click)="closeForm()">
     <div class="modal-content" (click)="$event.stopImmediatePropagation()">
       <div class="modal-header">
-        <h2>{{ formMode === 'create' ? 'Add New Machine' : 'Edit Machine' }}</h2>
+        <h2>{{ formMode === 'create' ? '+ Add New Machine' : 'Edit Machine' }}</h2>
         <button type="button" class="close-btn" (click)="closeForm()" aria-label="Close">✕</button>
       </div>
 
@@ -151,42 +169,53 @@
             <label>Name</label>
             <input type="text" formControlName="name" placeholder="e.g. Press #3 – West line" />
           </div>
-
           <div class="form-field">
             <label>Serial Number</label>
             <input type="text" formControlName="serialNumber" placeholder="Unique machine serial" />
           </div>
-
           <div class="form-field">
             <label>Model</label>
             <input type="text" formControlName="model" placeholder="Manufacturer model code" />
           </div>
-
           <div class="form-field">
             <label>Manufacturer</label>
             <input type="text" formControlName="manufacturer" placeholder="Vendor or OEM" />
           </div>
-
+          <div class="form-field">
+            <label for="machine-category">Category</label>
+            <select id="machine-category" formControlName="category" (change)="onCategoryChange($event)">
+              <option value="">— Select category —</option>
+              <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="machine-subcategory">Subcategory</label>
+            <select id="machine-subcategory" formControlName="subCategory" [disabled]="subCategories.length === 0">
+              <option value="">— Select subcategory —</option>
+              <option *ngFor="let sub of subCategories" [value]="sub">{{ sub }}</option>
+            </select>
+          </div>
           <div class="form-field">
             <label>Location</label>
             <input type="text" formControlName="location" placeholder="Plant / line / zone" />
           </div>
-
           <div class="form-field">
             <label>Installation Year</label>
             <input type="number" formControlName="installationYear" min="1900" max="2100" />
           </div>
-
           <div class="form-field">
             <label>Status</label>
             <select formControlName="status">
               <option value="OPERATIONAL">Operational</option>
               <option value="MAINTENANCE">Maintenance</option>
-              <option value="OFFLINE">Offline</option>
+              <option value="FAULTY">Faulty</option>
               <option value="DECOMMISSIONED">Decommissioned</option>
             </select>
           </div>
-
+          <div class="form-field" *ngIf="formMode === 'create'">
+            <label>Photo (optional)</label>
+            <input type="file" accept="image/*" (change)="handlePhotoChange($event)" />
+          </div>
           <div class="form-field full">
             <label>Description</label>
             <textarea rows="3" formControlName="description"
@@ -204,21 +233,22 @@
     </div>
   </div>
 
-  <!-- Delete Confirmation -->
+  <!-- ─── Delete Confirmation ───────────────────────────────────────────────── -->
   <div class="modal-backdrop" *ngIf="deleteConfirmId" (click)="cancelDelete()">
     <div class="delete-modal" (click)="$event.stopImmediatePropagation()">
-      <h3>Delete Machine?</h3>
+      <h3>🗑 Delete Machine?</h3>
       <p>This action cannot be undone. The machine and all its history will be permanently deleted.</p>
-      <div class="modal-footer">
+      <div class="modal-footer" style="border:none; justify-content:center;">
         <button type="button" class="btn btn-ghost" (click)="cancelDelete()">Cancel</button>
         <button type="button" class="btn btn-danger" (click)="confirmDelete()">Yes, Delete</button>
       </div>
     </div>
   </div>
 
-  <!-- Loading State -->
+  <!-- ─── Loading State ─────────────────────────────────────────────────────── -->
   <div class="loading-state" *ngIf="(isLoading$ | async)">
     <div class="spinner"></div>
     <p>Loading machines...</p>
   </div>
+
 </section>

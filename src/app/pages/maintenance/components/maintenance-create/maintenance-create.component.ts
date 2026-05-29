@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { CreateMaintenanceRequest, Machine, User } from '../../../../core/models/sentinel.models';
+import { CreateTaskRequest, Machine, User } from '../../../../core/models/sentinel.models';
 
 @Component({
   selector: 'app-maintenance-create',
@@ -15,20 +15,13 @@ export class MaintenanceCreateComponent {
   @Input() visible = false;
   @Input() machines: Machine[] | null = [];
   @Input() technicians: User[] | null = [];
+  @Input() maintenanceId: number | null = null;
   @Input() isSubmitting = false;
 
   @Output() close = new EventEmitter<void>();
-  @Output() submitRequest = new EventEmitter<CreateMaintenanceRequest>();
+  @Output() submitRequest = new EventEmitter<CreateTaskRequest>();
 
-  private readonly technicianIdPattern = /^\d+$/;
-
-  readonly maintenanceTypes: Array<{ label: string; value: CreateMaintenanceRequest['type'] }> = [
-    { label: 'Preventive', value: 'PREVENTIVE' },
-    { label: 'Corrective', value: 'CORRECTIVE' },
-    { label: 'Emergency', value: 'EMERGENCY' },
-  ];
-
-  readonly priorities: Array<{ label: string; value: CreateMaintenanceRequest['priority'] }> = [
+  readonly priorities: Array<{ label: string; value: CreateTaskRequest['priority'] }> = [
     { label: 'Critical', value: 'CRITICAL' },
     { label: 'High', value: 'HIGH' },
     { label: 'Medium', value: 'MEDIUM' },
@@ -36,14 +29,12 @@ export class MaintenanceCreateComponent {
   ];
 
   form = this.fb.group({
+    title: ['', [Validators.required, Validators.minLength(3)]],
     machineId: ['', Validators.required],
-    type: ['PREVENTIVE', Validators.required],
     priority: ['MEDIUM', Validators.required],
-    description: ['', [Validators.required, Validators.minLength(4)]],
-    scheduledDate: ['', Validators.required],
-    estimatedDuration: [60, [Validators.required, Validators.min(15), Validators.max(1440)]],
-    assignedTechnicianId: ['', [Validators.pattern(this.technicianIdPattern)]],
-    notes: [''],
+    description: ['', [Validators.required, Validators.minLength(5)]],
+    dueDate: ['', Validators.required],
+    assignedTechnicianId: ['', Validators.required],
   });
 
   constructor(private fb: FormBuilder) {}
@@ -52,39 +43,88 @@ export class MaintenanceCreateComponent {
     return item.value;
   }
 
+  trackTechnicianById(_: number, technician: User): string {
+    // Use id so the [value]="technician.id" binding is consistent
+    return String(technician.id);
+  }
+
+  getMachineLabel(machine: Machine): string {
+    return `${machine.serialNumber} · ${machine.model} (${machine.location})`;
+  }
+
+  getTechnicianLabel(technician: User): string {
+    const name =
+      technician.displayName?.trim() ||
+      `${technician.firstName || ''} ${technician.lastName || ''}`.trim();
+    return name || technician.username || technician.email;
+  }
+
   onSubmit(): void {
-    if (this.form.invalid || this.isSubmitting) {
+    if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
+    if (this.isSubmitting) return;
+
     const {
+      title,
       machineId,
-      type,
       priority,
       description,
-      scheduledDate,
-      estimatedDuration,
+      dueDate,
       assignedTechnicianId,
-      notes,
-    } = this.form.value;
+    } = this.form.getRawValue();
 
-    const sanitizedTechnicianId = assignedTechnicianId
-      ? String(assignedTechnicianId).trim()
-      : '';
+    const parsedTechnicianId = Number(assignedTechnicianId);
+    const parsedMachineId = Number(machineId);
+    const sanitizedTitle = (title || '').trim();
+    const sanitizedDescription = (description || '').trim();
 
-    const payload: CreateMaintenanceRequest = {
-      machineId: machineId!,
-      type: type as CreateMaintenanceRequest['type'],
-      priority: priority as CreateMaintenanceRequest['priority'],
-      description: description!,
-      scheduledDate: scheduledDate!,
-      estimatedDuration: Number(estimatedDuration),
-      ...(sanitizedTechnicianId ? { assignedTechnicianId: sanitizedTechnicianId } : {}),
-      ...(notes && notes.trim().length ? { notes: notes.trim() } : {}),
+    if (!sanitizedTitle || sanitizedTitle.length < 3) {
+      this.form.controls.title.setErrors({ invalidTitle: true });
+      this.form.controls.title.markAsTouched();
+      return;
+    }
+
+    if (!sanitizedDescription || sanitizedDescription.length < 5) {
+      this.form.controls.description.setErrors({ invalidDescription: true });
+      this.form.controls.description.markAsTouched();
+      return;
+    }
+
+    if (!Number.isInteger(parsedMachineId) || parsedMachineId <= 0) {
+      this.form.controls.machineId.setErrors({ invalidMachineId: true });
+      this.form.controls.machineId.markAsTouched();
+      return;
+    }
+
+    if (!Number.isInteger(parsedTechnicianId) || parsedTechnicianId <= 0) {
+      this.form.controls.assignedTechnicianId.setErrors({ invalidTechnicianId: true });
+      this.form.controls.assignedTechnicianId.markAsTouched();
+      return;
+    }
+
+    const payload: CreateTaskRequest = {
+      title: sanitizedTitle,
+      description: sanitizedDescription,
+      machineId: parsedMachineId,
+      priority: priority as CreateTaskRequest['priority'],
+      status: 'PENDING',
+      dueDate: this.toApiDateTime(dueDate || ''),
+      assignedTechnicianId: parsedTechnicianId,
+      ...(this.maintenanceId && this.maintenanceId > 0
+        ? { maintenanceId: this.maintenanceId }
+        : {}),
     };
 
     this.submitRequest.emit(payload);
+    this.onClose();
+  }
+
+  private toApiDateTime(dateTime: string): string {
+    if (!dateTime) return '';
+    return dateTime.length === 16 ? `${dateTime}:00` : dateTime;
   }
 
   onClose(): void {
@@ -94,28 +134,12 @@ export class MaintenanceCreateComponent {
 
   private resetForm(): void {
     this.form.reset({
+      title: '',
       machineId: '',
-      type: 'PREVENTIVE',
       priority: 'MEDIUM',
       description: '',
-      scheduledDate: '',
-      estimatedDuration: 60,
+      dueDate: '',
       assignedTechnicianId: '',
-      notes: '',
     });
-  }
-
-  trackTechnicianById(_: number, technician: User): string {
-    return technician.id;
-  }
-
-  getMachineLabel(machine: Machine): string {
-    return `${machine.serialNumber} · ${machine.model} (${machine.location})`;
-  }
-
-  getTechnicianLabel(technician: User): string {
-    const name = technician.displayName?.trim()
-      || `${technician.firstName || ''} ${technician.lastName || ''}`.trim();
-    return name || technician.username || technician.email;
   }
 }

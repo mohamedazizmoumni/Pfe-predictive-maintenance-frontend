@@ -1,0 +1,333 @@
+<!-- 🏭 FINANCIAL ANALYTICS DASHBOARD -->
+<div class="reports-dashboard">
+  
+  <!-- ═══ HEADER SECTION ═══ -->
+  <header class="dashboard-header">
+    <div class="header-content">
+      <div class="header-info">
+        <div class="breadcrumb">
+          <span class="breadcrumb-item">Finance & Budget</span>
+          <span class="breadcrumb-separator">›</span>
+          <span class="breadcrumb-current">Financial Reports</span>
+        </div>
+        <h1 class="dashboard-title">
+          <span class="title-icon">📊</span>
+          Financial Analytics & Predictions
+        </h1>
+        <p class="dashboard-subtitle">AI-powered insights and failure cost analysis</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-refresh" (click)="loadAll()" [disabled]="loading()">
+          <span class="btn-icon" [class.spinning]="loading()">⟳</span>
+          <span>Refresh Data</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══ LOADING STATE ═══ -->
+  <div class="loading-overlay" *ngIf="loading()">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <span class="loading-text">Loading analytics data...</span>
+    </div>
+  </div>
+
+  <!-- ═══ MAIN DASHBOARD CONTENT ═══ -->
+  <div class="dashboard-content" *ngIf="!loading()">
+
+    <!-- ── 1. 📉 LOSSES OVERVIEW ── -->
+    <section class="losses-overview">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="section-icon">📉</span>
+          Downtime Losses Overview
+        </h2>
+      </div>
+
+      <div class="overview-grid">
+        <!-- Total Losses Card -->
+        <div class="metric-card losses-card">
+          <div class="card-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3 class="card-label">Total Losses</h3>
+            <div class="card-value danger">{{ totalLosses() | currency:'EUR':'symbol':'1.0-0' }}</div>
+            <p class="card-subtitle">From {{ failureEvents().length }} failure events</p>
+          </div>
+        </div>
+
+        <!-- Average Downtime Card -->
+        <div class="metric-card downtime-card">
+          <div class="card-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 6v6l4 2"/>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3 class="card-label">Average Downtime</h3>
+            <div class="card-value warning">{{ formatDuration(averageDowntime()) }}</div>
+            <p class="card-subtitle">Per failure event</p>
+          </div>
+        </div>
+
+        <!-- Cost of Downtime Card -->
+        <div class="metric-card cost-card" *ngIf="summary() as s">
+          <div class="card-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              <path d="M2 12h20" stroke-dasharray="2 2"/>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3 class="card-label">Total Downtime Cost</h3>
+            <div class="card-value critical">{{ s.totalDowntimeLosses | currency:'EUR':'symbol':'1.0-0' }}</div>
+            <p class="card-subtitle">Production losses</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Losses Chart Placeholder -->
+      <div class="chart-container">
+        <div class="chart-header">
+          <h3 class="chart-title">Losses Trend (Last 6 Months)</h3>
+        </div>
+        <div class="chart-placeholder">
+          <div class="placeholder-icon">📈</div>
+          <p class="placeholder-text">Chart.js integration point</p>
+          <p class="placeholder-hint">Line chart showing monthly losses trend</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 2. 🤖 AI PREDICTIONS PANEL ── -->
+    <section class="ai-predictions">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="section-icon">🤖</span>
+          AI Failure Predictions
+        </h2>
+        <div class="section-meta">
+          <span class="alert-badge" *ngIf="criticalPredictions().length > 0">
+            <span class="alert-icon">⚠</span>
+            {{ criticalPredictions().length }} Critical Alerts
+          </span>
+        </div>
+      </div>
+
+      <div class="predictions-grid">
+        <div class="prediction-card" 
+             *ngFor="let prediction of aiPredictions()" 
+             [class]="getRiskClass(prediction.riskLevel)">
+          
+          <div class="prediction-header">
+            <div class="machine-info">
+              <h3 class="machine-name">{{ prediction.machineName }}</h3>
+              <div class="risk-badge" [class]="getRiskClass(prediction.riskLevel)">
+                <span class="risk-dot"></span>
+                <span class="risk-text">{{ prediction.riskLevel }} RISK</span>
+              </div>
+            </div>
+            <div class="risk-score">
+              <svg width="60" height="60" viewBox="0 0 60 60">
+                <circle cx="30" cy="30" r="25" fill="none" stroke="rgba(148, 163, 184, 0.2)" stroke-width="4"/>
+                <circle cx="30" cy="30" r="25" fill="none" 
+                        [attr.stroke]="getRiskColor(prediction.riskLevel)" 
+                        stroke-width="4" 
+                        stroke-linecap="round"
+                        [attr.stroke-dasharray]="157"
+                        [attr.stroke-dashoffset]="157 - (157 * prediction.riskScore)"
+                        transform="rotate(-90 30 30)"/>
+                <text x="30" y="35" text-anchor="middle" 
+                      [attr.fill]="getRiskColor(prediction.riskLevel)" 
+                      font-size="14" font-weight="700">
+                  {{ prediction.riskScore * 100 | number:'1.0-0' }}%
+                </text>
+              </svg>
+            </div>
+          </div>
+
+          <div class="prediction-details">
+            <div class="detail-row">
+              <div class="detail-item">
+                <span class="detail-icon">⏰</span>
+                <div class="detail-content">
+                  <span class="detail-label">Predicted Failure</span>
+                  <span class="detail-value">{{ formatDays(prediction.predictedFailureDays) }}</span>
+                </div>
+              </div>
+              <div class="detail-item">
+                <span class="detail-icon">💰</span>
+                <div class="detail-content">
+                  <span class="detail-label">Estimated Cost</span>
+                  <span class="detail-value danger">{{ prediction.estimatedFailureCost | currency:'EUR':'symbol':'1.0-0' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="detail-row">
+              <div class="detail-item">
+                <span class="detail-icon">🔧</span>
+                <div class="detail-content">
+                  <span class="detail-label">Prevention Cost</span>
+                  <span class="detail-value success">{{ prediction.estimatedPreventionCost | currency:'EUR':'symbol':'1.0-0' }}</span>
+                </div>
+              </div>
+              <div class="detail-item">
+                <span class="detail-icon">💡</span>
+                <div class="detail-content">
+                  <span class="detail-label">Potential Savings</span>
+                  <span class="detail-value primary">{{ prediction.potentialSavings | currency:'EUR':'symbol':'1.0-0' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="prediction-action">
+            <div class="confidence-indicator" [class]="getConfidenceClass(prediction.confidence)">
+              <span class="confidence-label">Confidence:</span>
+              <span class="confidence-value">{{ prediction.confidence * 100 | number:'1.0-0' }}%</span>
+            </div>
+            <div class="recommendation">
+              <span class="recommendation-icon">💡</span>
+              <span class="recommendation-text">{{ prediction.recommendedAction }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="empty-state" *ngIf="aiPredictions().length === 0">
+          <div class="empty-icon">🤖</div>
+          <div class="empty-text">No AI predictions available</div>
+        </div>
+      </div>
+
+      <!-- Savings Summary -->
+      <div class="savings-summary" *ngIf="totalPotentialSavings() > 0">
+        <div class="summary-icon">💰</div>
+        <div class="summary-content">
+          <h3 class="summary-title">Total Potential Savings</h3>
+          <div class="summary-value">{{ totalPotentialSavings() | currency:'EUR':'symbol':'1.0-0' }}</div>
+          <p class="summary-subtitle">By implementing preventive maintenance</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 3. 📊 BUDGET CONSUMPTION CHART ── -->
+    <section class="budget-consumption">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="section-icon">📊</span>
+          Budget Consumption by Department
+        </h2>
+      </div>
+
+      <div class="budget-grid">
+        <div class="budget-item" *ngFor="let budget of budgetConsumption()">
+          <div class="budget-header">
+            <h3 class="budget-department">{{ budget.department }}</h3>
+            <span class="budget-percentage" [class]="getBudgetClass(getBudgetPercentage(budget))">
+              {{ getBudgetPercentage(budget) | number:'1.0-1' }}%
+            </span>
+          </div>
+
+          <div class="budget-bar">
+            <div class="bar-track">
+              <div class="bar-fill" 
+                   [style.width.%]="getBudgetPercentage(budget)"
+                   [class]="getBudgetClass(getBudgetPercentage(budget))">
+              </div>
+            </div>
+          </div>
+
+          <div class="budget-details">
+            <div class="budget-stat">
+              <span class="stat-label">Allocated</span>
+              <span class="stat-value">{{ budget.allocated | currency:'EUR':'symbol':'1.0-0' }}</span>
+            </div>
+            <div class="budget-stat">
+              <span class="stat-label">Spent</span>
+              <span class="stat-value danger">{{ budget.spent | currency:'EUR':'symbol':'1.0-0' }}</span>
+            </div>
+            <div class="budget-stat">
+              <span class="stat-label">Remaining</span>
+              <span class="stat-value success">{{ budget.remaining | currency:'EUR':'symbol':'1.0-0' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart Placeholder -->
+      <div class="chart-container">
+        <div class="chart-header">
+          <h3 class="chart-title">Budget Distribution</h3>
+        </div>
+        <div class="chart-placeholder">
+          <div class="placeholder-icon">🍩</div>
+          <p class="placeholder-text">Chart.js integration point</p>
+          <p class="placeholder-hint">Doughnut chart showing allocated vs spent per department</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 4. 📅 FAILURE HISTORY TABLE ── -->
+    <section class="failure-history">
+      <div class="section-header">
+        <h2 class="section-title">
+          <span class="section-icon">📅</span>
+          Failure History
+        </h2>
+        <div class="section-meta">
+          <span class="item-count">{{ failureEvents().length }} events</span>
+        </div>
+      </div>
+
+      <div class="history-table-container">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Machine</th>
+              <th>Date</th>
+              <th>Duration</th>
+              <th>Cost Incurred</th>
+              <th>Failure Type</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let event of failureEvents()" [class.resolved]="event.resolved">
+              <td>
+                <div class="machine-cell">
+                  <span class="machine-name">{{ event.machineName }}</span>
+                </div>
+              </td>
+              <td class="date-cell">{{ event.failureDate | date:'dd MMM yyyy HH:mm' }}</td>
+              <td class="duration-cell">
+                <span class="duration-badge">{{ formatDuration(event.duration) }}</span>
+              </td>
+              <td class="cost-cell">
+                <span class="cost-value danger">{{ event.costIncurred | currency:'EUR':'symbol':'1.0-0' }}</span>
+              </td>
+              <td class="type-cell">
+                <span class="type-badge">{{ event.failureType }}</span>
+              </td>
+              <td class="status-cell">
+                <span class="status-badge" [class.resolved]="event.resolved">
+                  {{ event.resolved ? 'Resolved' : 'Pending' }}
+                </span>
+              </td>
+            </tr>
+            <tr *ngIf="failureEvents().length === 0">
+              <td colspan="6" class="empty-row">No failure events recorded</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+</div>

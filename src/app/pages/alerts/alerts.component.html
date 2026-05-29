@@ -1,9 +1,10 @@
 <div class="alerts-shell">
+
   <section class="hero" *ngIf="stats$ | async as stats">
     <div>
-      <p>Incident intelligence</p>
+      <p>Incident Intelligence</p>
       <h1>Alert Operations</h1>
-      <span>Filter high-signal anomalies, own the lifecycle, and keep machines trustworthy.</span>
+      <span class="hero-lead">Filter high-signal anomalies, own the lifecycle, and keep machines trustworthy.</span>
     </div>
     <div class="hero-stats">
       <article>
@@ -37,6 +38,7 @@
       [selectedAlertId]="(selectedAlert$ | async)?.id || null"
       [isLoading]="isListLoading"
       [error]="listError"
+      [canCreate]="canCreateAlerts"
       (filtersChange)="handleFiltersChange($event)"
       (pageChange)="handlePageChange($event)"
       (selectAlert)="handleSelectAlert($event)"
@@ -58,7 +60,7 @@
   </section>
 
   <app-alert-create
-    [visible]="showCreateModal"
+    [visible]="showCreateModal && canCreateAlerts"
     [machines]="machines$ | async"
     [isSubmitting]="isCreateSubmitting"
     (close)="closeCreateModal()"
@@ -72,4 +74,5 @@
     (close)="closeActionModal()"
     (submitAction)="submitAction($event)"
   ></app-alert-action-modal>
+
 </div>

@@ -1,163 +1,271 @@
-<div class="sentinel-shell" [class.nav-hidden]="!sidebarOpen">
-  <div class="shell-grid">
+<div class="sentinel-shell">
+  <div class="shell-grid" [class.sidebar-collapsed]="!sidebarOpen">
+
+    <!-- ═══════════════════════════════ SIDEBAR ═══════════════════════════════ -->
     <aside class="shell-nav" [class.collapsed]="!sidebarOpen">
+
+      <!-- BRAND -->
       <div class="brand-block">
-        <div>
-          <p class="eyebrow">Sentinel</p>
-          <h2>Guardian</h2>
+        <div class="brand-title" *ngIf="sidebarOpen">
+          <div class="logo-mark">
+            <div class="logo-dot"></div>
+          </div>
+          <div>
+            <p class="eyebrow">SENTINEL OS</p>
+            <h2>Guardian</h2>
+          </div>
         </div>
-        <button class="nav-toggle" type="button" (click)="toggleSidebar()" aria-label="Toggle navigation">
-          {{ sidebarOpen ? '✕' : '☰' }}
+        <div class="logo-mark logo-mark--solo" *ngIf="!sidebarOpen">
+          <div class="logo-dot"></div>
+        </div>
+        <button class="nav-toggle" type="button" (click)="toggleSidebar()" [title]="sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'">
+          <span class="toggle-icon">{{ sidebarOpen ? '◀' : '▶' }}</span>
         </button>
       </div>
 
-      <span class="status-pill">
-        <span class="dot"></span>
-        Systems nominal
-      </span>
+      <!-- STATUS -->
+      <div class="status-pill" *ngIf="sidebarOpen">
+        <span class="dot pulse"></span>
+        <span>All systems operational</span>
+      </div>
+      <div class="status-dot-only" *ngIf="!sidebarOpen" title="All systems operational">
+        <span class="dot pulse"></span>
+      </div>
 
-      <article class="user-card" *ngIf="currentUser; else guestCard">
-        <div class="avatar">{{ getUserInitial() }}</div>
-        <div>
-          <p class="user-name">{{ getUserDisplayName() }}</p>
-          <p class="user-role">{{ getUserRoles() }}</p>
-        </div>
-      </article>
-
-      <ng-template #guestCard>
-        <article class="user-card">
-          <div class="avatar">?</div>
-          <div>
-            <p class="user-name">Guest</p>
-            <p class="user-role">Awaiting access</p>
-          </div>
-        </article>
-      </ng-template>
-
+      <!-- NAV SECTIONS -->
       <nav class="nav-list">
-        <a
-          *ngFor="let item of menuItems"
-          class="nav-link"
-          [routerLink]="item.path"
-          routerLinkActive="nav-link--active"
-          [routerLinkActiveOptions]="{ exact: false }"
-          [hidden]="!isMenuItemVisible(item)"
-        >
-          <span class="nav-icon">{{ item.icon }}</span>
-          <span>
-            <span class="nav-label">{{ item.label }}</span>
-            <span class="nav-caption" *ngIf="item.caption">{{ item.caption }}</span>
-          </span>
-        </a>
+        <div class="menu-section-label" *ngIf="sidebarOpen">MAIN</div>
+        <ng-container *ngFor="let item of visibleMenuItems">
+          <a class="nav-link"
+             [routerLink]="item.label === 'Dashboard' ? getDashboardPath() : item.path"
+             routerLinkActive="active"
+             [routerLinkActiveOptions]="{ exact: false }"
+             [title]="!sidebarOpen ? item.label : ''">
+            <span class="nav-icon">{{ item.icon }}</span>
+            <div class="nav-text" *ngIf="sidebarOpen">
+              <span class="nav-label">{{ item.label }}</span>
+              <span class="nav-caption">
+                {{ item.label === 'Dashboard' ? getDashboardCaption() : item.caption }}
+              </span>
+            </div>
+            <ng-container *ngIf="item.path === '/finance/expenses' && isFinanceRole && sidebarOpen">
+              <ng-container *ngIf="pendingExpenseCount$ | async as count">
+                <span *ngIf="count > 0" class="nav-badge">{{ count > 99 ? '99+' : count }}</span>
+              </ng-container>
+            </ng-container>
+          </a>
+        </ng-container>
       </nav>
 
-      <button class="logout-btn" type="button" (click)="logout()">
-        Logout
-      </button>
-    </aside>
+      <!-- USER AVATAR — pinned to bottom -->
+      <div class="profile-block" *ngIf="currentUser; else guestCard">
+        <button class="avatar-trigger"
+                type="button"
+                (click)="toggleProfileMenu($event)"
+                [attr.aria-expanded]="profileMenuOpen"
+                aria-haspopup="menu"
+                [title]="getUserDisplayName()">
+          <div class="avatar avatar--image" *ngIf="getUserAvatarUrl(); else initials">
+            <img [src]="getUserAvatarUrl()" [alt]="getUserDisplayName()" />
+          </div>
+          <ng-template #initials>
+            <div class="avatar">{{ getUserInitial() }}</div>
+          </ng-template>
+        </button>
 
-    <section class="shell-main">
-      <header class="shell-header">
-        <div>
-          <button class="mobile-toggle" type="button" (click)="toggleSidebar()" aria-label="Toggle navigation">
-            ☰
+        <!-- Popup menu — opens upward -->
+        <div class="profile-menu" *ngIf="profileMenuOpen" role="menu" (click)="$event.stopPropagation()">
+
+          <!-- Header row -->
+          <button type="button" class="profile-menu__header-btn" (click)="goToProfile($event)">
+            <div class="profile-menu__avatar" *ngIf="getUserAvatarUrl(); else menuInitials2">
+              <img [src]="getUserAvatarUrl()" [alt]="getUserDisplayName()" />
+            </div>
+            <ng-template #menuInitials2>
+              <div class="profile-menu__avatar">{{ getUserInitial() }}</div>
+            </ng-template>
+            <div class="profile-menu__header-meta">
+              <strong>{{ getUserDisplayName() }}</strong>
+              <span>{{ getPrimaryRoleLabel() }}</span>
+            </div>
+            <svg class="profile-menu__chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
           </button>
-          <p class="eyebrow">Operations cockpit</p>
-          <h1>Sentinel Workspace</h1>
-          <p class="subtitle">AI-assisted maintenance governance and telemetry.</p>
-        </div>
 
+          <div class="profile-menu__separator"></div>
+
+          <!-- Manage profile -->
+          <button type="button" class="profile-menu__item" (click)="goToProfile($event)">
+            <svg class="profile-menu__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="8" r="4"/>
+              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+            </svg>
+            <span class="profile-menu__text">Manage profile</span>
+          </button>
+
+          <!-- Theme -->
+          <button type="button" class="profile-menu__item" (click)="toggleAppearance($event)">
+            <svg class="profile-menu__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"/>
+              <line x1="12" y1="3" x2="12" y2="21"/>
+            </svg>
+            <span class="profile-menu__text">Theme</span>
+            <span class="profile-menu__hint">{{ theme === 'dark' ? 'Dark' : 'Light' }}</span>
+          </button>
+
+          <div class="profile-menu__separator"></div>
+
+          <!-- Sign out -->
+          <button type="button" class="profile-menu__item profile-menu__item--danger" (click)="logout()">
+            <svg class="profile-menu__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            <span class="profile-menu__text">Sign out</span>
+          </button>
+
+        </div>
+      </div>
+
+      <ng-template #guestCard>
+        <div class="profile-block">
+          <button class="avatar-trigger" type="button" title="Guest">
+            <div class="avatar">?</div>
+          </button>
+        </div>
+      </ng-template>
+
+    </aside>
+    <!-- ═══════════════════════════════ /SIDEBAR ══════════════════════════════ -->
+
+    <!-- ════════════════════════════════ MAIN ════════════════════════════════ -->
+    <section class="shell-main">
+
+      <!-- TOPBAR -->
+      <header class="shell-header">
+        <div class="header-left">
+         
+          <div class="header-branding">
+            <div class="header-titles">
+              <div class="header-badge-row">
+                
+              </div>
+              <h1>Sentinel Operations</h1>
+              <p class="subtitle">Maintenance, stock, alerts, and compliance in one control surface.</p>
+            </div>
+            <div class="header-meta-row">
+              
+            </div>
+          </div>
+        </div>
         <div class="header-actions">
-          <button
-				class="theme-toggle"
-				type="button"
-				(click)="toggleTheme()"
-				[attr.aria-label]="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
-			>
-				<span class="theme-toggle__icon">{{ theme === 'dark' ? '☀️' : '🌙' }}</span>
-				<span class="theme-toggle__label">{{ theme === 'dark' ? 'Light' : 'Dark' }}</span>
-			</button>
+          <div class="header-clock">
+            <span class="clock-date">{{ getHeaderDateLabel() }}</span>
+            <span class="clock-time">{{ getHeaderTimeLabel() }}</span>
+          </div>
           <label class="search-field">
             <span class="search-input">
-              <button class="search-icon" type="button" aria-label="Search">
-                🔍
-              </button>
-              <input type="search" class="ui-input" placeholder="Search assets, alerts, teams" />
+              <button class="search-icon-btn" type="button" aria-label="Search"></button>
+              <input type="search" class="ui-input" placeholder="Search assets, alerts, tickets…" />
             </span>
           </label>
-          <button class="ghost" type="button">Sync Data</button>
-          <button class="primary" type="button">New Task</button>
+          <app-notification-bell></app-notification-bell>
+          <button class="btn-ghost btn-sync" type="button">Sync Data</button>
+          <button class="profile-summary" type="button" (click)="toggleProfileMenu($event)">
+            <div class="profile-summary__avatar" *ngIf="getUserAvatarUrl(); else summaryInitials">
+              <img [src]="getUserAvatarUrl()" [alt]="getUserDisplayName()" />
+            </div>
+            <ng-template #summaryInitials>
+              <div class="profile-summary__avatar">{{ getUserInitial() }}</div>
+            </ng-template>
+            <div class="profile-summary__meta">
+              <strong>{{ getUserDisplayName() || 'John Manager' }}</strong>
+              <span>{{ getPrimaryRoleLabel() }}</span>
+            </div>
+            <span class="profile-summary__chevron">▾</span>
+          </button>
         </div>
       </header>
 
+      <!-- METRIC STRIP -->
       <div class="header-metrics">
         <article class="metric-card">
-          <p class="eyebrow">Roles</p>
-          <h3>{{ currentUser?.roles?.length || 0 }}</h3>
-          <p class="muted">Assigned access levels</p>
+          <div class="metric-icon">🔑</div>
+          <div class="metric-body">
+            <p class="metric-label">Roles</p>
+            <h3>{{ currentUser?.roles?.length || 0 }}</h3>
+            <p class="metric-sub">Assigned access levels</p>
+          </div>
         </article>
         <article class="metric-card">
-          <p class="eyebrow">Status</p>
-          <h3>{{ currentUser?.status || 'ACTIVE' }}</h3>
-          <p class="muted">Account health</p>
+          <div class="metric-icon">💡</div>
+          <div class="metric-body">
+            <p class="metric-label">Status</p>
+            <h3>{{ currentUser?.status || 'ACTIVE' }}</h3>
+            <p class="metric-sub">Account health</p>
+          </div>
         </article>
         <article class="metric-card">
-          <p class="eyebrow">Department</p>
-          <h3>{{ currentUser?.department || 'Operations' }}</h3>
-          <p class="muted">Primary org node</p>
+          <div class="metric-icon">🏢</div>
+          <div class="metric-body">
+            <p class="metric-label">Department</p>
+            <h3>{{ currentUser?.department || 'Operations' }}</h3>
+            <p class="metric-sub">Primary org node</p>
+          </div>
         </article>
       </div>
 
+      <!-- PAGE CONTENT -->
       <div class="shell-content">
         <div class="workspace-card">
           <router-outlet></router-outlet>
         </div>
       </div>
+
     </section>
+    <!-- ════════════════════════════════ /MAIN ═══════════════════════════════ -->
+
   </div>
 
-  <button
-    class="chat-fab"
-    type="button"
-    (click)="toggleChat()"
-    [attr.aria-pressed]="chatOpen"
-    aria-label="Open AI assistant chatbot"
-  >
+  <!-- CHAT FAB -->
+  <button class="chat-fab" type="button" (click)="toggleChat()"
+          [attr.aria-pressed]="chatOpen" aria-label="Open AI assistant chatbot">
     🤖
   </button>
 
+  <!-- CHAT OVERLAY -->
   <div class="chat-overlay" *ngIf="chatOpen" aria-label="Chatbot conversation panel">
-    <div
-      class="chat-overlay__shell surface-card"
-      data-card
-      [ngStyle]="{ left: chatLeft + 'px', top: chatTop + 'px', width: chatWidth + 'px', height: chatHeight + 'px' }"
-    >
+    <div class="chat-overlay__shell surface-card" data-card
+         [ngStyle]="{
+           left: chatLeft + 'px',
+           top: chatTop + 'px',
+           width: chatWidth + 'px',
+           height: chatHeight + 'px'
+         }">
       <header class="chat-overlay__header" (mousedown)="onChatDragStart($event)">
         <div class="chat-overlay__title">
-          <p class="eyebrow">AI assistant</p>
+          <p class="eyebrow">AI Assistant</p>
           <h2>Sentinel Copilot</h2>
         </div>
         <div class="chat-overlay__header-actions" (mousedown)="$event.stopPropagation()">
-          <button
-            type="button"
-            class="chat-overlay__icon-btn"
-            (click)="toggleChatMaximize()"
-            [attr.aria-label]="chatMaximized ? 'Restore chat window' : 'Maximize chat window'"
-          >
+          <button type="button" class="chat-overlay__icon-btn"
+                  (click)="toggleChatMaximize()"
+                  [attr.aria-label]="chatMaximized ? 'Restore chat window' : 'Maximize chat window'">
             {{ chatMaximized ? '🗗' : '🗖' }}
           </button>
-          <button
-            type="button"
-            class="chat-overlay__icon-btn chat-overlay__close"
-            (click)="toggleChat()"
-            aria-label="Close chatbot"
-          >
+          <button type="button" class="chat-overlay__icon-btn chat-overlay__close"
+                  (click)="toggleChat()" aria-label="Close chatbot">
             ✕
           </button>
         </div>
       </header>
       <app-chatbot></app-chatbot>
-      <button class="chat-overlay__resize" type="button" (mousedown)="onChatResizeStart($event)" aria-label="Resize chatbot"></button>
+      <button class="chat-overlay__resize" type="button"
+              (mousedown)="onChatResizeStart($event)"
+              aria-label="Resize chatbot"></button>
     </div>
   </div>
+
 </div>

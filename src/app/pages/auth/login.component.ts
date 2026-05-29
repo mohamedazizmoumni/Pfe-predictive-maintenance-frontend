@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService, LoginPayload } from '../../core/services/auth.service';
+import { DashboardRoutingService } from '../../pages/dashboards/dashboard-routing.service';
 
 @Component({
   selector: 'app-login',
@@ -20,7 +21,8 @@ export class LoginComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private dashboardRoutingService: DashboardRoutingService
   ) {}
 
   ngOnInit(): void {
@@ -48,9 +50,10 @@ export class LoginComponent implements OnInit {
     };
 
     this.authService.login(credentials).subscribe({
-      next: () => {
+      next: (response) => {
         this.isLoading = false;
-        this.router.navigate(['/dashboard']);
+        const route = this.dashboardRoutingService.getRouteForLoginResponse(response);
+        this.router.navigate([route]);
       },
       error: (error: any) => {
         this.isLoading = false;
