@@ -1,23 +1,52 @@
-import { Injectable, inject } from '@angular/core';
-import { Router, CanActivateFn } from '@angular/router';
-import { AuthService } from '../services/auth.service';
-import { map, take } from 'rxjs/operators';
+import { inject } from '@angular/core';
 
-export const redirectLoggedInGuard: CanActivateFn = (route, state) => {
+import {
+  Router,
+  CanActivateFn
+} from '@angular/router';
+
+import { AuthService } from '../services/auth.service';
+
+import {
+  getRoleDashboardRoute
+} from '../utils/role.utils';
+
+import {
+  map,
+  take
+} from 'rxjs/operators';
+
+export const redirectLoggedInGuard: CanActivateFn = () => {
+
   const authService = inject(AuthService);
   const router = inject(Router);
 
   return authService.isAuthenticated$.pipe(
+
     take(1),
+
     map((isAuthenticated) => {
-      if (isAuthenticated && authService.hasToken()) {
-        console.log('✅ User already authenticated, redirecting to dashboard');
-        router.navigate(['/dashboard']);
+
+      if (
+        isAuthenticated &&
+        authService.hasToken()
+      ) {
+
+        const user =
+          authService.getCurrentUser();
+
+        const route =
+          getRoleDashboardRoute(user);
+
+        router.navigate([route]);
+
         return false;
-      } else {
-        console.log('✅ User not authenticated, allowing access to auth page');
-        return true;
       }
+
+      return true;
+
     })
+
   );
+
 };

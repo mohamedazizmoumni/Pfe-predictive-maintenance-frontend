@@ -25,6 +25,7 @@ export class MaintenanceListComponent {
   @Input() activeStatus?: string | null;
   @Input() activePriority?: string | null;
   @Input() selectedTaskId: string | null = null;
+  @Input() canCreate = true;
 
   @Output() filtersChange = new EventEmitter<{ status?: string; priority?: string }>();
   @Output() pageChange = new EventEmitter<number>();

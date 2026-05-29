@@ -1,0 +1,95 @@
+<div class="notifications-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-title">
+      <h1>Notifications</h1>
+      <div class="unread-badge-header" *ngIf="(unreadCount$ | async) as unreadCount">
+        <span *ngIf="unreadCount > 0" class="badge">{{ unreadCount }}</span>
+        <span class="badge-label">unread</span>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <button
+        *ngIf="(canMarkAllAsRead$ | async) && (unreadCount$ | async) as unreadCount"
+        [disabled]="unreadCount === 0"
+        (click)="onMarkAllAsRead()"
+        class="primary-btn"
+        type="button"
+      >
+        Mark all as read
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-bar">
+    <button
+      *ngFor="let filter of filterOptions"
+      [class.active]="selectedFilter === filter"
+      (click)="setFilter(filter)"
+      type="button"
+      class="filter-btn"
+    >
+      {{ filter | titlecase }}
+    </button>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <div class="spinner"></div>
+    <p>Loading notifications...</p>
+  </div>
+
+  <!-- Notifications List -->
+  <div class="notifications-container" *ngIf="!isLoading">
+    <div *ngIf="(filteredNotifications$ | async) as filteredNotifications">
+      <div *ngIf="filteredNotifications.length === 0" class="empty-state">
+      <p class="empty-icon">📭</p>
+      <h3>No {{ selectedFilter !== 'all' ? selectedFilter : '' }} notifications</h3>
+      <p>You're all caught up!</p>
+      </div>
+
+      <div
+        *ngFor="let notification of filteredNotifications"
+        class="notification-card"
+        [class.unread]="!notification.isRead"
+        [style.border-left-color]="getRiskConfig(notification.riskLevel).color"
+        (click)="onNotificationClick(notification)"
+      >
+        <div class="notification-content">
+          <div class="notification-header">
+            <span
+              class="risk-icon"
+              [style.color]="getRiskConfig(notification.riskLevel).color"
+              [title]="notification.riskLevel"
+            >
+              {{ getRiskConfig(notification.riskLevel).icon }}
+            </span>
+            <h3 class="notification-title" [class.bold]="!notification.isRead">
+              {{ notification.title }}
+            </h3>
+            <span class="relative-time">{{ getRelativeTime(notification.createdAt) }}</span>
+          </div>
+
+          <p class="notification-body">{{ notification.body }}</p>
+
+          <div class="notification-footer">
+            <div class="notification-meta" *ngIf="notification.machineId">
+              <span class="machine-chip">Machine #{{ notification.machineId }}</span>
+            </div>
+            <div class="notification-actions">
+              <span class="risk-badge" [style.backgroundColor]="getRiskConfig(notification.riskLevel).bgColor">
+                {{ notification.riskLevel }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="read-indicator" *ngIf="!notification.isRead" (click)="onMarkAsRead(notification, $event)">
+          <button type="button" class="mark-read-btn" title="Mark as read">✓</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

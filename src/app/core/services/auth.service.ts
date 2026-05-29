@@ -4,6 +4,7 @@ import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { LoginResponse, User, RegisterPayload, Role } from '../models/sentinel.models';
 import { apiEndpoint } from '../http/api-base';
+import { normalizeRoleName } from '../utils/role.utils';
 
 export interface LoginPayload {
   username: string;
@@ -17,6 +18,7 @@ export class AuthService {
   private readonly ACCESS_TOKEN_KEY = 'access_token';
   private readonly REFRESH_TOKEN_KEY = 'refresh_token';
   private readonly USER_KEY = 'current_user';
+  private readonly PROFILE_PICTURE_KEY_PREFIX = 'profile_picture_url:';
 
   private currentUserSubject = new BehaviorSubject<User | null>(this.getUserFromStorage());
   public currentUser$ = this.currentUserSubject.asObservable();
@@ -145,6 +147,38 @@ export class AuthService {
     this.clearAuth();
   }
 
+  updateCurrentUser(user: User | null): void {
+    if (!user) {
+      this.currentUserSubject.next(null);
+      if (this.isBrowser()) {
+        localStorage.removeItem(this.USER_KEY);
+      }
+      return;
+    }
+
+    // CRITICAL: Preserve existing roles when updating user
+    // to prevent roles from being wiped out during navigation or profile updates
+    const currentUser = this.currentUserSubject.value;
+    const existingRoles = this.normalizeRoles(currentUser?.roles);
+    const incomingRoles = this.normalizeRoles(user.roles);
+    
+    // If incoming user has no roles but current user does, preserve them
+    const preservedRoles = incomingRoles.length > 0 ? incomingRoles : existingRoles;
+    
+    const userWithPreservedRoles = {
+      ...user,
+      roles: preservedRoles,
+      profilePictureUrl: user.profilePictureUrl ?? currentUser?.profilePictureUrl ?? this.getStoredProfilePictureUrl(user.username ?? currentUser?.username) ?? undefined
+    };
+
+    this.setUserToStorage(userWithPreservedRoles);
+    this.setStoredProfilePictureUrl(
+      userWithPreservedRoles.username,
+      userWithPreservedRoles.profilePictureUrl ?? null
+    );
+    this.currentUserSubject.next(userWithPreservedRoles);
+  }
+
   private clearAuth(): void {
     if (!this.isBrowser()) {
       return;
@@ -173,7 +207,9 @@ export class AuthService {
       console.warn('⚠️ No refresh token found in response payload.');
     }
 
-    const userPayload = response.user ?? this.getCurrentUser();
+    // Never reuse the previous session user here; that can leak roles,
+    // avatar data, and department info into the newly authenticated session.
+    const userPayload = response.user ?? null;
     const user = this.buildUserFromToken(accessToken, userPayload);
     this.setUserToStorage(user);
     this.currentUserSubject.next(user);
@@ -231,9 +267,11 @@ export class AuthService {
   private buildUserFromToken(token: string, user?: User | null): User {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
+      const username = payload.username || payload.sub || user?.username || 'unknown-user';
+      const storedProfilePictureUrl = this.getStoredProfilePictureUrl(username);
       const mergedUser: User = {
         id: payload.sub || user?.id || payload.userId || 'unknown-user',
-        username: payload.username || payload.sub || user?.username || 'unknown-user',
+        username,
         email: payload.email || user?.email || '',
         firstName: payload.firstName || user?.firstName,
         lastName: payload.lastName || user?.lastName,
@@ -243,7 +281,8 @@ export class AuthService {
         status: payload.status || user?.status,
         mfaEnabled: payload.mfaEnabled ?? user?.mfaEnabled,
         lastLoginDate: payload.lastLoginDate || user?.lastLoginDate,
-        roles: this.extractRoles(payload.roles, user?.roles),
+        profilePictureUrl: payload.profilePictureUrl || user?.profilePictureUrl || storedProfilePictureUrl,
+        roles: this.extractRoles(payload.roles, this.normalizeRoles(user?.roles)),
       };
 
       return {
@@ -263,21 +302,60 @@ export class AuthService {
 
   private extractRoles(payloadRoles: any, fallback?: Role[]): Role[] {
     if (Array.isArray(payloadRoles)) {
-      return payloadRoles.map((role: any) => {
+      const extracted = payloadRoles.map((role: any) => {
         if (typeof role === 'string') {
-          return { id: role, name: role } as Role;
+          const normalizedRole = normalizeRoleName(role);
+          return {
+            id: normalizedRole || role,
+            name: normalizedRole || role,
+          } as Role;
         }
         if (role && typeof role === 'object') {
+          const roleNameSource = role.name || role.authority || role.role || role.code || role.id || 'UNKNOWN_ROLE';
+          const normalizedRole = normalizeRoleName(roleNameSource);
           return {
-            id: role.id || role.name || this.generateRoleId(),
-            name: role.name || role.id || 'UNKNOWN_ROLE',
+            id: role.id || normalizedRole || this.generateRoleId(),
+            name: normalizedRole || roleNameSource,
             description: role.description,
           } as Role;
         }
         return { id: 'UNKNOWN_ROLE', name: 'UNKNOWN_ROLE' } as Role;
       });
+      // If we extracted some valid roles, return them; otherwise use fallback
+      return extracted.length > 0 ? extracted : this.normalizeRoles(fallback);
     }
-    return fallback || [];
+    // If no payload roles, always use fallback to prevent losing roles
+    return this.normalizeRoles(fallback);
+  }
+
+  private normalizeRoles(roles?: Array<Role | string | any> | null): Role[] {
+    if (!Array.isArray(roles)) {
+      return [];
+    }
+
+    return roles
+      .map((role: any) => {
+        if (typeof role === 'string') {
+          const normalizedRole = normalizeRoleName(role);
+          return {
+            id: normalizedRole || role,
+            name: normalizedRole || role,
+          } as Role;
+        }
+
+        if (role && typeof role === 'object') {
+          const roleNameSource = role.name || role.authority || role.role || role.code || role.id || 'UNKNOWN_ROLE';
+          const normalizedRole = normalizeRoleName(roleNameSource);
+          return {
+            id: role.id || normalizedRole || this.generateRoleId(),
+            name: normalizedRole || roleNameSource,
+            description: role.description,
+          } as Role;
+        }
+
+        return { id: 'UNKNOWN_ROLE', name: 'UNKNOWN_ROLE' } as Role;
+      })
+      .filter((role) => !!role && role.name !== 'UNKNOWN_ROLE');
   }
 
   private generateRoleId(): string {
@@ -290,9 +368,9 @@ export class AuthService {
     }
     const item = localStorage.getItem(key);
     if (item) {
-      console.log(`✅ Retrieved from storage: ${key}`);
+      console.debug(`✅ Retrieved from storage: ${key}`);
     } else {
-      console.log(`ℹ️ No ${key} found in localStorage`);
+      console.debug(`ℹ️ No ${key} found in localStorage`);
     }
     return item;
   }
@@ -302,7 +380,7 @@ export class AuthService {
       return;
     }
     localStorage.setItem(key, value);
-    console.log(`💾 Stored to localStorage: ${key}`);
+    console.debug(`💾 Stored to localStorage: ${key}`);
   }
 
   private getUserFromStorage(): User | null {
@@ -326,6 +404,32 @@ export class AuthService {
       return;
     }
     localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+    this.setStoredProfilePictureUrl(user.username, user.profilePictureUrl ?? null);
+  }
+
+  private getStoredProfilePictureUrl(username?: string | null): string | null {
+    if (!this.isBrowser() || !username) {
+      return null;
+    }
+
+    return localStorage.getItem(`${this.PROFILE_PICTURE_KEY_PREFIX}${username}`);
+  }
+
+  private setStoredProfilePictureUrl(
+    username?: string | null,
+    profilePictureUrl?: string | null
+  ): void {
+    if (!this.isBrowser() || !username) {
+      return;
+    }
+
+    const key = `${this.PROFILE_PICTURE_KEY_PREFIX}${username}`;
+
+    if (profilePictureUrl) {
+      localStorage.setItem(key, profilePictureUrl);
+    } else {
+      localStorage.removeItem(key);
+    }
   }
 
   /**
@@ -344,7 +448,7 @@ export class AuthService {
       }
     }
 
-    console.log('⚠️ Session not valid, clearing storage');
+    console.debug('⚠️ Session not valid, clearing storage');
     this.clearAuth();
   }
 

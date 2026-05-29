@@ -46,6 +46,15 @@ export class AuthInterceptor implements HttpInterceptor {
     '/auth/refresh'
   ];
 
+  /**
+   * Endpoints where a 401 should NOT trigger a token refresh or logout.
+   * These are non-critical background requests that can fail silently.
+   */
+  private readonly skipRefreshEndpoints = [
+    '/notifications',
+    '/api/v1/notifications',
+  ];
+
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
 
     if (this.shouldSkipToken(req.url)) {
@@ -58,6 +67,10 @@ export class AuthInterceptor implements HttpInterceptor {
     return next.handle(authReq).pipe(
       catchError((err: HttpErrorResponse) => {
         if (err.status === 401) {
+          // Don't attempt refresh for non-critical background endpoints
+          if (this.shouldSkipRefresh(req.url)) {
+            return throwError(() => err);
+          }
           return this.handle401(req, next);
         }
         return throwError(() => err);
@@ -73,7 +86,8 @@ export class AuthInterceptor implements HttpInterceptor {
     const refreshToken = this.getRefreshToken();
 
     if (!refreshToken) {
-      this.logout();
+      // Some backend responses do not include a refresh token.
+      // Avoid tearing down the authenticated shell on the first 401.
       return throwError(() => new Error('No refresh token'));
     }
 
@@ -155,6 +169,10 @@ export class AuthInterceptor implements HttpInterceptor {
 
   private shouldSkipToken(url: string): boolean {
     return this.skipTokenEndpoints.some(ep => url.includes(ep));
+  }
+
+  private shouldSkipRefresh(url: string): boolean {
+    return this.skipRefreshEndpoints.some(ep => url.includes(ep));
   }
 
   private extractAccessToken(res: any): string | null {

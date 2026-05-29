@@ -13,11 +13,42 @@ export interface MachinesResponse {
   number?: number;
 }
 
+/** Static category → subcategory map used in the machine form. */
+export const MACHINE_CATEGORIES: Record<string, string[]> = {
+  MANUFACTURING: [
+    'CNC_MACHINE',
+    'INDUSTRIAL_ROBOT',
+    'CONVEYOR_BELT',
+    'PRESS_MACHINE',
+    'LASER_CUTTER',
+  ],
+  ENERGY: [
+    'TURBINE',
+    'GENERATOR',
+    'SOLAR_PANEL_SYSTEM',
+  ],
+  TRANSPORT: [
+    'FORKLIFT',
+    'CONVEYOR_SYSTEM',
+    'AUTOMATED_GUIDED_VEHICLE',
+  ],
+  HVAC: [
+    'AIR_COMPRESSOR',
+    'CHILLER',
+    'COOLING_TOWER',
+  ],
+  UTILITIES: [
+    'PUMP',
+    'BOILER',
+    'WATER_TREATMENT',
+  ],
+};
+
 @Injectable({
   providedIn: 'root',
 })
 export class EquipmentService {
-  private readonly machinesUrl = apiEndpoint('/machines');
+  private readonly machinesUrl = apiEndpoint('/api/v1/machines');
   private machinesSubject = new BehaviorSubject<Machine[]>([]);
   private isLoadingSubject = new BehaviorSubject<boolean>(false);
   private errorSubject = new BehaviorSubject<string | null>(null);
@@ -66,12 +97,12 @@ export class EquipmentService {
   /**
    * Get a specific machine by ID
    */
-  getMachine(id: string): Observable<Machine> {
+  getMachine(id: number | string): Observable<Machine> {
     this.isLoadingSubject.next(true);
     this.errorSubject.next(null);
 
     return this.http
-      .get<Machine>(apiEndpoint(`/machines/${id}`))
+      .get<Machine>(apiEndpoint(`/api/v1/machines/${id}`))
       .pipe(
         tap((machine) => {
           this.currentMachineSubject.next(machine);
@@ -88,14 +119,16 @@ export class EquipmentService {
 
   /**
    * Create a new machine
-   * Uses /api/v1/costs/machines per the updated backend contract.
+    * Uses /api/v1/machines per the updated backend contract.
    */
-  createMachine(request: CreateMachineRequest): Observable<Machine> {
+  createMachine(request: CreateMachineRequest, photo?: File | null): Observable<Machine> {
     this.isLoadingSubject.next(true);
     this.errorSubject.next(null);
 
+    const body = photo ? this.buildMachineFormData(request, photo) : request;
+
     return this.http
-      .post<Machine>(apiEndpoint('/costs/machines'), request)
+      .post<Machine>(this.machinesUrl, body)
       .pipe(
         tap((machine) => {
           const machines = this.machinesSubject.value;
@@ -113,14 +146,14 @@ export class EquipmentService {
 
   /**
    * Update an existing machine
-   * Uses /api/v1/costs/machines/{id} per the updated backend contract.
+    * Uses /api/v1/machines/{id} per the updated backend contract.
    */
-  updateMachine(id: string, request: Partial<CreateMachineRequest>): Observable<Machine> {
+  updateMachine(id: number, request: Partial<CreateMachineRequest>): Observable<Machine> {
     this.isLoadingSubject.next(true);
     this.errorSubject.next(null);
 
     return this.http
-      .put<Machine>(apiEndpoint(`/costs/machines/${id}`), request)
+      .put<Machine>(apiEndpoint(`/api/v1/machines/${id}`), request)
       .pipe(
         tap((machine) => {
           const machines = this.machinesSubject.value.map((m) =>
@@ -141,14 +174,14 @@ export class EquipmentService {
 
   /**
    * Delete a machine
-   * Uses /api/v1/costs/machines/{id} per the updated backend contract.
+    * Uses /api/v1/machines/{id} per the updated backend contract.
    */
-  deleteMachine(id: string): Observable<void> {
+  deleteMachine(id: number): Observable<void> {
     this.isLoadingSubject.next(true);
     this.errorSubject.next(null);
 
     return this.http
-      .delete<void>(apiEndpoint(`/costs/machines/${id}`))
+      .delete<void>(apiEndpoint(`/api/v1/machines/${id}`))
       .pipe(
         tap(() => {
           const machines = this.machinesSubject.value.filter((m) => m.id !== id);
@@ -225,11 +258,33 @@ export class EquipmentService {
   }
 
   /**
+   * Returns subcategories for a given category name.
+   * Falls back to the static map if the backend does not expose a dedicated endpoint.
+   */
+  getSubCategories(categoryName: string): Observable<string[]> {
+    const upper = categoryName?.toUpperCase() ?? '';
+    const local = MACHINE_CATEGORIES[upper] ?? [];
+    return of(local);
+  }
+
+  /**
    * Get real-time machine status.
    * The /predictions/latest endpoint does not exist in the current backend contract.
    * Returns an empty observable so callers degrade gracefully.
    */
   getMachineStatus(machineId: string): Observable<any> {
     return of(null);
+  }
+
+  private buildMachineFormData(request: CreateMachineRequest, photo: File): FormData {
+    const formData = new FormData();
+    Object.entries(request).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') {
+        return;
+      }
+      formData.append(key, String(value));
+    });
+    formData.append('photo', photo);
+    return formData;
   }
 }

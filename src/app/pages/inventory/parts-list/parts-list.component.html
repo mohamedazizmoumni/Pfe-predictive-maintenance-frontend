@@ -1,126 +1,434 @@
-<div class="parts-toolbar">
-  <div class="toolbar-left">
-    <input
-      type="search"
-      placeholder="Search by part number, name, or category"
-      [(ngModel)]="searchTerm"
-      (ngModelChange)="onSearchChange()"
-    />
+<div class="inventory-page">
 
-    <select [(ngModel)]="filterStatus" (ngModelChange)="onFilterChange()">
-      <option value="all">All statuses</option>
-      <option value="ok">OK</option>
-      <option value="low">Low</option>
-      <option value="critical">Out of Stock</option>
-    </select>
+  <!-- HERO HEADER -->
+  <section class="hero-card">
 
-    <select [(ngModel)]="filterCategory" (ngModelChange)="onFilterChange()">
-      <option value="all">All categories</option>
-      <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
-    </select>
+    <div class="hero-left">
+
+      <div class="hero-badge">
+        📦 SMART INVENTORY
+      </div>
+
+      <h1 class="hero-title">
+        Inventory Management
+      </h1>
+
+      <p class="hero-subtitle">
+        Monitor stock levels, track inventory health,
+        manage pricing and optimize warehouse operations.
+      </p>
+
+    </div>
+
+    <div class="hero-stats">
+
+      <div class="stat-card">
+        <span class="stat-label">Total Parts</span>
+        <strong class="stat-value">
+          {{ filteredParts.length }}
+        </strong>
+      </div>
+
+      <div class="stat-card critical">
+        <span class="stat-label">Critical</span>
+        <strong class="stat-value">
+          {{ getCriticalCount() }}
+        </strong>
+      </div>
+
+      <div class="stat-card warning">
+        <span class="stat-label">Low Stock</span>
+        <strong class="stat-value">
+          {{ getLowCount() }}
+        </strong>
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- TOOLBAR -->
+  <section class="toolbar-card">
+
+    <div class="search-wrapper">
+
+      <span class="search-icon">🔍</span>
+
+      <input
+        type="search"
+        placeholder="Search by part name, category or part number..."
+        [(ngModel)]="searchTerm"
+        (ngModelChange)="onSearchChange()"
+        class="search-input"
+      />
+
+    </div>
+
+    <div class="toolbar-actions">
+
+      <select
+        [(ngModel)]="filterStatus"
+        (ngModelChange)="onFilterChange()"
+        class="select-control">
+
+        <option value="all">
+          All Status
+        </option>
+
+        <option value="ok">
+          Healthy
+        </option>
+
+        <option value="low">
+          Low
+        </option>
+
+        <option value="critical">
+          Critical
+        </option>
+
+      </select>
+
+      <select
+        [(ngModel)]="filterCategory"
+        (ngModelChange)="onFilterChange()"
+        class="select-control">
+
+        <option value="all">
+          All Categories
+        </option>
+
+        <option
+          *ngFor="let c of categories"
+          [value]="c">
+
+          {{ c }}
+
+        </option>
+
+      </select>
+
+      <button
+        class="btn btn-export"
+        (click)="exportToCsv()"
+        [disabled]="isExporting">
+
+        <span>⬇</span>
+        Export
+
+      </button>
+
+      <button
+        class="btn btn-primary"
+        (click)="createPart()">
+
+        <span>＋</span>
+        Add Part
+
+      </button>
+
+    </div>
+
+  </section>
+
+  <!-- ERROR -->
+  <div class="alert-error" *ngIf="error">
+
+    <span>⚠</span>
+
+    <div>
+      {{ error }}
+    </div>
+
   </div>
 
-  <div class="toolbar-right">
-    <button type="button" class="secondary" (click)="exportToCsv()" [disabled]="isExporting || isLoading">
-      {{ isExporting ? 'Exporting…' : 'Export CSV' }}
+  <!-- TABLE CARD -->
+  <section
+    class="table-wrapper"
+    *ngIf="!isLoading">
+
+    <div class="table-header">
+
+      <div>
+        <h3>
+          Inventory Assets
+        </h3>
+
+        <p>
+          Real-time inventory overview
+        </p>
+      </div>
+
+    </div>
+
+    <div class="table-scroll">
+
+      <table>
+
+        <thead>
+
+          <tr>
+
+            <th>Part</th>
+
+            <th
+              class="sortable"
+              (click)="onSort('name')">
+
+              Name
+
+            </th>
+
+            <th>Category</th>
+
+            <th
+              class="sortable"
+              (click)="onSort('currentStock')">
+
+              Stock
+
+            </th>
+
+            <th>Minimum</th>
+
+            <th>Total Value</th>
+
+            <th>Status</th>
+
+            <th>Performance</th>
+
+            <th>Actions</th>
+
+          </tr>
+
+        </thead>
+
+        <tbody>
+
+          <tr
+            *ngFor="
+              let part of filteredParts;
+              trackBy: trackByPart
+            "
+            class="inventory-row">
+
+            <!-- PART -->
+            <td>
+
+              <div class="part-info">
+
+                <div class="part-image">
+
+                  <img
+                    *ngIf="getImageUrl(part)"
+                    [src]="getImageUrl(part)"
+                  />
+
+                  <span *ngIf="!getImageUrl(part)">
+                    📦
+                  </span>
+
+                </div>
+
+                <div>
+
+                  <div class="part-number">
+                    {{ part.partNumber }}
+                  </div>
+
+                </div>
+
+              </div>
+
+            </td>
+
+            <!-- NAME -->
+            <td>
+
+              <div class="part-name">
+                {{ part.name }}
+              </div>
+
+            </td>
+
+            <!-- CATEGORY -->
+            <td>
+
+              <span class="category-pill">
+                {{ part.category }}
+              </span>
+
+            </td>
+
+            <!-- STOCK -->
+            <td>
+
+              <div class="stock-value">
+                {{ part.currentStock }}
+              </div>
+
+            </td>
+
+            <!-- MIN -->
+            <td>
+
+              <span class="minimum-stock">
+                {{ part.minimumStock }}
+              </span>
+
+            </td>
+
+            <!-- VALUE -->
+            <td>
+
+              <div class="price-value">
+                {{
+                  stockValue(part)
+                    | currency:'TND':'symbol'
+                }}
+              </div>
+
+            </td>
+
+            <!-- STATUS -->
+            <td>
+
+              <span
+                class="status-badge"
+                [ngClass]="stockStatus(part)">
+
+                <span class="dot"></span>
+
+                {{ stockStatus(part) }}
+
+              </span>
+
+            </td>
+
+            <!-- KPI -->
+            <td>
+
+              <div class="kpi-wrapper">
+
+                <span
+                  class="kpi-value"
+                  [class.good]="stockAboveMinimum(part) >= 0"
+                  [class.bad]="stockAboveMinimum(part) < 0">
+
+                  {{ stockAboveMinimum(part) }}
+
+                </span>
+
+                <div class="progress-bar">
+
+                  <div
+                    class="progress-fill"
+                    [style.width.%]="
+                      (
+                        part.currentStock /
+                        (
+                          part.minimumStock * 2
+                        )
+                      ) * 100
+                    ">
+                  </div>
+
+                </div>
+
+              </div>
+
+            </td>
+
+            <!-- ACTIONS -->
+            <td>
+
+              <div class="actions">
+
+                <button
+                  class="btn-action btn-view"
+                  (click)="viewPart(part)">
+
+                  View
+
+                </button>
+
+                <button
+                  class="btn-action btn-edit"
+                  (click)="editPart(part)">
+
+                  Edit
+
+                </button>
+
+              </div>
+
+            </td>
+
+          </tr>
+
+          <!-- EMPTY -->
+          <tr *ngIf="filteredParts.length === 0">
+
+            <td
+              colspan="9"
+              class="empty-state">
+
+              <div class="empty-content">
+
+                <div class="empty-icon">
+                  📦
+                </div>
+
+                <h3>
+                  No parts found
+                </h3>
+
+                <p>
+                  Try adjusting your filters
+                  or create a new inventory part.
+                </p>
+
+              </div>
+
+            </td>
+
+          </tr>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </section>
+
+  <!-- PAGINATION -->
+  <section class="pagination-bar">
+
+    <button
+      class="pagination-btn"
+      (click)="prevPage()"
+      [disabled]="page === 0">
+
+      ← Previous
+
     </button>
-    <button type="button" (click)="createPart()">Add part</button>
-  </div>
-</div>
 
-<div class="alert alert-error" *ngIf="error">{{ error }}</div>
-<div class="loading" *ngIf="isLoading">Loading parts…</div>
+    <div class="page-indicator">
 
-<div class="table-wrapper" *ngIf="!isLoading">
-  <table>
-    <thead>
-      <tr>
-        <th (click)="onSort('partNumber')">
-          Part #
-          <span class="sort-indicator" *ngIf="isSorted('partNumber', 'asc')">▲</span>
-          <span class="sort-indicator" *ngIf="isSorted('partNumber', 'desc')">▼</span>
-        </th>
-        <th (click)="onSort('name')">
-          Name
-          <span class="sort-indicator" *ngIf="isSorted('name', 'asc')">▲</span>
-          <span class="sort-indicator" *ngIf="isSorted('name', 'desc')">▼</span>
-        </th>
-        <th (click)="onSort('category')">
-          Category
-          <span class="sort-indicator" *ngIf="isSorted('category', 'asc')">▲</span>
-          <span class="sort-indicator" *ngIf="isSorted('category', 'desc')">▼</span>
-        </th>
-        <th (click)="onSort('currentStock')">
-          Stock
-          <span class="sort-indicator" *ngIf="isSorted('currentStock', 'asc')">▲</span>
-          <span class="sort-indicator" *ngIf="isSorted('currentStock', 'desc')">▼</span>
-        </th>
-        <th (click)="onSort('minimumStock')">
-          Min
-          <span class="sort-indicator" *ngIf="isSorted('minimumStock', 'asc')">▲</span>
-          <span class="sort-indicator" *ngIf="isSorted('minimumStock', 'desc')">▼</span>
-        </th>
-        <th (click)="onSort('cost')">
-          Unit cost
-          <span class="sort-indicator" *ngIf="isSorted('cost', 'asc')">▲</span>
-          <span class="sort-indicator" *ngIf="isSorted('cost', 'desc')">▼</span>
-        </th>
-        <th (click)="onSort('stockValue')">
-          KPIs
-          <span class="sort-indicator" *ngIf="isSorted('stockValue', 'asc')">▲</span>
-          <span class="sort-indicator" *ngIf="isSorted('stockValue', 'desc')">▼</span>
-        </th>
-        <th>Status</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let part of filteredParts; trackBy: trackByPart">
-        <td>{{ part.partNumber }}</td>
-        <td>{{ part.name }}</td>
-        <td>{{ part.category }}</td>
-        <td>{{ part.currentStock | number }}</td>
-        <td>{{ part.minimumStock | number }}</td>
-        <td>{{ part.cost | currency }}</td>
-        <td>
-          <div class="kpi-row">
-            <span class="kpi">
-              Stock vs min:
-              <strong>
-                {{ stockAboveMinimum(part) >= 0 ? '+' + (stockAboveMinimum(part) | number) : (stockAboveMinimum(part) | number) }}
-              </strong>
-            </span>
-            <span class="kpi">
-              Value:
-              <strong>{{ stockValue(part) | currency }}</strong>
-            </span>
-          </div>
-        </td>
-        <td>
-          <span class="status" [class]="stockStatus(part)">
-            {{ stockStatus(part) === 'ok' ? 'OK' : stockStatus(part) === 'low' ? 'Low' : 'Out of Stock' }}
-          </span>
-        </td>
-        <td class="actions">
-          <button type="button" (click)="viewPart(part)">View</button>
-          <button type="button" (click)="editPart(part)">Edit</button>
-          <button *ngIf="canRequest()" type="button" (click)="requestReorderQuick(part)">Request</button>
-        </td>
-      </tr>
-      <tr *ngIf="filteredParts.length === 0">
-        <td colspan="8" class="empty">No parts match the current filters.</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+      Page
+      <strong>{{ page + 1 }}</strong>
 
-<div class="pagination">
-  <button type="button" (click)="prevPage()" [disabled]="page === 0">Previous</button>
-  <span>
-    Page {{ page + 1 }}
-    <ng-container *ngIf="totalElements > 0">· Showing
-      {{ pageStartIndex }}–{{ pageEndIndex }} of {{ totalElements }}
-    </ng-container>
-  </span>
-  <button type="button" (click)="nextPage()" [disabled]="(page + 1) * size >= totalElements">Next</button>
+    </div>
+
+    <button
+      class="pagination-btn"
+      (click)="nextPage()">
+
+      Next →
+
+    </button>
+
+  </section>
+
 </div>

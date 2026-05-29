@@ -1,12 +1,14 @@
 <section class="alert-detail-panel">
+
   <div class="loading" *ngIf="isLoading">
     <p>Loading alert context…</p>
   </div>
 
   <ng-container *ngIf="alert; else emptyState">
+
     <header>
       <div>
-        <p>Selected alert</p>
+        <p>Selected Alert</p>
         <h2>{{ alert.title }}</h2>
         <span>{{ alert.message || 'No operator message provided.' }}</span>
       </div>
@@ -46,7 +48,7 @@
           <div class="dot"></div>
           <div>
             <strong>{{ step.label }}</strong>
-            <time>{{ step.date | date: 'medium' }}</time>
+            <time>{{ step.date | date:'medium' }}</time>
             <p *ngIf="step.actor">{{ step.actor }}</p>
             <p *ngIf="step.note" class="note">{{ step.note }}</p>
           </div>
@@ -55,29 +57,23 @@
       </ul>
     </section>
 
-    <section class="actions">
-      <button type="button" (click)="triggerAcknowledge()" [disabled]="!canAcknowledge || actionInFlight">
-        Acknowledge
-      </button>
-      <button type="button" (click)="triggerEscalate()" [disabled]="!canEscalate || actionInFlight">
-        Escalate
-      </button>
-      <button type="button" (click)="triggerClose()" [disabled]="!canClose || actionInFlight">
-        Close
-      </button>
-      <button type="button" class="ghost" (click)="refresh.emit()">Refresh detail</button>
-      <button type="button" class="destructive" (click)="triggerDelete()" [disabled]="actionInFlight">
-        Delete
-      </button>
-    </section>
+    <div class="actions">
+      <button type="button" (click)="triggerAcknowledge()" [disabled]="!canAcknowledge || actionInFlight">Acknowledge</button>
+      <button type="button" (click)="triggerEscalate()"   [disabled]="!canEscalate   || actionInFlight">Escalate</button>
+      <button type="button" (click)="triggerClose()"      [disabled]="!canClose       || actionInFlight">Close</button>
+      <button type="button" class="ghost" (click)="refresh.emit()">↻ Refresh</button>
+      <button type="button" class="destructive" (click)="triggerDelete()" [disabled]="actionInFlight">Delete</button>
+    </div>
 
     <p *ngIf="error" class="error-banner">{{ error }}</p>
+
   </ng-container>
 
   <ng-template #emptyState>
     <div class="placeholder">
-      <p>Select an alert from the feed to inspect its lifecycle.</p>
-      <span>Unread alerts will automatically mark as viewed the moment you open them.</span>
+      <p>Select an alert from the feed</p>
+      <span>Inspect its lifecycle, take action, and mark it resolved. Unread alerts are auto-viewed on open.</span>
     </div>
   </ng-template>
+
 </section>

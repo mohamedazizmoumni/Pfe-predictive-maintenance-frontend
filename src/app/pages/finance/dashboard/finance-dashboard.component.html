@@ -1,0 +1,296 @@
+<section class="finance-page">
+  <header class="finance-hero">
+    <div class="hero-left">
+      <p class="hero-kicker">Financial Operations Center</p>
+      <h1 class="hero-title">Finance Command Dashboard</h1>
+      <p class="hero-subtitle">
+        Real-time budget intelligence, cost forecasting, and operational financial control.
+      </p>
+
+      <div class="hero-insights">
+        <div class="hero-chip success">{{ budgetStatusLabel }}</div>
+        <div class="hero-chip warning">{{ forecastStatusLabel }}</div>
+        <div class="hero-chip info">{{ liveDataLabel }}</div>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <button class="btn btn-secondary" (click)="load()" [disabled]="isLoading">
+        {{ isLoading ? 'Refreshing…' : '↻ Refresh Data' }}
+      </button>
+
+      <button class="btn btn-primary" (click)="exportSummaryCSV()" [disabled]="!summary">
+        Export Summary
+      </button>
+
+      <button class="btn btn-ghost" (click)="goToBudget()">
+        Manage Budget
+      </button>
+    </div>
+  </header>
+
+  <div class="period-bar">
+    <div class="period-field">
+      <label>Year</label>
+      <select [(ngModel)]="selectedYear" (change)="onPeriodChange()">
+        <option *ngFor="let year of yearOptions" [ngValue]="year">{{ year }}</option>
+      </select>
+    </div>
+
+    <div class="period-field">
+      <label>Month</label>
+      <select [(ngModel)]="selectedMonth" (change)="onPeriodChange()">
+        <option *ngFor="let month of monthOptions" [ngValue]="month.value">{{ month.label }}</option>
+      </select>
+    </div>
+
+    <div class="period-meta">
+      <span>Selected period</span>
+      <strong>{{ summary?.monthName || 'Loading period…' }} {{ summary?.year || selectedYear }}</strong>
+    </div>
+  </div>
+
+  <div class="loading-state" *ngIf="isLoading && !dashboard">
+    <div class="spinner"></div>
+    <p>Loading financial intelligence...</p>
+  </div>
+
+  <div class="error-strip" *ngIf="showAlert">
+    <span>⚠ {{ budgetAlertMessage }}</span>
+    <button (click)="goToBudget()">Manage Budget</button>
+  </div>
+
+  <div class="message-strip error" *ngIf="error">
+    <span>{{ error }}</span>
+    <button (click)="dismissError()">Dismiss</button>
+  </div>
+
+  <div class="message-strip error" *ngIf="summaryError">
+    <span>{{ summaryError }}</span>
+  </div>
+
+  <div class="message-strip error" *ngIf="trendError">
+    <span>{{ trendError }}</span>
+  </div>
+
+  <ng-container *ngIf="dashboard as d">
+    <div class="kpi-grid">
+      <article class="kpi-card primary">
+        <h3>Monthly Budget</h3>
+        <p>{{ totalBudget | currency:'TND' }}</p>
+        <span class="trend up">{{ d.currentYear }}</span>
+      </article>
+
+      <article class="kpi-card danger">
+        <h3>Spent MTD</h3>
+        <p>{{ spentAmount | currency:'TND' }}</p>
+        <span class="trend">{{ utilizationPercentage | number:'1.0-0' }}% used</span>
+      </article>
+
+      <article class="kpi-card warning">
+        <h3>Pending Approval</h3>
+        <p>{{ pendingApprovalsAmount | currency:'TND' }}</p>
+        <span class="trend">{{ pendingApprovalsTotal }} requests</span>
+      </article>
+
+      <article class="kpi-card info">
+        <h3>Forecast Variance</h3>
+        <p [class.negative-value]="forecastVariance < 0">{{ forecastVariance | number:'1.1-1' }}%</p>
+        <span class="trend">{{ forecastVariance >= 0 ? 'Reserve above plan' : 'Below plan' }}</span>
+      </article>
+    </div>
+
+    <div class="grid-layout">
+      <article class="card chart-card big">
+        <div class="card-header">
+          <div>
+            <h2>Cash Flow</h2>
+            <p>Approved, pending, and rejected totals for the last 12 months</p>
+          </div>
+          <div class="chart-badges">
+            <span class="badge good">Approved</span>
+            <span class="badge warn">Pending</span>
+            <span class="badge bad">Rejected</span>
+          </div>
+        </div>
+
+        <div class="chart-loading" *ngIf="trendLoading">
+          Loading monthly trend...
+        </div>
+
+        <div class="chart-empty" *ngIf="!trendLoading && !trendPoints.length">
+          No monthly trend data available.
+        </div>
+
+        <div class="line-chart" *ngIf="!trendLoading && trendPoints.length">
+          <svg viewBox="0 0 720 260" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="rgba(56, 189, 248, 0.35)" />
+                <stop offset="100%" stop-color="rgba(56, 189, 248, 0.02)" />
+              </linearGradient>
+            </defs>
+
+            <path class="chart-area" [attr.d]="trendAreaPath"></path>
+            <path class="chart-line" [attr.d]="trendPath"></path>
+
+            <circle
+              *ngFor="let point of trendPoints"
+              class="chart-point"
+              [attr.cx]="point.x"
+              [attr.cy]="point.y"
+              r="4"
+            ></circle>
+          </svg>
+
+          <div class="line-axis">
+            <span *ngFor="let point of trendPoints">{{ point.label }}</span>
+          </div>
+        </div>
+
+        <div class="chart-footer">
+          <div>
+            <span>Approved total</span>
+            <strong>{{ summary?.totalApprovedAmount | currency:'TND' }}</strong>
+          </div>
+          <div>
+            <span>Pending total</span>
+            <strong>{{ summary?.totalPendingAmount | currency:'TND' }}</strong>
+          </div>
+          <div>
+            <span>Rejected total</span>
+            <strong>{{ summary?.totalRejectedAmount | currency:'TND' }}</strong>
+          </div>
+        </div>
+      </article>
+
+      <article class="card chart-card">
+        <div class="card-header">
+          <div>
+            <h2>Spend by Category</h2>
+            <p>{{ trendTitle }}</p>
+          </div>
+        </div>
+
+        <div class="donut-layout">
+          <div class="donut" [style.background]="donutBackground">
+            <div class="donut-center">
+              <strong>{{ summary?.totalApprovedAmount | currency:'TND' }}</strong>
+              <span>Approved</span>
+            </div>
+          </div>
+
+          <div class="donut-legend">
+            <div class="legend-row" *ngFor="let slice of summarySlices">
+              <span class="legend-dot" [style.background]="slice.color"></span>
+              <div>
+                <strong>{{ slice.label }}</strong>
+                <p>{{ slice.amount | currency:'TND' }} • {{ slice.pct | number:'1.0-0' }}%</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card full">
+        <div class="card-header">
+          <div>
+            <h2>Spending Breakdown</h2>
+            <p>Current budget mix by category</p>
+          </div>
+        </div>
+
+        <div class="category-grid">
+          <div class="cat" *ngFor="let row of categoryRows">
+            <div class="cat-top">
+              <span class="cat-icon">{{ row.icon }}</span>
+              <b>{{ row.label }}</b>
+              <span>{{ row.amount | currency:'TND' }}</span>
+            </div>
+
+            <div class="cat-bar">
+              <div class="cat-fill" [style.width.%]="row.pct" [style.background]="row.color"></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-header">
+          <div>
+            <h2>Pending Approvals</h2>
+            <p>Latest requests awaiting finance review</p>
+          </div>
+        </div>
+
+        <div class="approval-list">
+          <div class="approval" *ngFor="let row of pendingApprovalsRows">
+            <div>
+              <b>{{ row.vendor }}</b>
+              <span>{{ row.status }}</span>
+            </div>
+            <div class="approval-meta">
+              <strong>{{ row.amount | currency:'TND' }}</strong>
+              <span>{{ row.time }}</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-header">
+          <div>
+            <h2>Top Vendors</h2>
+            <p>{{ topVendorSubtitle }}</p>
+          </div>
+        </div>
+
+        <div class="vendor-list" *ngIf="vendorRows.length; else emptyVendors">
+          <div class="vendor-row" *ngFor="let vendor of vendorRows">
+            <div>
+              <b>{{ vendor.name }}</b>
+              <span>{{ vendor.count }} expense{{ vendor.count === 1 ? '' : 's' }}</span>
+            </div>
+            <div class="vendor-meta">
+              <strong>{{ vendor.amount | currency:'TND' }}</strong>
+              <span>{{ vendor.latestDate | date:'MMM d' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <ng-template #emptyVendors>
+          <div class="chart-empty">No vendor data available.</div>
+        </ng-template>
+      </article>
+
+      <article class="card full health-card">
+        <div class="card-header">
+          <div>
+            <h2>Budget Health</h2>
+            <p>Utilization by category with real-time variance indicators</p>
+          </div>
+          <span class="badge" [class.good]="utilizationPercentage < 70"
+                              [class.warn]="utilizationPercentage >= 70 && utilizationPercentage < 90"
+                              [class.bad]="utilizationPercentage >= 90">
+            {{ utilizationPercentage | number:'1.0-0' }}%
+          </span>
+        </div>
+
+        <div class="health-list">
+          <div class="health-row" *ngFor="let row of categoryRows">
+            <div class="health-left">
+              <span class="health-dot" [style.background]="row.color"></span>
+              <div>
+                <strong>{{ row.label }}</strong>
+                <div class="health-bar">
+                  <div class="health-fill" [style.width.%]="row.pct" [style.background]="row.color"></div>
+                </div>
+              </div>
+            </div>
+            <span class="health-value">{{ row.pct }}%</span>
+          </div>
+        </div>
+      </article>
+    </div>
+  </ng-container>
+</section>

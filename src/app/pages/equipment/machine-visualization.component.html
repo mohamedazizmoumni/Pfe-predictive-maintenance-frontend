@@ -1,211 +1,431 @@
-<section class="machine-visual-page">
-  <header class="topbar">
-    <div>
-      <a routerLink="/equipment" class="back-link">← Back to Machines</a>
-      <h1>{{ machine?.name || machine?.serialNumber || 'Machine' }} Live Visual</h1>
-      <p>
-        {{ machine?.model || 'Unknown model' }} · {{ machine?.manufacturer || 'Unknown manufacturer' }}
-        · {{ machine?.location || 'Unknown location' }}
-      </p>
+<div class="mviz">
+  <div class="mviz__grid-bg" aria-hidden="true"></div>
+
+  <!-- ═══════════════════════════════════════
+       COMMAND HEADER
+  ════════════════════════════════════════ -->
+  <header class="cmd-header">
+    <div class="cmd-header__left">
+      <a routerLink="../" class="cmd-back">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Machines
+      </a>
+      <div class="cmd-header__sep"></div>
+      <div class="cmd-identity">
+        <span class="cmd-identity__zone">Zone A · Press Area</span>
+        <h1 class="cmd-identity__serial">{{ machine?.serialNumber || 'SN-——' }}</h1>
+        <span class="cmd-identity__model">{{ machine?.name || 'Industrial Asset' }}</span>
+      </div>
     </div>
-    <div class="topbar-actions">
-      <span [class]="statusClass">{{ machine?.status || 'UNKNOWN' }}</span>
-      <button type="button" class="btn secondary" (click)="refreshNow()">Refresh Now</button>
-      <button type="button" class="btn primary" (click)="downloadRapport()">Download Rapport</button>
+
+    <div class="cmd-header__right">
+      <div class="cmd-stat-pill" [class.cmd-stat-pill--online]="isConnected" [class.cmd-stat-pill--offline]="!isConnected">
+        <span class="cmd-dot"></span>
+        {{ isConnected ? 'Live' : 'Offline' }}
+      </div>
+      <div class="cmd-stat-pill cmd-stat-pill--dim">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3.5l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        {{ lastUpdated | date:'HH:mm:ss' }}
+      </div>
+      <div class="cmd-trio">
+        <div class="cmd-trio__item">
+          <span class="cmd-trio__label">State</span>
+          <strong class="cmd-trio__val" [class.cmd-trio__val--degraded]="operationState === 'DEGRADED'" [class.cmd-trio__val--danger]="operationState === 'AT RISK'" [class.cmd-trio__val--ok]="operationState === 'RUNNING'">{{ operationState }}</strong>
+        </div>
+        <div class="cmd-trio__divider"></div>
+        <div class="cmd-trio__item">
+          <span class="cmd-trio__label">Telemetry</span>
+          <strong class="cmd-trio__val" [class.cmd-trio__val--ok]="isConnected">{{ isConnected ? 'Streaming' : 'Disconnected' }}</strong>
+        </div>
+        <div class="cmd-trio__divider"></div>
+        <div class="cmd-trio__item">
+          <span class="cmd-trio__label">Health</span>
+          <strong class="cmd-trio__val" [class.cmd-trio__val--danger]="health < 45" [class.cmd-trio__val--degraded]="health >= 45 && health < 65" [class.cmd-trio__val--ok]="health >= 65">{{ healthStatusLabel }}</strong>
+        </div>
+      </div>
+      <button class="cmd-btn cmd-btn--ghost" type="button" (click)="downloadRapport()" [class.cmd-btn--loading]="isGeneratingRapport">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3M3 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        {{ isGeneratingRapport ? 'Generating…' : 'Report' }}
+      </button>
     </div>
   </header>
 
-  <div *ngIf="errorMessage" class="error-banner">{{ errorMessage }}</div>
-
-  <div class="loading" *ngIf="isLoading">
-    <span class="spinner"></span>
-    <p>Loading real-time machine data...</p>
+  <div *ngIf="isLoading" class="cmd-banner cmd-banner--info">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    Loading machine data from backend…
+  </div>
+  <div *ngIf="errorMessage" class="cmd-banner cmd-banner--error">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 14H2L8 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 7v3M8 11.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    {{ errorMessage }}
   </div>
 
-  <ng-container *ngIf="!isLoading && !errorMessage">
-    <section class="kpi-grid">
-      <article class="kpi">
-        <p class="kpi-label">Temperature</p>
-        <p class="kpi-value">{{ temperatureNow | number : '1.1-1' }} °C</p>
-      </article>
-      <article class="kpi">
-        <p class="kpi-label">Utilisation</p>
-        <p class="kpi-value">{{ utilizationNow | number : '1.0-1' }} %</p>
-      </article>
-      <article class="kpi">
-        <p class="kpi-label">Risk Score</p>
-        <p class="kpi-value">{{ riskNowPercent | number : '1.0-1' }} %</p>
-      </article>
-      <article class="kpi">
-        <p class="kpi-label">Last Update</p>
-        <p class="kpi-value kpi-time">{{ lastUpdated | date : 'mediumTime' }}</p>
-      </article>
-    </section>
+  <!-- ═══════════════════════════════════════
+       KPI STRIP
+  ════════════════════════════════════════ -->
+  <section class="kpi-strip" aria-label="Key performance indicators">
 
-    <section class="content-grid">
-      <article class="panel market-panel">
-        <div class="market-head">
-          <div>
-            <h3>{{ marketChartTitle }}</h3>
-            <p>Live market-style movement based on incoming machine telemetry.</p>
-          </div>
-          <div class="market-control-groups">
-            <div class="metric-switcher">
-              <button
-                type="button"
-                [class.active]="marketMetric === 'temperature'"
-                (click)="setMarketMetric('temperature')"
-              >
-                Temperature
-              </button>
-              <button
-                type="button"
-                [class.active]="marketMetric === 'utilization'"
-                (click)="setMarketMetric('utilization')"
-              >
-                Utilization
-              </button>
-              <button
-                type="button"
-                [class.active]="marketMetric === 'risk'"
-                (click)="setMarketMetric('risk')"
-              >
-                Risk
-              </button>
-            </div>
-
-            <div class="zoom-switcher">
-              <button type="button" [class.active]="marketZoom === '1m'" (click)="setMarketZoom('1m')">1m</button>
-              <button type="button" [class.active]="marketZoom === '5m'" (click)="setMarketZoom('5m')">5m</button>
-              <button type="button" [class.active]="marketZoom === '15m'" (click)="setMarketZoom('15m')">15m</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="market-stats">
-          <p>
-            Last close:
-            <strong>{{ marketCloseValue | number : '1.2-2' }} {{ marketMetricUnit }}</strong>
-            <span class="live-dot" aria-hidden="true"></span>
-            <span class="live-label">LIVE</span>
-          </p>
-          <p [class]="marketTrendClass">
-            Change:
-            <strong>{{ marketChangePercent | number : '1.2-2' }}%</strong>
-          </p>
-        </div>
-
-        <svg
-          class="market-svg"
-          viewBox="0 0 700 280"
-          role="img"
-          aria-label="Trading-style machine chart"
-          (mousemove)="onMarketMouseMove($event)"
-          (mouseleave)="onMarketMouseLeave()"
-        >
-          <defs>
-            <linearGradient id="marketArea" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="rgba(15,118,110,0.35)"></stop>
-              <stop offset="100%" stop-color="rgba(15,118,110,0.02)"></stop>
-            </linearGradient>
-          </defs>
-
-          <g class="threshold-bands">
-            <rect
-              *ngFor="let band of thresholdBandRects"
-              [attr.x]="0"
-              [attr.y]="band.y"
-              [attr.width]="marketChartWidth"
-              [attr.height]="band.height"
-              [class]="'band-' + band.label"
-            ></rect>
-          </g>
-
-          <g class="market-grid">
-            <line x1="0" y1="42" x2="700" y2="42"></line>
-            <line x1="0" y1="84" x2="700" y2="84"></line>
-            <line x1="0" y1="126" x2="700" y2="126"></line>
-            <line x1="0" y1="168" x2="700" y2="168"></line>
-            <line x1="0" y1="210" x2="700" y2="210"></line>
-          </g>
-
-          <path class="market-area" [attr.d]="marketAreaPath"></path>
-          <path class="market-line" [attr.d]="marketPathLine"></path>
-          <path class="market-ema-line" [attr.d]="marketEmaPath"></path>
-
-          <g class="candles">
-            <g *ngFor="let candle of marketCandles">
-              <line
-                [attr.x1]="candle.x"
-                [attr.y1]="candle.wickTop"
-                [attr.x2]="candle.x"
-                [attr.y2]="candle.wickBottom"
-                [class.up]="candle.up"
-                [class.down]="!candle.up"
-              ></line>
-              <rect
-                [attr.x]="candle.x - (candle.bodyWidth / 2)"
-                [attr.y]="candle.bodyTop"
-                [attr.width]="candle.bodyWidth"
-                [attr.height]="candle.bodyHeight"
-                [class.up]="candle.up"
-                [class.down]="!candle.up"
-              ></rect>
-            </g>
-          </g>
-
-          <g class="impulse-bars">
-            <rect
-              *ngFor="let bar of marketImpulseBars"
-              [attr.x]="bar.x"
-              [attr.y]="bar.y"
-              [attr.width]="bar.width"
-              [attr.height]="bar.height"
-              [class.up]="bar.up"
-              [class.down]="!bar.up"
-            ></rect>
-          </g>
-
-          <g *ngIf="hoveredCandle as hovered" class="crosshair-layer">
-            <line [attr.x1]="crosshairX" [attr.y1]="marketChartTop" [attr.x2]="crosshairX" [attr.y2]="marketChartBaseY"></line>
-            <line [attr.x1]="0" [attr.y1]="crosshairY" [attr.x2]="marketChartWidth" [attr.y2]="crosshairY"></line>
-
-            <circle [attr.cx]="crosshairX" [attr.cy]="crosshairY" r="3.5"></circle>
-
-            <rect class="ohlc-tooltip" [attr.x]="tooltipX" [attr.y]="tooltipY" width="154" height="86" rx="8"></rect>
-            <text [attr.x]="tooltipX + 8" [attr.y]="tooltipY + 16" class="ohlc-line">{{ hovered.timestamp | date : 'HH:mm:ss' }}</text>
-            <text [attr.x]="tooltipX + 8" [attr.y]="tooltipY + 32" class="ohlc-line">O: {{ hovered.open | number : '1.2-2' }}</text>
-            <text [attr.x]="tooltipX + 8" [attr.y]="tooltipY + 46" class="ohlc-line">H: {{ hovered.high | number : '1.2-2' }}</text>
-            <text [attr.x]="tooltipX + 8" [attr.y]="tooltipY + 60" class="ohlc-line">L: {{ hovered.low | number : '1.2-2' }}</text>
-            <text [attr.x]="tooltipX + 8" [attr.y]="tooltipY + 74" class="ohlc-line">C: {{ hovered.close | number : '1.2-2' }}</text>
-          </g>
-        </svg>
-      </article>
-
-      <article class="panel report-panel">
-        <h3>Latest Predictive Rapport</h3>
-        <div class="report-lines">
-          <p><strong>Predicted failure in:</strong> {{ latestReport?.predictedFailureDays ?? 'N/A' }} days</p>
-          <p><strong>Estimated cost:</strong> {{ latestReport?.estimatedCost ?? 0 | currency }}</p>
-          <p><strong>Risk:</strong> {{ reportRiskPercent | number : '1.0-1' }} %</p>
-          <p><strong>Action:</strong> {{ latestReport?.recommendedAction || 'No action available yet.' }}</p>
-        </div>
-      </article>
-    </section>
-
-    <section class="panel sensors-panel">
-      <h3>Sensors Live Snapshot</h3>
-      <div class="sensors-grid">
-        <article class="sensor-card" *ngFor="let sensor of sensors">
-          <div class="sensor-head">
-            <p>{{ sensor.code }}</p>
-            <span class="sensor-status" [class.anomaly]="sensor.isAnomaly">{{ sensor.status }}</span>
-          </div>
-          <p class="sensor-type">{{ sensor.type }}</p>
-          <p class="sensor-value">{{ sensor.value === null ? 'N/A' : (sensor.value | number : '1.2-2') }} {{ sensor.unit }}</p>
-        </article>
+    <!-- Health (wide card) -->
+    <article class="kpi-card kpi-card--health">
+      <div class="kpi-card__top">
+        <span class="kpi-card__label">Overall Health</span>
+        <span class="kpi-badge" [class.kpi-badge--danger]="health < 45" [class.kpi-badge--warn]="health >= 45 && health < 65" [class.kpi-badge--ok]="health >= 65">{{ healthStatusLabel }}</span>
       </div>
-      <p *ngIf="sensors.length === 0" class="empty-hint">No sensor data available for this machine yet.</p>
-    </section>
-  </ng-container>
-</section>
+      <div class="kpi-health-body">
+        <div class="kpi-ring" role="img" [attr.aria-label]="'Health: ' + formatLiveValue(health,0) + ' of 100'">
+          <svg viewBox="0 0 88 88" class="kpi-ring__svg">
+            <circle class="kpi-ring__track" cx="44" cy="44" r="36"/>
+            <circle class="kpi-ring__fill" cx="44" cy="44" r="36"
+              [style.stroke-dashoffset]="calculateStrokeOffset(health, 100)"
+              [class.kpi-ring__fill--danger]="health < 45"
+              [class.kpi-ring__fill--warn]="health >= 45 && health < 65"
+              [class.kpi-ring__fill--ok]="health >= 65"/>
+          </svg>
+          <div class="kpi-ring__center">
+            <strong>{{ formatLiveValue(health, 0) }}</strong>
+            <span>/100</span>
+          </div>
+        </div>
+        <div class="kpi-health-bars">
+          <div class="kpi-hbar" *ngFor="let c of healthComponents">
+            <span class="kpi-hbar__label">{{ c.label }}</span>
+            <div class="kpi-hbar__track">
+              <div class="kpi-hbar__fill" [class]="'kpi-hbar__fill--' + c.tone" [style.width.%]="c.value"></div>
+            </div>
+            <span class="kpi-hbar__val">{{ formatLiveValue(c.value, 0) }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="kpi-card__trend" [class.kpi-card__trend--up]="getTrendPercent('health') > 0" [class.kpi-card__trend--down]="getTrendPercent('health') < 0">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path [attr.d]="getTrendPercent('health') >= 0 ? 'M2 9L6 3l4 6' : 'M2 3l4 6 4-6'" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        {{ formatTrend('health') }}
+      </div>
+    </article>
+
+    <!-- Temperature -->
+    <article class="kpi-card kpi-card--temperature">
+      <div class="kpi-card__top">
+        <span class="kpi-card__label">Temperature</span>
+        <span class="kpi-card__icon kpi-card__icon--danger">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3a3 3 0 0 0-3 3v8.17A4 4 0 1 0 15 17V6a3 3 0 0 0-3-3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        </span>
+      </div>
+      <div class="kpi-card__value">{{ formatLiveValue(temperature, 1) }}<span class="kpi-card__unit">°C</span></div>
+      <svg viewBox="0 0 260 56" class="kpi-spark" preserveAspectRatio="none" aria-hidden="true">
+        <polyline class="kpi-spark__line kpi-spark__line--danger" [attr.points]="getSparklinePoints('temperature')"/>
+      </svg>
+      <p class="kpi-card__desc">Thermal load · live stream</p>
+      <div class="kpi-card__trend" [class.kpi-card__trend--up]="getTrendPercent('temperature') > 0" [class.kpi-card__trend--down]="getTrendPercent('temperature') < 0">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path [attr.d]="getTrendPercent('temperature') >= 0 ? 'M2 9L6 3l4 6' : 'M2 3l4 6 4-6'" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        {{ formatTrendWithUnit('temperature', '°C') }}
+      </div>
+    </article>
+
+    <!-- Vibration -->
+    <article class="kpi-card kpi-card--vibration">
+      <div class="kpi-card__top">
+        <span class="kpi-card__label">Vibration</span>
+        <span class="kpi-card__icon kpi-card__icon--amber">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 12h2l2-6 3 12 3-8 2 4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+      </div>
+      <div class="kpi-card__value">{{ formatLiveValue(vibration, 1) }}<span class="kpi-card__unit">mm/s</span></div>
+      <svg viewBox="0 0 260 56" class="kpi-spark" preserveAspectRatio="none" aria-hidden="true">
+        <polyline class="kpi-spark__line kpi-spark__line--amber" [attr.points]="getSparklinePoints('vibration')"/>
+      </svg>
+      <p class="kpi-card__desc">Mechanical movement · backend</p>
+      <div class="kpi-card__trend" [class.kpi-card__trend--up]="getTrendPercent('vibration') > 0" [class.kpi-card__trend--down]="getTrendPercent('vibration') < 0">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path [attr.d]="getTrendPercent('vibration') >= 0 ? 'M2 9L6 3l4 6' : 'M2 3l4 6 4-6'" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        {{ formatTrendWithUnit('vibration', 'mm/s') }}
+      </div>
+    </article>
+
+    <!-- Utilization -->
+    <article class="kpi-card kpi-card--utilization">
+      <div class="kpi-card__top">
+        <span class="kpi-card__label">Utilization</span>
+        <span class="kpi-card__icon kpi-card__icon--cyan">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="12" width="4" height="9" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="10" y="7" width="4" height="14" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="17" y="3" width="4" height="18" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>
+        </span>
+      </div>
+      <div class="kpi-card__value">{{ formatLiveValue(utilization, 1) }}<span class="kpi-card__unit">%</span></div>
+      <svg viewBox="0 0 260 56" class="kpi-spark" preserveAspectRatio="none" aria-hidden="true">
+        <polyline class="kpi-spark__line kpi-spark__line--cyan" [attr.points]="getSparklinePoints('utilization')"/>
+      </svg>
+      <p class="kpi-card__desc">Backend efficiency mapped</p>
+      <div class="kpi-card__trend" [class.kpi-card__trend--up]="getTrendPercent('utilization') > 0" [class.kpi-card__trend--down]="getTrendPercent('utilization') < 0">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path [attr.d]="getTrendPercent('utilization') >= 0 ? 'M2 9L6 3l4 6' : 'M2 3l4 6 4-6'" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        {{ formatTrend('utilization') }}
+      </div>
+    </article>
+
+    <!-- OEE -->
+    <article class="kpi-card kpi-card--oee">
+      <div class="kpi-card__top">
+        <span class="kpi-card__label">OEE</span>
+        <span class="kpi-card__icon kpi-card__icon--blue">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </span>
+      </div>
+      <div class="kpi-card__value">{{ formatLiveValue(oee, 1) }}<span class="kpi-card__unit">%</span></div>
+      <svg viewBox="0 0 260 56" class="kpi-spark" preserveAspectRatio="none" aria-hidden="true">
+        <polyline class="kpi-spark__line kpi-spark__line--blue" [attr.points]="getSparklinePoints('oee')"/>
+      </svg>
+      <p class="kpi-card__desc">Efficiency · backend score</p>
+      <div class="kpi-card__trend" [class.kpi-card__trend--up]="getTrendPercent('oee') > 0" [class.kpi-card__trend--down]="getTrendPercent('oee') < 0">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path [attr.d]="getTrendPercent('oee') >= 0 ? 'M2 9L6 3l4 6' : 'M2 3l4 6 4-6'" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        {{ formatTrend('oee') }}
+      </div>
+    </article>
+
+    <!-- Performance -->
+    <article class="kpi-card kpi-card--performance">
+      <div class="kpi-card__top">
+        <span class="kpi-card__label">Performance</span>
+        <span class="kpi-card__icon kpi-card__icon--violet">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </span>
+      </div>
+      <div class="kpi-card__value">{{ formatLiveValue(rotationSpeed, 0) }}<span class="kpi-card__unit">rpm</span></div>
+      <svg viewBox="0 0 260 56" class="kpi-spark" preserveAspectRatio="none" aria-hidden="true">
+        <polyline class="kpi-spark__line kpi-spark__line--violet" [attr.points]="getSparklinePoints('rotationSpeed')"/>
+      </svg>
+      <p class="kpi-card__desc">Raw rotation · telemetry</p>
+      <div class="kpi-card__trend" [class.kpi-card__trend--up]="getTrendPercent('rotationSpeed') > 0" [class.kpi-card__trend--down]="getTrendPercent('rotationSpeed') < 0">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path [attr.d]="getTrendPercent('rotationSpeed') >= 0 ? 'M2 9L6 3l4 6' : 'M2 3l4 6 4-6'" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        {{ formatTrendWithUnit('rotationSpeed', 'rpm') }}
+      </div>
+    </article>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       MAIN CONTENT GRID
+  ════════════════════════════════════════ -->
+  <div class="content-grid">
+
+    <!-- ── LEFT COLUMN ── -->
+    <div class="content-grid__main">
+
+      <!-- Telemetry Trends Chart -->
+      <article class="panel panel--chart">
+        <header class="panel__header">
+          <div class="panel__title-group">
+            <p class="panel__eyebrow">Telemetry Trends</p>
+            <h2 class="panel__title">Live backend stream</h2>
+          </div>
+          <nav class="range-nav" aria-label="Time range">
+            <button class="range-btn range-btn--active">1H</button>
+            <button class="range-btn">6H</button>
+            <button class="range-btn">24H</button>
+            <button class="range-btn">7D</button>
+            <button class="range-btn">30D</button>
+          </nav>
+        </header>
+        <div class="chart-legend">
+          <span class="chart-legend__item"><i class="chart-legend__swatch chart-legend__swatch--danger"></i>Temperature °C</span>
+          <span class="chart-legend__item"><i class="chart-legend__swatch chart-legend__swatch--amber"></i>Vibration mm/s</span>
+          <span class="chart-legend__item"><i class="chart-legend__swatch chart-legend__swatch--cyan"></i>Utilization %</span>
+          <span class="chart-legend__item"><i class="chart-legend__swatch chart-legend__swatch--blue"></i>OEE %</span>
+        </div>
+        <div class="chart-canvas-wrap">
+          <svg viewBox="0 0 800 180" preserveAspectRatio="none" class="chart-svg" aria-hidden="true">
+            <!-- Grid lines -->
+            <line x1="0" y1="45" x2="800" y2="45" class="chart-grid"/>
+            <line x1="0" y1="90" x2="800" y2="90" class="chart-grid"/>
+            <line x1="0" y1="135" x2="800" y2="135" class="chart-grid"/>
+            <!-- Data lines scaled to viewBox -->
+            <polyline class="chart-line chart-line--danger" [attr.points]="getSparklinePoints('temperature')"/>
+            <polyline class="chart-line chart-line--amber" [attr.points]="getSparklinePoints('vibration')"/>
+            <polyline class="chart-line chart-line--cyan" [attr.points]="getSparklinePoints('utilization')"/>
+            <polyline class="chart-line chart-line--blue" [attr.points]="getSparklinePoints('oee')"/>
+          </svg>
+          <div class="chart-time-axis">
+            <span>{{ telemetryHistory.length > 1 ? (telemetryHistory[telemetryHistory.length - 1].timestamp | date:'HH:mm') : '--:--' }}</span>
+            <span>{{ telemetryHistory.length ? (telemetryHistory[0].timestamp | date:'HH:mm') : '--:--' }}</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Machine Status -->
+      <article class="panel panel--machine">
+        <header class="panel__header">
+          <div class="panel__title-group">
+            <p class="panel__eyebrow">Real-time Machine Status</p>
+            <h2 class="panel__title">Backend-aligned operational view</h2>
+          </div>
+          <span class="status-tag" [class.status-tag--online]="isConnected" [class.status-tag--offline]="!isConnected">
+            <span class="status-tag__dot"></span>
+            {{ isConnected ? 'RUNNING' : 'OFFLINE' }}
+          </span>
+        </header>
+
+        <div class="machine-body">
+          <!-- Machine illustration -->
+          <div class="machine-viz" aria-hidden="true">
+            <div class="machine-viz__glow"></div>
+            <svg viewBox="0 0 320 240" class="machine-viz__svg" role="img" aria-label="Machine schematic">
+              <!-- Base platform -->
+              <rect x="30" y="190" width="260" height="14" rx="7" fill="#0f1629" stroke="#1e3a5f" stroke-width="1"/>
+              <!-- Main body -->
+              <rect x="65" y="70" width="150" height="118" rx="12" fill="#0a1628" stroke="#1e3a5f" stroke-width="1.2"/>
+              <!-- Right tower -->
+              <rect x="195" y="44" width="72" height="144" rx="14" fill="#0a1628" stroke="#1e3a5f" stroke-width="1.2"/>
+              <!-- Right tower window -->
+              <rect x="208" y="68" width="46" height="92" rx="8" fill="#050e1e" stroke="#163050" stroke-width="1"/>
+              <!-- Inner panel -->
+              <rect x="85" y="94" width="76" height="40" rx="6" fill="#060f20" stroke="#163050" stroke-width="1"/>
+              <!-- Main rotor -->
+              <circle cx="230" cy="112" r="26" fill="#061020" stroke="#1e4080" stroke-width="1.5"/>
+              <circle cx="230" cy="112" r="12" fill="#070d1a" stroke="#2563eb" stroke-width="1.2"/>
+              <circle cx="230" cy="112" r="4" fill="#3b82f6"/>
+              <!-- Rotor spokes -->
+              <line x1="230" y1="88" x2="230" y2="98" stroke="#2563eb" stroke-width="1.2" stroke-linecap="round"/>
+              <line x1="230" y1="126" x2="230" y2="136" stroke="#2563eb" stroke-width="1.2" stroke-linecap="round"/>
+              <line x1="206" y1="112" x2="216" y2="112" stroke="#2563eb" stroke-width="1.2" stroke-linecap="round"/>
+              <line x1="244" y1="112" x2="254" y2="112" stroke="#2563eb" stroke-width="1.2" stroke-linecap="round"/>
+              <!-- Status LEDs -->
+              <circle cx="96" cy="83" r="4" [attr.fill]="isConnected ? '#22c55e' : '#ef4444'"/>
+              <circle cx="108" cy="83" r="4" [attr.fill]="health >= 65 ? '#22c55e' : '#f59e0b'"/>
+              <circle cx="120" cy="83" r="4" [attr.fill]="vibration < 5 ? '#22c55e' : '#ef4444'"/>
+              <!-- Indicator bar -->
+              <rect x="85" y="148" width="76" height="8" rx="4" fill="#0a1628" stroke="#163050" stroke-width="0.8"/>
+              <rect x="85" y="148" [attr.width]="(utilization / 100) * 76" height="8" rx="4" fill="#22d3ee"/>
+              <!-- Left arm -->
+              <rect x="32" y="80" width="26" height="80" rx="10" fill="#0a1628" stroke="#1e3a5f" stroke-width="1.2"/>
+              <rect x="18" y="94" width="14" height="52" rx="7" fill="#060f20" stroke="#163050" stroke-width="1"/>
+              <!-- Right pipe -->
+              <rect x="270" y="90" width="14" height="56" rx="7" fill="#060f20" stroke="#163050" stroke-width="1"/>
+              <!-- Vents -->
+              <line x1="92" y1="164" x2="152" y2="164" stroke="#163050" stroke-width="0.8" stroke-linecap="round"/>
+              <line x1="92" y1="170" x2="152" y2="170" stroke="#163050" stroke-width="0.8" stroke-linecap="round"/>
+              <line x1="92" y1="176" x2="152" y2="176" stroke="#163050" stroke-width="0.8" stroke-linecap="round"/>
+              <!-- Top exhaust -->
+              <rect x="100" y="50" width="34" height="18" rx="7" fill="#0a1628" stroke="#2563eb" stroke-width="1"/>
+            </svg>
+            <!-- Operation state badge overlay -->
+            <div class="machine-viz__state" [class.machine-viz__state--degraded]="operationState === 'DEGRADED'" [class.machine-viz__state--danger]="operationState === 'AT RISK'" [class.machine-viz__state--ok]="operationState === 'RUNNING'">
+              {{ operationState }}
+            </div>
+          </div>
+
+          <!-- Status table -->
+          <div class="status-table">
+            <div class="status-table__row">
+              <span class="status-table__key">Operation State</span>
+              <strong class="status-table__val" [class.status-table__val--ok]="operationState === 'RUNNING'" [class.status-table__val--warn]="operationState === 'DEGRADED'" [class.status-table__val--danger]="operationState === 'AT RISK'">{{ operationState }}</strong>
+            </div>
+            <div class="status-table__row">
+              <span class="status-table__key">Hydraulic Pressure</span>
+              <strong class="status-table__val">{{ formatLiveValue(hydraulicPressure, 1) }} <span class="status-table__unit">bar</span></strong>
+            </div>
+            <div class="status-table__row">
+              <span class="status-table__key">Power Consumption</span>
+              <strong class="status-table__val">{{ formatLiveValue(energyConsumption, 0) }} <span class="status-table__unit">kW</span></strong>
+            </div>
+            <div class="status-table__row">
+              <span class="status-table__key">RPM</span>
+              <strong class="status-table__val">{{ formatLiveValue(rpmSpeed, 0) }} <span class="status-table__unit">rpm</span></strong>
+            </div>
+            <div class="status-table__row">
+              <span class="status-table__key">Operating Hours</span>
+              <strong class="status-table__val">{{ formatLiveValue(operatingHoursValue, 0) }} <span class="status-table__unit">h</span></strong>
+            </div>
+            <div class="status-table__row">
+              <span class="status-table__key">Ambient Temp.</span>
+              <strong class="status-table__val">{{ formatLiveValue(ambientTemperature, 1) }} <span class="status-table__unit">°C</span></strong>
+            </div>
+            <div class="status-table__row">
+              <span class="status-table__key">Load Factor</span>
+              <strong class="status-table__val">{{ formatLiveValue(loadFactor, 1) }}<span class="status-table__unit">%</span></strong>
+            </div>
+            <div class="status-table__row">
+              <span class="status-table__key">Downtime Today</span>
+              <strong class="status-table__val status-table__val--warn">{{ downtimeTodayHours | number:'1.1-1' }} <span class="status-table__unit">h</span></strong>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <!-- ── RIGHT SIDEBAR ── -->
+    <aside class="content-grid__side">
+
+      <!-- Alerts -->
+      <article class="panel panel--alerts">
+        <header class="panel__header">
+          <div class="panel__title-group">
+            <p class="panel__eyebrow">Alerts</p>
+            <h2 class="panel__title">{{ activeAlerts.length }} active</h2>
+          </div>
+          <span class="pulse-tag" [class.pulse-tag--danger]="activeAlerts.length >= 3" [class.pulse-tag--warn]="activeAlerts.length > 0 && activeAlerts.length < 3">
+            <span class="pulse-tag__dot"></span>Live
+          </span>
+        </header>
+        <ul class="alert-list" role="list">
+          <li class="alert-item" [class.alert-item--critical]="alert.severity === 'critical'" [class.alert-item--warning]="alert.severity === 'warning'" [class.alert-item--info]="alert.severity === 'info'" *ngFor="let alert of activeAlerts" role="listitem">
+            <span class="alert-item__icon" aria-hidden="true">
+              <svg *ngIf="alert.severity === 'critical'" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 14H2L8 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6v3M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <svg *ngIf="alert.severity === 'warning'" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 14H2L8 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6v3M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <svg *ngIf="alert.severity === 'info'" width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </span>
+            <div class="alert-item__body">
+              <h4 class="alert-item__title">{{ alert.title }}</h4>
+              <p class="alert-item__desc">{{ alert.description }}</p>
+            </div>
+            <time class="alert-item__time">{{ alert.ageLabel }}</time>
+          </li>
+        </ul>
+      </article>
+
+      <!-- Maintenance Schedule -->
+      <article class="panel panel--maintenance">
+        <header class="panel__header">
+          <div class="panel__title-group">
+            <p class="panel__eyebrow">Maintenance Schedule</p>
+            <h2 class="panel__title">Upcoming tasks</h2>
+          </div>
+        </header>
+        <ul class="maint-list" role="list">
+          <li class="maint-item" *ngFor="let item of maintenanceQueue" role="listitem">
+            <div class="maint-item__info">
+              <h4 class="maint-item__title">{{ item.title }}</h4>
+              <p class="maint-item__when">
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="1" y="2" width="10" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M4 1v2M8 1v2M1 5h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                {{ item.schedule }}
+              </p>
+            </div>
+            <span class="priority-tag priority-tag--{{ item.priority }}">{{ item.priority | uppercase }}</span>
+          </li>
+        </ul>
+      </article>
+
+      <!-- Health Components -->
+      <article class="panel panel--health-comp">
+        <header class="panel__header">
+          <div class="panel__title-group">
+            <p class="panel__eyebrow">Health Components</p>
+            <h2 class="panel__title">Subsystem score</h2>
+          </div>
+          <span class="score-badge" [class.score-badge--danger]="health < 45" [class.score-badge--warn]="health >= 45 && health < 65" [class.score-badge--ok]="health >= 65">{{ formatLiveValue(health, 0) }}<span>/100</span></span>
+        </header>
+        <div class="health-comp-list">
+          <div class="health-comp-item" *ngFor="let c of healthComponents">
+            <div class="health-comp-item__meta">
+              <span class="health-comp-item__dot health-comp-item__dot--{{ c.tone }}"></span>
+              <span class="health-comp-item__label">{{ c.label }}</span>
+              <strong class="health-comp-item__score">{{ formatLiveValue(c.value, 0) }}/100</strong>
+            </div>
+            <div class="health-comp-item__track">
+              <div class="health-comp-item__fill health-comp-item__fill--{{ c.tone }}" [style.width.%]="c.value"></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <p class="data-watermark">
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M6 4v3l2 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Live telemetry only · No simulated values
+      </p>
+    </aside>
+  </div>
+</div>

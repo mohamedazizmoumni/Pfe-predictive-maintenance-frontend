@@ -1,0 +1,87 @@
+<div class="sentinel-dashboard">
+
+  <!-- Top Header -->
+  <header class="dashboard-header">
+    <div class="header-content">
+      <div class="logo-section">
+        <strong>SENTINEL</strong>
+        <span>PREDICTIVE MAINTENANCE</span>
+      </div>
+      
+      <h1 class="page-title">Predictive Intelligence</h1>
+      
+      <div class="header-right">
+        <div class="system-status">
+          <span class="dot online"></span>
+          AI Engine Active
+        </div>
+        <div class="current-time">
+          {{ currentTime | date:'HH:mm:ss' }} • {{ currentTime | date:'dd MMM yyyy' }}
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="dashboard-content">
+
+    <!-- LAYER 1: AI DECISIONS -->
+    <section class="layer ai-layer">
+      <div class="layer-header">
+        <h2>🧠 AI Decision Engine</h2>
+        <p>Predictive failure forecasting &amp; intelligent recommendations</p>
+      </div>
+
+      <!-- Fleet Overview Cards -->
+      <div class="kpi-row">
+        <div class="kpi-card danger">
+          <h3>Predicted Failures</h3>
+          <div class="value">{{ fleetHealth.predictedFailuresNext7Days }}</div>
+          <div class="sub">Next 7 days</div>
+        </div>
+        <div class="kpi-card success">
+          <h3>Prevented Failures</h3>
+          <div class="value">{{ fleetHealth.preventedFailuresThisMonth }}</div>
+          <div class="sub">This month</div>
+        </div>
+        <div class="kpi-card warning">
+          <h3>Machines at Risk</h3>
+          <div class="value">{{ fleetHealth.machinesAtRisk }} / {{ fleetHealth.totalMachines }}</div>
+          <div class="sub">Require immediate attention</div>
+        </div>
+      </div>
+
+      <!-- AI Predictions -->
+      <div class="panel">
+        <div class="panel-header">
+          <h3>Active AI Predictions</h3>
+          <span class="count">{{ aiPredictions.length }} machines</span>
+        </div>
+        <div class="predictions-grid">
+          <!-- Your prediction cards stay here -->
+          <div *ngFor="let prediction of aiPredictions" class="prediction-card">
+            <!-- ... keep your existing prediction card content ... -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LAYER 2: MACHINE HEALTH -->
+    <section class="layer health-layer">
+      <div class="layer-header">
+        <h2>❤️ Fleet Health Overview</h2>
+      </div>
+      <!-- Health Summary + Table -->
+      <!-- Keep your excellent table, just style it cleaner -->
+    </section>
+
+    <!-- LAYER 3: SENSOR TELEMETRY -->
+    <section class="layer sensor-layer">
+      <div class="layer-header">
+        <h2>📡 Live Sensor Telemetry</h2>
+        <span class="badge monitoring">MONITORING ONLY</span>
+      </div>
+      <!-- Your sensor grid -->
+    </section>
+
+  </div>
+</div>

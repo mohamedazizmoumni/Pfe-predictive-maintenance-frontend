@@ -7,9 +7,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Observable, catchError, finalize, of } from 'rxjs';
 import { Machine } from '../../core/models/machine.model';
+import { MachineContextService } from '../../core/services/machine-context.service';
 import { MachineService } from '../../core/services/machine.service';
 import { NotificationService } from '../../core/services/notification.service';
-import { UrgencyBadgeComponent } from '../../shared/urgency-badge/urgency-badge.component';
 
 @Component({
   selector: 'app-machine-list',
@@ -23,7 +23,6 @@ import { UrgencyBadgeComponent } from '../../shared/urgency-badge/urgency-badge.
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
-    UrgencyBadgeComponent,
     RouterModule,
   ],
   templateUrl: './machine-list.component.html',
@@ -31,7 +30,7 @@ import { UrgencyBadgeComponent } from '../../shared/urgency-badge/urgency-badge.
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MachineListComponent implements OnInit {
-  readonly columns = ['name', 'location', 'status', 'criticality', 'hourlyValue', 'actions'];
+  readonly columns = ['name', 'model', 'location', 'status', 'risk', 'actions'];
 
   machines$!: Observable<Machine[]>;
   readonly loading = signal(false);
@@ -39,7 +38,8 @@ export class MachineListComponent implements OnInit {
   constructor(
     private readonly machineService: MachineService,
     private readonly notificationService: NotificationService,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly machineContextService: MachineContextService
   ) {}
 
   ngOnInit(): void {
@@ -59,5 +59,10 @@ export class MachineListComponent implements OnInit {
     }
 
     this.router.navigate(['/recommendations', id]);
+  }
+
+  useForAssistant(machine: Machine): void {
+    this.machineContextService.setMachine(machine);
+    this.router.navigate(['/ai-assistant']);
   }
 }

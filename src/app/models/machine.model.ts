@@ -1,14 +1,19 @@
-export type MachineStatus = 'RUNNING' | 'UNDER_MAINTENANCE' | 'FAILED';
-
-export type CriticalityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-
 export interface Machine {
   id: number;
+  serialNumber: string;
   name: string;
+  description?: string;
+  model: string;
+  manufacturer?: string;
   location: string;
-  status: MachineStatus;
-  hourlyProductionValue: number;
-  replacementCost: number;
-  criticalityLevel: CriticalityLevel;
-  age: number;
+  category?: string;
+  subCategory?: string;
+  status?: string;
+  photoUrl?: string;
+  installationDate?: string;
+  lastMaintenanceDate?: string;
+  nextMaintenanceDate?: string;
+  operatingHours?: number;
+  riskScore?: number;
+  createdDate?: string;
 }

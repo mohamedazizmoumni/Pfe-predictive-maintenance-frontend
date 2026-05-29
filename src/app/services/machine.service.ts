@@ -9,7 +9,7 @@ import { apiEndpoint } from '../core/http/api-base';
   providedIn: 'root',
 })
 export class MachineService {
-  private readonly baseUrl = apiEndpoint('/v1/machines');
+  private readonly baseUrl = apiEndpoint('/api/v1/machines');
 
   constructor(private http: HttpClient) {}
 
@@ -23,6 +23,25 @@ export class MachineService {
     return this.http
       .get<Machine>(`${this.baseUrl}/${id}`)
       .pipe(catchError((error) => this.handleError(error, 'Failed to load machine details.')));
+  }
+
+  createMachine(request: Partial<Machine>, photo?: File | null): Observable<Machine> {
+    const body = photo ? this.buildMachineFormData(request, photo) : request;
+    return this.http
+      .post<Machine>(this.baseUrl, body)
+      .pipe(catchError((error) => this.handleError(error, 'Failed to create machine.')));
+  }
+
+  private buildMachineFormData(request: Partial<Machine>, photo: File): FormData {
+    const formData = new FormData();
+    Object.entries(request).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') {
+        return;
+      }
+      formData.append(key, String(value));
+    });
+    formData.append('photo', photo);
+    return formData;
   }
 
   private handleError(error: unknown, fallbackMessage: string) {

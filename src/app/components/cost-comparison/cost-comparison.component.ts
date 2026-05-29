@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, Input, OnInit, signal } from '@angular/core';
-import { AsyncPipe, DecimalPipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, CurrencyPipe, DecimalPipe, NgFor, NgIf } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -31,6 +31,7 @@ import { UrgencyBadgeComponent } from '../../shared/urgency-badge/urgency-badge.
     NgIf,
     NgFor,
     DecimalPipe,
+    CurrencyPipe,
     MatIconModule,
     UrgencyBadgeComponent,
   ],

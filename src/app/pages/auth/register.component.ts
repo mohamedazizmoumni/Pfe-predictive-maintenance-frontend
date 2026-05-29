@@ -10,6 +10,7 @@ import {
 } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { DashboardRoutingService } from '../../pages/dashboards/dashboard-routing.service';
 
 interface StepConfig {
   label: string;
@@ -54,7 +55,8 @@ export class RegisterComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private dashboardRoutingService: DashboardRoutingService
   ) {}
 
   ngOnInit(): void {
@@ -122,9 +124,9 @@ export class RegisterComponent implements OnInit {
     formData.append('department', department || '');
 
     this.authService.signupWithFace(formData).subscribe({
-      next: () => {
+      next: (response) => {
         this.isLoading = false;
-        this.router.navigate(['/dashboard']);
+        this.router.navigate([this.dashboardRoutingService.getRouteForLoginResponse(response)]);
       },
       error: (error: any) => {
         this.isLoading = false;

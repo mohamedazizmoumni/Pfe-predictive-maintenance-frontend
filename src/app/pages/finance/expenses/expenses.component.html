@@ -1,0 +1,190 @@
+<section class="finance-page">
+
+  <!-- Hero -->
+  <header class="finance-hero">
+    <div class="hero-text">
+      <p class="hero-kicker">Finance</p>
+      <h1 class="hero-title">Expense Reports</h1>
+      <p class="hero-subtitle">Submit, track, and review expense reports across the organization.</p>
+    </div>
+    <button class="btn btn-primary" type="button" (click)="openSubmitForm()">
+      + New Expense Report
+    </button>
+  </header>
+
+  <!-- Alerts -->
+  <div class="alert alert-error" *ngIf="error">
+    <span>⚠️ {{ error }}</span>
+    <button type="button" class="alert-close" (click)="dismissError()">✕</button>
+  </div>
+  <div class="alert alert-success" *ngIf="successMessage">
+    <span>✅ {{ successMessage }}</span>
+    <button type="button" class="alert-close" (click)="dismissSuccess()">✕</button>
+  </div>
+
+  <!-- Tabs -->
+  <nav class="finance-tabs" *ngIf="isFinanceManager">
+    <button class="tab" [class.active]="activeTab === 'mine'" (click)="setTab('mine')">My Submissions</button>
+    <button class="tab" [class.active]="activeTab === 'all'" (click)="setTab('all')">All Expenses</button>
+  </nav>
+
+  <!-- Filters -->
+  <div class="filter-bar" *ngIf="isFinanceManager">
+    <div class="filter-group">
+      <label class="filter-label">Status</label>
+      <div class="filter-chips">
+        <button *ngFor="let s of statusFilters" class="chip" [class.active]="statusFilter === s" (click)="setStatusFilter(s)">
+          {{ s === 'ALL' ? 'All' : s | titlecase }}
+        </button>
+      </div>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Category</label>
+      <div class="filter-chips">
+        <button *ngFor="let c of categoryFilters" class="chip" [class.active]="categoryFilter === c" (click)="setCategoryFilter(c)">
+          {{ c === 'ALL' ? 'All' : categoryLabel(c) }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-state" *ngIf="isLoading && filteredExpenses.length === 0">
+    <div class="spinner"></div>
+    <p>Loading expenses...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div class="empty-state" *ngIf="!isLoading && filteredExpenses.length === 0 && !error">
+    <span class="empty-icon">💰</span>
+    <h3>No expense reports found</h3>
+    <p>Start by submitting your first expense report.</p>
+    <button class="btn btn-primary" type="button" (click)="openSubmitForm()">+ Submit New Expense</button>
+  </div>
+
+  <!-- Expense List -->
+  <div class="expense-list" *ngIf="filteredExpenses.length > 0">
+    <article class="expense-card" *ngFor="let expense of filteredExpenses; trackBy: trackById"
+             [class.card-pending]="expense.status === ExpenseStatus.PENDING"
+             [class.card-approved]="expense.status === ExpenseStatus.APPROVED"
+             [class.card-rejected]="expense.status === ExpenseStatus.REJECTED">
+
+      <div class="card-header">
+        <div class="card-title-row">
+          <span class="category-icon">{{ categoryIcon(expense.category) }}</span>
+          <h3 class="card-title">{{ expense.title }}</h3>
+          <span class="status-badge" [class]="'status-' + expense.status.toLowerCase()">
+            {{ expense.status | titlecase }}
+          </span>
+        </div>
+        <span class="card-amount">{{ expense.amount | currency:'TND':'symbol':'1.2-2' }}</span>
+      </div>
+
+      <div class="card-meta">
+        <span class="meta-item">
+          <span class="meta-label">Category</span>
+          <span class="category-badge">{{ categoryLabel(expense.category) }}</span>
+        </span>
+        <span class="meta-item" *ngIf="expense.machineName">
+          <span class="meta-label">Machine</span>
+          <span>{{ expense.machineName }}</span>
+        </span>
+        <span class="meta-item">
+          <span class="meta-label">Submitted by</span>
+          <span>{{ expense.submittedByName || expense.submittedBy }}</span>
+        </span>
+        <span class="meta-item">
+          <span class="meta-label">Date</span>
+          <span>{{ expense.createdDate | date:'mediumDate' }}</span>
+        </span>
+      </div>
+
+      <p class="card-description" *ngIf="expense.description">{{ expense.description }}</p>
+
+      <!-- Review Notes -->
+      <div class="review-note" *ngIf="expense.reviewNote">
+        <strong>Review Note:</strong> {{ expense.reviewNote }}
+      </div>
+      <div class="rejection-reason" *ngIf="expense.rejectionReason">
+        <strong>Rejection Reason:</strong> {{ expense.rejectionReason }}
+      </div>
+
+      <!-- Card Actions -->
+      <div class="card-actions">
+        <ng-container *ngIf="canEdit(expense)">
+          <button class="btn btn-sm btn-ghost" (click)="openEditForm(expense)">Edit</button>
+        </ng-container>
+        <ng-container *ngIf="canDelete(expense)">
+          <button class="btn btn-sm btn-danger-ghost" (click)="handleDelete(expense)">Delete</button>
+        </ng-container>
+        <ng-container *ngIf="canReview(expense)">
+          <button class="btn btn-sm btn-success" (click)="openReview(expense, 'approve')">Approve</button>
+          <button class="btn btn-sm btn-danger" (click)="openReview(expense, 'reject')">Reject</button>
+        </ng-container>
+        <ng-container *ngIf="expense.status === ExpenseStatus.APPROVED">
+          <button class="btn btn-outline btn-sm" (click)="exportExpensePdf(expense)">Export PDF</button>
+        </ng-container>
+        <ng-container *ngIf="expense.status === ExpenseStatus.REJECTED && expense.submittedBy === currentUsername">
+          <button class="btn btn-outline btn-sm" (click)="resubmit(expense)" title="Create a new submission pre-filled with this expense's details">↩ Resubmit</button>
+        </ng-container>
+      </div>
+    </article>
+  </div>
+
+  <!-- Submit/Edit Modal -->
+  <div class="modal-backdrop" *ngIf="showSubmitForm" (click)="closeSubmitForm()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ editingExpense ? 'Edit Expense' : 'New Expense Report' }}</h2>
+        <button type="button" class="modal-close" (click)="closeSubmitForm()">✕</button>
+      </div>
+
+      <form [formGroup]="submitForm" (ngSubmit)="handleSubmit()" class="modal-body submit-section">
+        <div class="resubmit-banner" *ngIf="resubmittingFrom">
+          <div class="resubmit-banner__main">
+              <span>↩ Resubmitting rejected expense: <strong>{{ resubmittingFrom.title }}</strong></span>
+            <button type="button" class="resubmit-cancel" (click)="clearResubmit()">Cancel</button>
+          </div>
+            <div class="resubmit-banner__reason" *ngIf="resubmittingFrom.rejectionReason">
+              Original rejection reason: "{{ resubmittingFrom.rejectionReason }}"
+          </div>
+        </div>
+        <!-- Form fields remain the same but with better styling -->
+        <div class="form-group">
+          <label>Title <span class="required">*</span></label>
+          <input type="text" formControlName="title" class="form-control" placeholder="e.g. Bearing replacement – Machine #3" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Amount (TND) <span class="required">*</span></label>
+            <input type="number" formControlName="amount" class="form-control" step="0.01" min="0.01" />
+          </div>
+          <div class="form-group">
+            <label>Category <span class="required">*</span></label>
+            <select formControlName="category" class="form-control">
+              <option *ngFor="let cat of categories" [value]="cat">{{ categoryIcon(cat) }} {{ categoryLabel(cat) }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Machine Name (optional)</label>
+          <input type="text" formControlName="machineName" class="form-control" />
+        </div>
+
+        <div class="form-group">
+          <label>Description</label>
+          <textarea formControlName="description" class="form-control" rows="3"></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" (click)="closeSubmitForm()">Cancel</button>
+          <button type="submit" class="btn btn-primary" [disabled]="isSubmitting">
+            {{ isSubmitting ? 'Saving...' : (editingExpense ? 'Update' : 'Submit Report') }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>

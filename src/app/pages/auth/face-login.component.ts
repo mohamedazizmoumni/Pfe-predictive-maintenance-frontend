@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { DashboardRoutingService } from '../../pages/dashboards/dashboard-routing.service';
 
 @Component({
   selector: 'app-face-login',
@@ -24,7 +25,8 @@ export class FaceLoginComponent implements AfterViewInit, OnDestroy {
 
   constructor(
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private dashboardRoutingService: DashboardRoutingService
   ) {}
 
   ngAfterViewInit(): void {
@@ -139,9 +141,9 @@ export class FaceLoginComponent implements AfterViewInit, OnDestroy {
     formData.append('file', this.imageFile, this.imageFile.name);
 
     this.authService.faceLogin(formData).subscribe({
-      next: () => {
+      next: (response) => {
         this.isLoading = false;
-        this.router.navigate(['/dashboard']);
+        this.router.navigate([this.dashboardRoutingService.getRouteForLoginResponse(response)]);
       },
       error: (error: any) => {
         this.isLoading = false;

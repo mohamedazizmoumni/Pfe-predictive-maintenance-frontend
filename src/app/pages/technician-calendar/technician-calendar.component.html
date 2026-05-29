@@ -1,0 +1,281 @@
+<div class="technician-calendar">
+
+  <!-- HEADER -->
+  <div class="calendar-topbar">
+
+    <div class="topbar-left">
+      <div class="calendar-badge">
+        📅 Technician Planner
+      </div>
+
+      <h1 class="calendar-title">
+        {{ monthName() }}
+      </h1>
+
+      <p class="calendar-subtitle">
+        Manage tasks, alerts and meetings efficiently
+      </p>
+    </div>
+
+    <div class="topbar-right">
+
+      <div class="calendar-navigation">
+        <button class="nav-btn" type="button" (click)="previousMonth()">
+          ‹
+        </button>
+
+        <button class="today-btn" type="button" (click)="goToToday()">
+          Today
+        </button>
+
+        <button class="nav-btn" type="button" (click)="nextMonth()">
+          ›
+        </button>
+      </div>
+
+      <div class="calendar-filters">
+
+        <div class="filter-group">
+          <label>Type</label>
+
+          <select (change)="onFilterTypeChange($event)">
+            <option value="ALL">All</option>
+            <option value="TASK">Tasks</option>
+            <option value="ALERT">Alerts</option>
+            <option value="MEETING">Meetings</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label>Priority</label>
+
+          <select (change)="onFilterPriorityChange($event)">
+            <option value="ALL">All</option>
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+            <option value="CRITICAL">Critical</option>
+          </select>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- MAIN -->
+  <div class="calendar-layout">
+
+    <!-- CALENDAR -->
+    <div class="calendar-panel">
+
+      <!-- WEEK DAYS -->
+      <div class="weekdays">
+
+        <div>Sun</div>
+        <div>Mon</div>
+        <div>Tue</div>
+        <div>Wed</div>
+        <div>Thu</div>
+        <div>Fri</div>
+        <div>Sat</div>
+
+      </div>
+
+      <!-- DAYS -->
+      <div class="calendar-grid">
+
+        <div
+          class="calendar-day"
+          *ngFor="let day of calendarDays()"
+          [class.other-month]="!day.isCurrentMonth"
+        >
+
+          <div class="day-header">
+
+            <div class="day-number">
+              {{ day.dayOfMonth }}
+            </div>
+
+            <div
+              class="event-count"
+              *ngIf="day.tasks.length + day.alerts.length > 0"
+            >
+              {{ day.tasks.length + day.alerts.length }}
+            </div>
+
+          </div>
+
+          <div class="day-events">
+
+            <!-- TASKS -->
+            <div
+              class="event-card task"
+              *ngFor="let t of day.tasks"
+              (click)="selectTaskEvent(t)"
+            >
+
+              <div class="event-dot task-dot"></div>
+
+              <div class="event-content">
+                <div class="event-title">
+                  {{ t.description }}
+                </div>
+
+                <div class="event-type">
+                  TASK
+                </div>
+              </div>
+
+            </div>
+
+            <!-- ALERTS -->
+            <div
+              class="event-card alert-card"
+              *ngFor="let a of day.alerts"
+              (click)="selectAlertEvent(a)"
+            >
+
+              <div class="event-dot alert-dot"></div>
+
+              <div class="event-content">
+
+                <div class="event-title">
+                  {{ a.title }}
+                </div>
+
+                <div class="event-type">
+                  ALERT
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- SIDEBAR -->
+    <aside class="calendar-sidebar">
+
+      <div class="sidebar-card">
+
+        <div class="sidebar-title">
+          Upcoming Events
+        </div>
+
+        <div class="upcoming-list">
+
+          <div
+            class="upcoming-item"
+            *ngFor="let e of upcomingEvents()"
+          >
+
+            <div class="upcoming-top">
+
+              <strong [class]="getPriorityClass(e.priority)">
+                {{ e.title }}
+              </strong>
+
+              <span class="priority-pill">
+                {{ e.priority }}
+              </span>
+
+            </div>
+
+            <div class="upcoming-meta">
+              {{ formatDate(e.date) }}
+            </div>
+
+            <div class="upcoming-type">
+              {{ e.type }}
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" *ngIf="showEventModal()">
+
+    <div class="modal-box">
+
+      <div class="modal-header">
+
+        <h3>
+          {{ selectedEvent()?.title }}
+        </h3>
+
+        <button
+          class="close-btn"
+          type="button"
+          (click)="closeModal()"
+        >
+          ✕
+        </button>
+
+      </div>
+
+      <div class="modal-body">
+
+        <div class="modal-section">
+
+          <label>Description</label>
+
+          <p>
+            {{ selectedEvent()?.description }}
+          </p>
+
+        </div>
+
+        <div class="modal-section">
+
+          <label>Date & Time</label>
+
+          <p>
+            {{ selectedEventDateFormatted }}
+            {{ selectedEventTimeFormatted }}
+          </p>
+
+        </div>
+
+      </div>
+
+      <div class="modal-actions">
+
+        <button
+          class="secondary-btn"
+          type="button"
+          (click)="closeModal()"
+        >
+          Close
+        </button>
+
+        <button
+          class="primary-btn"
+          type="button"
+          *ngIf="selectedEvent()?.id"
+          (click)="openSelectedEvent()"
+        >
+          Open Event
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>

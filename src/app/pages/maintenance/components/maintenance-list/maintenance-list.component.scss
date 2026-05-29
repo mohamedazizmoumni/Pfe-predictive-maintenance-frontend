@@ -1,3 +1,8 @@
+// ============================================================================
+// MAINTENANCE LIST COMPONENT
+// Uses only CSS variables. No hardcoded colors.
+// ============================================================================
+
 :host {
   display: block;
 }
@@ -5,272 +10,232 @@
 .list-card {
   display: flex;
   flex-direction: column;
-  gap: var(--ui-space-4, 1.25rem);
-  padding: var(--ui-space-5, 1.75rem);
-  border-radius: var(--ui-radius-lg, 24px);
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: var(--shadow-soft, 0 18px 45px rgba(15, 23, 42, 0.08));
+  gap: var(--space-5);
+  padding: var(--space-6);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
 }
+
+// ── Header ────────────────────────────────────────────────────────────────
 
 header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: var(--ui-space-3, 0.75rem);
-}
+  gap: var(--space-4);
 
-header p {
-  margin: 0;
-  font-size: 0.9rem;
-  color: rgba(15, 23, 42, 0.7);
-}
+  p {
+    margin: 0;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--color-text-muted);
+  }
 
-header span {
-  color: rgba(15, 23, 42, 0.5);
-  font-size: 0.85rem;
-}
+  h3 {
+    margin: var(--space-1) 0 var(--space-1);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-bold);
+    color: var(--color-text-primary);
+    letter-spacing: -0.01em;
+  }
 
-header h3 {
-  margin: 0.1rem 0;
-  font-size: 1.6rem;
+  > div > span {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+  }
 }
 
 .header-actions {
   display: flex;
-  gap: var(--ui-space-2, 0.5rem);
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding-top: var(--space-1);
 }
 
-button {
-  border: none;
-  border-radius: 999px;
-  padding: 0.65rem 1.5rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: linear-gradient(135deg, #5b5dd8, #8b5cf6);
-  color: #fff;
-}
-
-button.ghost {
-  background: rgba(91, 93, 216, 0.12);
-  color: #4c1d95;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+// ── Filters ───────────────────────────────────────────────────────────────
 
 .filters {
-  display: grid;
-  gap: var(--ui-space-3, 0.75rem);
-}
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 
-.filters article {
-  background: rgba(15, 23, 42, 0.03);
-  border-radius: var(--ui-radius-md, 16px);
-  padding: var(--ui-space-4, 1.25rem);
-}
+  article {
+    background: var(--color-bg-sunken);
+    border: 1px solid var(--color-border-soft);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
 
-.filters p {
-  margin: 0 0 var(--ui-space-2, 0.5rem);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: rgba(15, 23, 42, 0.5);
+    p {
+      margin: 0 0 var(--space-2);
+      font-size: var(--text-xs);
+      font-weight: var(--weight-bold);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--color-text-muted);
+    }
+  }
 }
 
 .pill-row {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--ui-space-2, 0.5rem);
+  gap: var(--space-2);
+
+  button {
+    border-radius: var(--radius-full);
+    padding: 0.3rem 0.85rem;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semi);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+    cursor: pointer;
+    transition: all var(--ease-fast);
+    font-family: var(--font-sans);
+
+    small {
+      margin-left: var(--space-1);
+      font-size: 0.6rem;
+      opacity: 0.65;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    &:hover:not(:disabled) {
+      background: var(--color-accent-dim);
+      border-color: var(--color-accent);
+      color: var(--color-accent-text);
+    }
+
+    &.is-active {
+      background: var(--color-accent-dim);
+      color: var(--color-accent-text);
+      border-color: var(--color-accent);
+    }
+  }
 }
 
-.pill-row button {
-  border-radius: 999px;
-  border: 1px solid transparent;
-  padding: 0.45rem 1.25rem;
-  background: rgba(255, 255, 255, 0.65);
-  color: rgba(15, 23, 42, 0.75);
-  font-size: 0.85rem;
-}
-
-.pill-row button small {
-  margin-left: 0.35rem;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.pill-row button.is-active {
-  border-color: rgba(91, 93, 216, 0.4);
-  background: rgba(91, 93, 216, 0.12);
-  color: #4c1d95;
-}
+// ── Task Feed ─────────────────────────────────────────────────────────────
 
 .task-feed {
   display: flex;
   flex-direction: column;
-  gap: var(--ui-space-3, 0.75rem);
+  gap: var(--space-2);
 }
 
 .task-row {
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  border-radius: var(--ui-radius-md, 16px);
-  padding: var(--ui-space-4, 1.25rem);
-  background: rgba(248, 250, 255, 0.9);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-bg-elevated);
   cursor: pointer;
-  transition: all 0.2s ease;
-}
+  transition: all var(--ease-fast);
+  position: relative;
+  border-left: 3px solid transparent;
 
-.task-row:hover {
-  border-color: rgba(91, 93, 216, 0.4);
-  box-shadow: 0 15px 32px rgba(91, 93, 216, 0.15);
-}
+  &:hover {
+    background: var(--color-bg-sunken);
+    border-color: var(--color-border-strong);
+  }
 
-.task-row.is-selected {
-  border-color: #5b5dd8;
-  box-shadow: 0 20px 40px rgba(74, 78, 255, 0.2);
+  &.is-selected {
+    background: var(--color-accent-dim);
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px var(--color-accent-dim);
+  }
+
+  // Priority color coding via left border
+  &.priority-critical { border-left-color: var(--color-critical); }
+  &.priority-high     { border-left-color: var(--color-danger); }
+  &.priority-medium   { border-left-color: var(--color-warning); }
+  &.priority-low      { border-left-color: var(--color-success); }
 }
 
 .task-head {
   display: flex;
   justify-content: space-between;
-  gap: var(--ui-space-3, 0.75rem);
   align-items: flex-start;
-}
+  gap: var(--space-3);
 
-.task-head p {
-  margin: 0;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  color: rgba(15, 23, 42, 0.45);
-}
+  p {
+    margin: 0;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--color-text-muted);
+  }
 
-.task-head h4 {
-  margin: 0.25rem 0 0;
-  font-size: 1.2rem;
+  h4 {
+    margin: var(--space-1) 0 0;
+    font-size: var(--text-base);
+    font-weight: var(--weight-semi);
+    color: var(--color-text-primary);
+    line-height: var(--leading-snug);
+  }
 }
 
 .task-meta {
-  margin-top: var(--ui-space-3, 0.75rem);
+  margin-top: var(--space-2);
   display: flex;
   flex-wrap: wrap;
-  gap: var(--ui-space-3, 0.75rem);
-  font-size: 0.85rem;
-  color: rgba(15, 23, 42, 0.65);
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
 }
 
-.status-chip,
-.priority-chip {
-  border-radius: 999px;
-  padding: 0.15rem 0.85rem;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  font-weight: 600;
-}
-
-.status-scheduled {
-  background: rgba(56, 189, 248, 0.15);
-  color: #0c4a6e;
-}
-
-.status-in_progress {
-  background: rgba(14, 165, 233, 0.15);
-  color: #0369a1;
-}
-
-.status-completed {
-  background: rgba(34, 197, 94, 0.15);
-  color: #166534;
-}
-
-.status-approved {
-  background: rgba(74, 222, 128, 0.15);
-  color: #15803d;
-}
-
-.status-cancelled {
-  background: rgba(248, 113, 113, 0.15);
-  color: #b91c1c;
-}
-
-.priority-critical {
-  background: rgba(248, 113, 113, 0.2);
-  color: #7f1d1d;
-}
-
-.priority-high {
-  background: rgba(251, 146, 60, 0.2);
-  color: #7c2d12;
-}
-
-.priority-medium {
-  background: rgba(252, 211, 77, 0.2);
-  color: #78350f;
-}
-
-.priority-low {
-  background: rgba(134, 239, 172, 0.2);
-  color: #065f46;
-}
+// ── States ────────────────────────────────────────────────────────────────
 
 .loading-state {
   display: flex;
   flex-direction: column;
-  gap: var(--ui-space-2, 0.5rem);
+  gap: var(--space-2);
 }
 
 .skeleton-row {
-  height: 72px;
-  border-radius: var(--ui-radius-md, 16px);
+  height: 76px;
+  border-radius: var(--radius-lg);
   background: linear-gradient(
     90deg,
-    rgba(148, 163, 184, 0.15),
-    rgba(148, 163, 184, 0.05),
-    rgba(148, 163, 184, 0.15)
+    var(--color-bg-sunken) 0%,
+    var(--color-bg-elevated) 50%,
+    var(--color-bg-sunken) 100%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+  animation: shimmer 1.6s ease infinite;
 }
 
 .empty-state {
-  padding: var(--ui-space-5, 1.75rem);
+  padding: var(--space-10) var(--space-8);
   text-align: center;
-  border: 1px dashed rgba(91, 93, 216, 0.3);
-  border-radius: var(--ui-radius-md, 16px);
-  color: rgba(15, 23, 42, 0.6);
+  border: 1px dashed var(--color-accent-dim);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-secondary);
   display: flex;
   flex-direction: column;
-  gap: var(--ui-space-3, 0.75rem);
+  gap: var(--space-3);
   align-items: center;
+  font-size: var(--text-base);
 }
 
-.error-banner {
-  padding: var(--ui-space-3, 0.75rem);
-  border-radius: var(--ui-radius-md, 16px);
-  background: rgba(248, 113, 113, 0.15);
-  color: #b91c1c;
-}
+// ── Pagination ────────────────────────────────────────────────────────────
 
 .list-pagination {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: var(--ui-space-3, 0.75rem);
-  font-size: 0.9rem;
-  color: rgba(15, 23, 42, 0.7);
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-soft);
+
+  p {
+    margin: 0;
+  }
 }
 
 @media (max-width: 768px) {
@@ -280,7 +245,6 @@ button:disabled {
 
   .header-actions {
     width: 100%;
-    justify-content: space-between;
   }
 
   .task-head {

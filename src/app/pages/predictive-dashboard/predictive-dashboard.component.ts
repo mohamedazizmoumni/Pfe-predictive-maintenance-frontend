@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Params, Router, RouterModule } from '@angular/router';
-import { debounceTime, distinctUntilChanged, filter, fromEvent, interval, merge, of, Subject, takeUntil } from 'rxjs';
+import { debounceTime, distinctUntilChanged, filter, fromEvent, interval, merge, of, Subject, take, takeUntil } from 'rxjs';
 import { EquipmentService } from '../../core/services/equipment.service';
 import { PredictiveApiService } from '../../core/services/predictive-api.service';
 import {
@@ -15,6 +15,8 @@ import {
 import { ToastService } from '../../core/services/toast.service';
 import { AlertApiService } from '../../core/services/alert.service';
 import { AuthService } from '../../core/services/auth.service';
+import { MachineContextService } from '../../core/services/machine-context.service';
+import { NotificationsRestService } from '../../core/services/notifications-rest.service';
 import { AlertCategory, AlertResponse, AlertSeverity, AlertStatus, CreateAlertPayload, Page } from '../../core/models/sentinel.models';
 import { rolesCollectionHasAny } from '../../core/utils/role.utils';
 
@@ -97,11 +99,14 @@ export class PredictiveDashboardComponent implements OnInit, OnDestroy {
     private readonly predictiveApi: PredictiveApiService,
     private readonly alertApi: AlertApiService,
     private readonly authService: AuthService,
-    private readonly toastService: ToastService
+    private readonly machineContextService: MachineContextService,
+    private readonly toastService: ToastService,
+    private readonly notificationsService: NotificationsRestService
   ) {}
 
   ngOnInit(): void {
-    this.equipmentService.loadMachines(0, 100);
+    // Load real machines from database using EquipmentService
+    this.equipmentService.loadMachines(0, 1000);
 
     this.authService.currentUser$
       .pipe(takeUntil(this.destroy$))
@@ -121,6 +126,17 @@ export class PredictiveDashboardComponent implements OnInit, OnDestroy {
 
         if (machineId !== this.machineFilterControl.value) {
           this.machineFilterControl.setValue(machineId, { emitEvent: false });
+        }
+
+        if (machineId) {
+          this.equipmentService.machines$
+            .pipe(take(1), takeUntil(this.destroy$))
+            .subscribe((machines) => {
+              const machine = machines.find((item) => String(item.id) === machineId) ?? null;
+              this.machineContextService.setMachine(machine);
+            });
+        } else {
+          this.machineContextService.setMachine(null);
         }
 
         this.reportPage = parsedReportPage;
@@ -266,6 +282,56 @@ export class PredictiveDashboardComponent implements OnInit, OnDestroy {
     }
 
     return 'risk risk--low';
+  }
+  
+  getRiskBadgeClass(risk: number): string {
+    const normalizedRisk = this.normalizeRiskRatio(risk);
+
+    if (normalizedRisk >= 0.85) {
+      return 'badge badge--critical';
+    }
+
+    if (normalizedRisk >= 0.7) {
+      return 'badge badge--warning';
+    }
+
+    return 'badge badge--success';
+  }
+  
+  getRiskLabel(risk: number): string {
+    const normalizedRisk = this.normalizeRiskRatio(risk);
+
+    if (normalizedRisk >= 0.85) {
+      return 'High Risk';
+    }
+
+    if (normalizedRisk >= 0.7) {
+      return 'Medium Risk';
+    }
+
+    return 'Low Risk';
+  }
+  
+  shouldShowAutoAlert(reading: MachineSimulatedReading): boolean {
+    const risk = this.normalizeRiskRatio(reading.normalizedRisk ?? reading.risk);
+    return risk >= 0.85 || reading.anomalyCount >= 3;
+  }
+  
+  getFailureDaysDisplay(days: number): string {
+    if (days > 100) {
+      return 'Stable condition';
+    }
+    return `${Math.floor(days)} days`;
+  }
+  
+  getRiskLevelColor(riskLevel: string): string {
+    switch (riskLevel) {
+      case 'CRITICAL': return '#ef4444';
+      case 'HIGH': return '#f97316';
+      case 'MEDIUM': return '#eab308';
+      case 'LOW': return '#22c55e';
+      default: return '#64748b';
+    }
   }
 
   toRiskPercent(risk: number | null | undefined): number {
@@ -427,8 +493,12 @@ export class PredictiveDashboardComponent implements OnInit, OnDestroy {
 
     this.isReadingsRequestInFlight = true;
 
+    console.log('🔄 Fetching machine readings from database...');
+    
     this.predictiveApi.getSimulatedReadings().subscribe({
       next: (readings) => {
+        console.log(`📊 Received ${readings.length} machine readings:`, readings);
+        
         this.isReadingsRequestInFlight = false;
         this.isReadingsLoading = false;
         this.readingsError = null;
@@ -439,8 +509,11 @@ export class PredictiveDashboardComponent implements OnInit, OnDestroy {
         );
         this.applyReadingsFilter();
         this.monitorReadingsAndNotify(this.allSimulatedReadings);
+        
+        console.log(`✅ Dashboard now showing ${this.simulatedReadings.length} machines after filtering`);
       },
       error: (error: NormalizedApiError) => {
+        console.error('❌ Error fetching machine readings:', error);
         this.isReadingsRequestInFlight = false;
         this.isReadingsLoading = false;
         this.readingsError = error.message;
@@ -561,7 +634,9 @@ export class PredictiveDashboardComponent implements OnInit, OnDestroy {
           return severityDelta;
         }
 
-        return b.reading.risk - a.reading.risk;
+        const aRisk = a.reading.normalizedRisk ?? a.reading.risk ?? 0;
+        const bRisk = b.reading.normalizedRisk ?? b.reading.risk ?? 0;
+        return bRisk - aRisk;
       });
 
     if (candidates.length === 0) {
@@ -596,7 +671,8 @@ export class PredictiveDashboardComponent implements OnInit, OnDestroy {
   }
 
   private buildAutoAlertCandidate(reading: MachineSimulatedReading): AutoAlertCandidate | null {
-    const risk = this.normalizeRiskRatio(reading.risk);
+    // Use normalizedRisk as primary source, fallback to legacy risk field
+    const risk = this.normalizeRiskRatio(reading.normalizedRisk ?? reading.risk);
     const predictedFailureDays = Number(reading.predictedFailureDays ?? Number.POSITIVE_INFINITY);
     const anomalyCount = Number(reading.anomalyCount ?? 0);
 
@@ -663,6 +739,9 @@ export class PredictiveDashboardComponent implements OnInit, OnDestroy {
         } else {
           this.toastService.info(`Auto-alert created for ${candidate.reading.machineName}.`);
         }
+
+        // Sync unread notification count in UI (backend creates notifications automatically)
+        this.notificationsService.loadUnreadCount().pipe(takeUntil(this.destroy$)).subscribe();
 
         this.loadAlerts();
       },

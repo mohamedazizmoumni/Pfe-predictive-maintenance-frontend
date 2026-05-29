@@ -1,0 +1,139 @@
+<div class="stock-notifications-page">
+
+  <!-- HEADER -->
+  <header class="page-header">
+    <div class="header-left">
+      <div class="kicker">Warehouse Intelligence</div>
+      <h1 class="page-title">Stock Alert Center</h1>
+      <p class="page-subtitle">
+        Real-time inventory monitoring and critical stock event tracking
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn ghost" (click)="onRefresh()" [disabled]="isLoading">
+        ⟳ Refresh
+      </button>
+      <button class="btn primary" (click)="onMarkAllAsRead()" [disabled]="isLoading">
+        ✓ Mark all as read
+      </button>
+    </div>
+  </header>
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <button
+      *ngFor="let filter of filterOptions"
+      class="filter-pill"
+      [class.active]="selectedFilter === filter"
+      (click)="setFilter(filter)"
+    >
+      {{ filter | titlecase }}
+      <span class="badge" *ngIf="filter === 'unread'">
+        {{ (unreadCount$ | async) || 0 }}
+      </span>
+    </button>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading-state" *ngIf="isLoading">
+    <div class="loader"></div>
+    <p>Syncing warehouse events...</p>
+  </div>
+
+  <!-- CONTENT -->
+  <section class="grid-container" *ngIf="!isLoading">
+
+    <!-- MAIN LIST -->
+    <div class="notifications-panel">
+      <ng-container *ngIf="(filteredNotifications$ | async) as notifications">
+
+        <div class="empty-state" *ngIf="notifications.length === 0">
+          <div class="empty-icon">📦</div>
+          <h3>No active alerts</h3>
+          <p>{{ getEmptyStateMessage() }}</p>
+        </div>
+
+        <div
+          class="notification-card"
+          *ngFor="let notification of notifications"
+          [class.unread]="!notification.isRead"
+          (click)="onNotificationClick(notification)"
+        >
+          <!-- STATUS STRIP -->
+          <div class="status-strip" [ngClass]="notification.priority.toLowerCase()"></div>
+
+          <!-- ICON -->
+          <div class="icon">
+            {{ getTypeIcon(notification.type) }}
+          </div>
+
+          <!-- CONTENT -->
+          <div class="content">
+            <div class="top">
+              <h3 class="title">{{ notification.title }}</h3>
+              <div class="tags">
+                <span class="priority" [ngClass]="notification.priority.toLowerCase()">
+                  {{ notification.priority }}
+                </span>
+              </div>
+            </div>
+
+            <p class="message">{{ notification.message }}</p>
+
+            <div class="meta">
+              <span>⏱ {{ getRelativeTime(notification.timestamp) }}</span>
+              <span *ngIf="notification.partName">• {{ notification.partName }}</span>
+              <span *ngIf="notification.quantity !== undefined">
+                • Qty: {{ notification.quantity }}
+              </span>
+            </div>
+          </div>
+
+          <!-- ACTION -->
+          <button
+            class="mark-btn"
+            *ngIf="!notification.isRead"
+            (click)="onMarkAsRead(notification, $event)"
+          >
+            ✓
+          </button>
+        </div>
+
+      </ng-container>
+    </div>
+
+    <!-- SIDE PANEL -->
+    <aside class="side-panel">
+
+      <div class="panel-card">
+        <h3>System Overview</h3>
+
+        <div class="stat">
+          <span>Total Alerts</span>
+          <strong>{{ (filteredNotifications$ | async)?.length ?? 0 }}</strong>
+        </div>
+
+        <div class="stat danger">
+          <span>Critical</span>
+          <strong>{{ criticalCount }}</strong>
+        </div>
+
+        <div class="stat warning">
+          <span>Medium Risk</span>
+          <strong>{{ mediumCount }}</strong>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <h3>Quick Actions</h3>
+        <button class="action-btn">Export Report</button>
+        <button class="action-btn">Inventory Sync</button>
+        <button class="action-btn">Alert Rules</button>
+      </div>
+
+    </aside>
+
+  </section>
+
+</div>

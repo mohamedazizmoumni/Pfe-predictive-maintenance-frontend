@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
-import { DecimalPipe, NgFor, NgIf } from '@angular/common';
+import { CurrencyPipe, DecimalPipe, NgFor, NgIf } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -16,6 +16,7 @@ import { UrgencyBadgeComponent } from '../../shared/urgency-badge/urgency-badge.
     NgIf,
     NgFor,
     DecimalPipe,
+    CurrencyPipe,
     UrgencyBadgeComponent,
   ],
   templateUrl: './recommendation-card.component.html',

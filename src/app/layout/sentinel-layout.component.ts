@@ -1,10 +1,40 @@
-import { Component, Inject, OnInit } from '@angular/core';
+﻿import {
+  Component,
+  Inject,
+  OnInit,
+  OnDestroy,
+  ChangeDetectorRef,
+  HostListener
+} from '@angular/core';
+
 import { CommonModule, DOCUMENT } from '@angular/common';
-import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/router';
+
+import {
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+  Router,
+  NavigationEnd
+} from '@angular/router';
+
 import { AuthService } from '../core/services/auth.service';
+import { NotificationsRestService } from '../core/services/notifications-rest.service';
+import { FinanceService } from '../core/services/finance.service';
+import { apiEndpoint } from '../core/http/api-base';
+import { DashboardRoutingService } from '../pages/dashboards/dashboard-routing.service';
+import { ThemeService } from '../core/services';
+
 import { User } from '../core/models/sentinel.models';
-import { userHasRequiredRole } from '../core/utils/role.utils';
+
+import {
+  normalizeRoleName,
+  userHasRequiredRole,
+  getPrimaryRole,
+  rolesCollectionHasAny
+} from '../core/utils/role.utils';
+
 import { ChatbotComponent } from '../pages/chatbot/chatbot.component';
+import { NotificationBellComponent } from '../shared/notification-bell/notification-bell.component';
 
 interface MenuItem {
   label: string;
@@ -12,153 +42,515 @@ interface MenuItem {
   icon: string;
   caption?: string;
   requiredRoles?: string[];
+  pending?: number;
 }
+
+type SidebarRoleKey =
+  | 'SUPER_ADMIN'
+  | 'ADMIN'
+  | 'FINANCE_MANAGER'
+  | 'MANAGER'
+  | 'TECHNICIAN'
+  | 'STOCK_MANAGER'
+  | 'DATA_SCIENTIST'
+  | 'VIEWER'
+  | 'GUEST';
 
 @Component({
   selector: 'app-sentinel-layout',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet, ChatbotComponent],
+  imports: [
+    CommonModule,
+    RouterLink,
+    RouterLinkActive,
+    RouterOutlet,
+    ChatbotComponent,
+    NotificationBellComponent
+  ],
   templateUrl: './sentinel-layout.component.html',
   styleUrl: './sentinel-layout.component.scss',
 })
-export class SentinelLayoutComponent implements OnInit {
+export class SentinelLayoutComponent implements OnInit, OnDestroy {
+
   currentUser: User | null = null;
+  private sidebarUser: User | null = null;
+
   sidebarOpen = true;
-  theme: 'light' | 'dark' = 'light';
+  private userExplicitlyClosed = false;
+  profileMenuOpen = false;
+
+  get theme(): 'light' | 'dark' {
+    return this.themeService.theme();
+  }
+
   chatOpen = false;
+
   chatLeft = 0;
   chatTop = 0;
   chatWidth = 440;
   chatHeight = 560;
+
   chatMaximized = false;
+
   private isDraggingChat = false;
   private isResizingChat = false;
+
   private dragOffsetX = 0;
   private dragOffsetY = 0;
+
   private resizeStartX = 0;
   private resizeStartY = 0;
+
   private resizeStartWidth = 0;
   private resizeStartHeight = 0;
-  menuItems: MenuItem[] = [
+
+  canCreateTasks = false;
+
+  private cachedRoles: any[] = [];
+
+  private avatarUrlCache: string | null = null;
+  private lastAvatarUsername: string | null = null;
+
+  get pendingExpenseCount$() {
+    return this.financeService.pendingCount$;
+  }
+
+  readonly menuItems: MenuItem[] = [
     {
       label: 'Dashboard',
-      path: '/',
+      path: '/dashboards/admin',
       icon: '📊',
-      caption: 'Maintenance KPIs',
-      requiredRoles: [], // All authenticated users
+      caption: 'Overview & KPIs',
+      requiredRoles: []
     },
     {
-      label: 'Recommendations',
-      path: '/recommendations',
-      icon: '🧭',
-      caption: 'Action planning by urgency',
-      requiredRoles: [],
-    },
-    {
-      label: 'Budget',
-      path: '/budgets',
-      icon: '💰',
-      caption: 'Spend tracking and alerts',
-      requiredRoles: [],
+      label: 'Profile',
+      path: '/profile',
+      icon: '👤',
+      caption: 'My profile & settings',
+      requiredRoles: []
     },
     {
       label: 'Equipment',
       path: '/equipment',
       icon: '⚙️',
-      caption: 'Asset registry',
-      requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'VIEWER'],
+      caption: 'Machines & assets',
+      requiredRoles: ['SUPER_ADMIN','ADMIN','MANAGER','TECHNICIAN','VIEWER']
     },
     {
       label: 'Maintenance',
       path: '/maintenance',
       icon: '🔧',
-      caption: 'Tickets & workflows',
-      requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN'],
+      caption: 'Maintenance tasks',
+      requiredRoles: ['SUPER_ADMIN','ADMIN','MANAGER','TECHNICIAN']
     },
     {
-      label: 'Predictive Dashboard',
-      path: '/predictive-dashboard',
-      icon: '🔮',
-      caption: 'Risk & failure intelligence',
-      requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'VIEWER', 'DATA_SCIENTIST'],
+      label: 'Technician Calendar',
+      path: '/technician-calendar',
+      icon: '📅',
+      caption: 'Schedule & events',
+      requiredRoles: ['TECHNICIAN']
     },
     {
       label: 'Alerts',
       path: '/alerts',
       icon: '🚨',
-      caption: 'Incident queue',
-      requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DATA_SCIENTIST'],
+      caption: 'Active alerts',
+      requiredRoles: ['SUPER_ADMIN','ADMIN','MANAGER','TECHNICIAN','DATA_SCIENTIST']
     },
     {
       label: 'Inventory',
       path: '/inventory',
       icon: '📦',
-      caption: 'Spare parts & reorders',
-      requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'STOCK_MANAGER', 'MANAGER'],
+      caption: 'Parts & stock',
+      requiredRoles: ['SUPER_ADMIN','ADMIN','STOCK_MANAGER','MANAGER']
+    },
+    {
+      label: 'Parts',
+      path: '/inventory/parts',
+      icon: '🧩',
+      caption: 'Browse and manage parts',
+      requiredRoles: ['SUPER_ADMIN','ADMIN','STOCK_MANAGER','MANAGER']
+    },
+    {
+      label: 'Reorder Requests',
+      path: '/inventory/reorders',
+      icon: '📩',
+      caption: 'Approve replenishment requests',
+      requiredRoles: ['SUPER_ADMIN','ADMIN','STOCK_MANAGER','MANAGER']
+    },
+    {
+      label: 'Stock Orders',
+      path: '/inventory/stock-orders',
+      icon: '🚚',
+      caption: 'Track purchase orders',
+      requiredRoles: ['SUPER_ADMIN','ADMIN','STOCK_MANAGER','MANAGER']
+    },
+    {
+      label: 'Analytics',
+      path: '/inventory/analytics',
+      icon: '📊',
+      caption: 'Inventory KPIs and stock health',
+      requiredRoles: ['SUPER_ADMIN','ADMIN','STOCK_MANAGER','MANAGER']
+    },
+    {
+      label: 'Stock Notifications',
+      path: '/stock-notifications',
+      icon: '🔔',
+      caption: 'Stock alerts & updates',
+      requiredRoles: ['SUPER_ADMIN','ADMIN','STOCK_MANAGER']
     },
     {
       label: 'User Management',
       path: '/user-management',
-      icon: '👤',
-      caption: 'Manage users',
-      requiredRoles: ['SUPER_ADMIN'],
-    },
-    {
-      label: 'Users',
-      path: '/users',
       icon: '👥',
-      caption: 'Access control',
-      requiredRoles: ['SUPER_ADMIN', 'ADMIN'],
+      caption: 'Users & roles',
+      requiredRoles: ['SUPER_ADMIN','ADMIN']
     },
     {
-      label: 'Settings',
-      path: '/settings',
-      icon: '⚙️',
-      caption: 'Platform config',
-      requiredRoles: ['SUPER_ADMIN', 'ADMIN'],
+      label: 'AI Intelligence',
+      path: '/ai-assistant',
+      icon: '🧠',
+      caption: 'Assistant diagnosis and risk overview',
+      requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'DATA_SCIENTIST']
+    },
+    {
+      label: 'Expenses',
+      path: '/finance/expenses',
+      icon: '💰',
+      caption: 'Submit & track expenses',
+      requiredRoles: []
+    },
+    {
+      label: 'Finance Dashboard',
+      path: '/finance/dashboard',
+      icon: '📈',
+      caption: 'Budget & spending overview',
+      requiredRoles: ['FINANCE_MANAGER', 'ADMIN', 'SUPER_ADMIN']
+    },
+    {
+      label: 'Budget Management',
+      path: '/finance/budget',
+      icon: '🏦',
+      caption: 'Annual budget control',
+      requiredRoles: ['FINANCE_MANAGER', 'ADMIN', 'SUPER_ADMIN']
     },
   ];
+
+  private readonly sidebarMenuByRole: Record<SidebarRoleKey, string[]> = {
+    SUPER_ADMIN: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Technician Calendar', 'Alerts', 'Inventory', 'Parts', 'Reorder Requests', 'Stock Orders', 'Analytics', 'Stock Notifications', 'User Management', 'Expenses', 'Finance Dashboard', 'Budget Management'],
+    ADMIN: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Technician Calendar', 'Alerts', 'Inventory', 'Parts', 'Reorder Requests', 'Stock Orders', 'Analytics', 'Stock Notifications', 'User Management', 'Expenses', 'Finance Dashboard', 'Budget Management'],
+    FINANCE_MANAGER: ['Dashboard', 'Profile', 'Expenses', 'Finance Dashboard', 'Budget Management'],
+    MANAGER: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Alerts', 'Analytics'],
+    TECHNICIAN: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Technician Calendar', 'Alerts', 'AI Intelligence'],
+    STOCK_MANAGER: ['Dashboard', 'Profile', 'Inventory', 'Parts', 'Reorder Requests', 'Stock Orders', 'Analytics', 'Stock Notifications', 'Expenses'],
+    DATA_SCIENTIST: ['Dashboard', 'Profile', 'Alerts', 'AI Intelligence', 'Expenses'],
+    VIEWER: ['Dashboard', 'Profile', 'Equipment', 'Alerts', 'Expenses'],
+    GUEST: ['Dashboard', 'Profile'],
+  };
 
   constructor(
     private authService: AuthService,
     private router: Router,
+    private notificationsService: NotificationsRestService,
+    private financeService: FinanceService,
+    private dashboardRoutingService: DashboardRoutingService,
+    private themeService: ThemeService,
+    private cdr: ChangeDetectorRef,
     @Inject(DOCUMENT) private document: Document
   ) {}
 
   ngOnInit(): void {
-    this.authService.currentUser$.subscribe((user: User | null) => {
-      this.currentUser = user;
-    });
 
-		this.initializeTheme();
-  }
+    const storedSidebar = (typeof window !== 'undefined' && window.localStorage)
+      ? window.localStorage.getItem('sentinel-sidebar')
+      : null;
 
-  /**
-   * Check if menu item should be visible based on user roles
-   * If requiredRoles is empty, show to all authenticated users
-   * If requiredRoles has values, check if user has any of those roles
-   */
-  isMenuItemVisible(item: MenuItem): boolean {
-    // If no required roles specified, show to all authenticated users
-    if (!item.requiredRoles || item.requiredRoles.length === 0) {
-      return true;
+    const isDesktop = typeof window !== 'undefined' ? window.innerWidth > 960 : true;
+
+    if (isDesktop) {
+      this.sidebarOpen = storedSidebar !== 'closed';
+      this.userExplicitlyClosed = false;
+    } else {
+      this.sidebarOpen = storedSidebar !== 'closed';
+      this.userExplicitlyClosed = storedSidebar === 'closed';
     }
 
-    // Check if user has any of the required roles
-    return userHasRequiredRole(this.currentUser, item.requiredRoles);
+    if (!this.sidebarOpen) {
+      this.sidebarOpen = true;
+      this.userExplicitlyClosed = false;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem('sentinel-sidebar');
+      }
+    }
+
+    this.router.events.subscribe((ev) => {
+      if (ev instanceof NavigationEnd) {
+        try {
+          if (!this.userExplicitlyClosed && window.innerWidth > 960 && !this.sidebarOpen) {
+            this.sidebarOpen = true;
+            this.cdr.detectChanges();
+          }
+        } catch (e) {}
+      }
+    });
+
+    this.authService.currentUser$.subscribe((user: User | null) => {
+
+      if (!user) {
+        if (this.authService.hasToken()) {
+          return;
+        }
+        this.currentUser = null;
+        this.sidebarUser = null;
+        this.canCreateTasks = false;
+        this.cachedRoles = [];
+        this.avatarUrlCache = null;
+        this.lastAvatarUsername = null;
+        this.notificationsService.stopPolling();
+        return;
+      }
+
+      const incomingRoles = Array.isArray(user.roles) ? user.roles : [];
+      const isSameUser = this.currentUser?.username === user.username;
+
+      if (incomingRoles.length > 0) {
+        this.cachedRoles = incomingRoles;
+      }
+
+      const preservedRoles = incomingRoles.length > 0
+        ? incomingRoles
+        : isSameUser
+          ? (this.currentUser?.roles ?? this.cachedRoles)
+          : [];
+
+      const preservedAvatarUrl = user.profilePictureUrl
+        ?? (isSameUser ? this.currentUser?.profilePictureUrl : null)
+        ?? null;
+
+      this.sidebarUser = {
+        ...this.currentUser,
+        ...user,
+        roles: preservedRoles,
+        profilePictureUrl: preservedAvatarUrl ?? undefined,
+      };
+
+      this.currentUser = this.sidebarUser;
+
+      if (this.sidebarUser?.username) {
+        this.lastAvatarUsername = this.sidebarUser.username;
+        this.avatarUrlCache = this.sidebarUser.profilePictureUrl
+          ?? apiEndpoint(`/v1/users/${this.sidebarUser.username}/profile-picture`);
+      }
+
+      this.canCreateTasks = userHasRequiredRole(
+        this.currentUser,
+        ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
+      );
+
+      this.setupNotifications(this.currentUser);
+
+      if (this.isFinanceRole) {
+        this.financeService.refreshPendingCount();
+      }
+
+      this.cdr.detectChanges();
+    });
+
+    this.themeService.initializeTheme();
+  }
+
+  private setupNotifications(user: User | null): void {
+    const normalizedRoles =
+      (user?.roles ?? []).map((role) => normalizeRoleName(role.name));
+
+    const preferredRole =
+      normalizedRoles.includes('SUPER_ADMIN')
+        ? 'SUPER_ADMIN'
+        : normalizedRoles[0] ?? null;
+
+    if (preferredRole !== 'STOCK_MANAGER') {
+      this.notificationsService.setRole(preferredRole);
+      this.notificationsService.loadNotifications(preferredRole).subscribe();
+      this.notificationsService.loadUnreadCount().subscribe();
+      this.notificationsService.startPolling(30000);
+    } else {
+      this.notificationsService.stopPolling();
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.notificationsService.stopPolling();
+  }
+
+  getPrimaryRoleLabel(): string {
+    return getPrimaryRole(this.sidebarUser ?? this.currentUser);
+  }
+
+  get isFinanceRole(): boolean {
+    const roles = this.getNormalizedRoles(this.sidebarUser ?? this.currentUser);
+    return roles.includes('FINANCE_MANAGER') || roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+  }
+
+  getDashboardPath(): string {
+    return this.dashboardRoutingService.getDashboardRouteForCurrentUser(this.currentUser);
+  }
+
+  getDashboardCaption(): string {
+    return `${this.dashboardRoutingService.getDashboardRoleLabel(this.currentUser)} dashboard`;
+  }
+
+  getHeaderDateLabel(): string {
+    return new Date().toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  }
+
+  getHeaderTimeLabel(): string {
+    return new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  get visibleMenuItems(): MenuItem[] {
+    const roleKey = this.getSidebarRoleKey();
+    const allowedLabels = this.sidebarMenuByRole[roleKey] ?? this.sidebarMenuByRole.GUEST;
+    return this.menuItems.filter((item) => allowedLabels.includes(item.label));
+  }
+
+  private getSidebarRoleKey(): SidebarRoleKey {
+    const normalizedRoles = this.getNormalizedRoles(this.sidebarUser ?? this.currentUser);
+
+    if (normalizedRoles.includes('SUPER_ADMIN')) {
+      return 'SUPER_ADMIN';
+    }
+    if (normalizedRoles.includes('ADMIN')) {
+      return 'ADMIN';
+    }
+    if (normalizedRoles.includes('FINANCE_MANAGER')) {
+      return 'FINANCE_MANAGER';
+    }
+    if (normalizedRoles.includes('MANAGER')) {
+      return 'MANAGER';
+    }
+    if (normalizedRoles.includes('TECHNICIAN')) {
+      return 'TECHNICIAN';
+    }
+    if (normalizedRoles.includes('STOCK_MANAGER')) {
+      return 'STOCK_MANAGER';
+    }
+    if (normalizedRoles.includes('DATA_SCIENTIST')) {
+      return 'DATA_SCIENTIST';
+    }
+    if (normalizedRoles.includes('VIEWER')) {
+      return 'VIEWER';
+    }
+
+    return 'GUEST';
+  }
+
+  private getNormalizedRoles(user: User | null): string[] {
+    const roles = user?.roles ?? this.cachedRoles ?? [];
+
+    return roles
+      .map((role: any) => {
+        if (typeof role === 'string') {
+          return normalizeRoleName(role);
+        }
+
+        return normalizeRoleName(role?.name);
+      })
+      .filter((role) => !!role);
+  }
+
+  isMenuItemVisible(item: MenuItem): boolean {
+    return this.visibleMenuItems.some((visibleItem) => visibleItem.label === item.label);
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.profileMenuOpen = false;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    this.profileMenuOpen = false;
   }
 
   toggleSidebar(): void {
     this.sidebarOpen = !this.sidebarOpen;
+    this.userExplicitlyClosed = !this.sidebarOpen;
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem('sentinel-sidebar', this.sidebarOpen ? 'open' : 'closed');
+    }
+    this.profileMenuOpen = false;
+  }
+
+  toggleProfileMenu(event?: MouseEvent): void {
+    event?.stopPropagation();
+
+    if (!this.currentUser) {
+      this.router.navigate(['/auth/login']);
+      return;
+    }
+
+    this.profileMenuOpen = !this.profileMenuOpen;
+  }
+
+  goToProfile(event?: MouseEvent): void {
+    event?.stopPropagation();
+    this.profileMenuOpen = false;
+    this.router.navigate(['/profile']);
+  }
+
+  goToDashboard(event?: MouseEvent): void {
+    event?.stopPropagation();
+    this.profileMenuOpen = false;
+    this.router.navigate([this.getDashboardPath()]);
+  }
+
+  goToSettings(event?: MouseEvent): void {
+    event?.stopPropagation();
+    this.profileMenuOpen = false;
+    this.router.navigate(['/profile']);
+  }
+
+  openSupport(event?: MouseEvent): void {
+    event?.stopPropagation();
+    this.profileMenuOpen = false;
+    this.router.navigate(['/profile']);
+  }
+
+  openDocumentation(event?: MouseEvent): void {
+    event?.stopPropagation();
+    this.profileMenuOpen = false;
+    this.router.navigate(['/profile']);
+  }
+
+  openCommunity(event?: MouseEvent): void {
+    event?.stopPropagation();
+    this.profileMenuOpen = false;
+    this.router.navigate(['/profile']);
+  }
+
+  toggleAppearance(event?: MouseEvent): void {
+    event?.stopPropagation();
+    this.toggleTheme();
+    this.profileMenuOpen = false;
   }
 
   toggleChat(): void {
     this.chatOpen = !this.chatOpen;
+
     if (this.chatOpen) {
       this.chatMaximized = false;
-      // default bottom-right placement
+
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
+
       this.chatWidth = 440;
       this.chatHeight = Math.min(600, viewportHeight * 0.9);
       this.chatLeft = viewportWidth - this.chatWidth - 32;
@@ -173,6 +565,7 @@ export class SentinelLayoutComponent implements OnInit {
     }
 
     this.chatMaximized = !this.chatMaximized;
+
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
@@ -226,8 +619,14 @@ export class SentinelLayoutComponent implements OnInit {
       const deltaY = event.clientY - this.resizeStartY;
       const minWidth = 320;
       const minHeight = 320;
-      this.chatWidth = Math.min(Math.max(minWidth, this.resizeStartWidth + deltaX), viewportWidth - this.chatLeft - 8);
-      this.chatHeight = Math.min(Math.max(minHeight, this.resizeStartHeight + deltaY), viewportHeight - this.chatTop - 8);
+      this.chatWidth = Math.min(
+        Math.max(minWidth, this.resizeStartWidth + deltaX),
+        viewportWidth - this.chatLeft - 8
+      );
+      this.chatHeight = Math.min(
+        Math.max(minHeight, this.resizeStartHeight + deltaY),
+        viewportHeight - this.chatTop - 8
+      );
     }
   };
 
@@ -239,53 +638,58 @@ export class SentinelLayoutComponent implements OnInit {
   };
 
   toggleTheme(): void {
-    this.theme = this.theme === 'dark' ? 'light' : 'dark';
-    this.applyTheme(this.theme);
-  }
-
-  private initializeTheme(): void {
-    const stored = (typeof window !== 'undefined' && window.localStorage)
-      ? window.localStorage.getItem('sentinel-theme')
-      : null;
-
-    if (stored === 'light' || stored === 'dark') {
-      this.theme = stored;
-    } else if (typeof window !== 'undefined' && window.matchMedia) {
-      this.theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-
-    this.applyTheme(this.theme);
-  }
-
-  private applyTheme(theme: 'light' | 'dark'): void {
-    this.document.documentElement.setAttribute('data-theme', theme);
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem('sentinel-theme', theme);
-    }
+    this.themeService.toggleTheme();
   }
 
   logout(): void {
+    this.profileMenuOpen = false;
+
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem('sentinel-sidebar');
+    }
+
     this.authService.logout().subscribe(() => {
       this.router.navigate(['/auth/login']);
     });
   }
 
   getUserDisplayName(): string {
-    if (!this.currentUser) {
-      return '';
-    }
-    return this.currentUser.displayName || this.currentUser.username;
+    const user = this.sidebarUser ?? this.currentUser;
+    if (!user) return '';
+    return user.displayName || user.username;
   }
 
   getUserRoles(): string {
-    if (!this.currentUser || !this.currentUser.roles) {
-      return '';
-    }
-    return this.currentUser.roles.map((r: any) => r.name).join(', ');
+    const user = this.sidebarUser ?? this.currentUser;
+    if (!user?.roles) return '';
+    return this.getNormalizedRoles(user).join(', ');
   }
 
   getUserInitial(): string {
     const display = this.getUserDisplayName();
     return display ? display.charAt(0).toUpperCase() : '?';
+  }
+
+  getUserAvatarUrl(): string | null {
+    const user = this.sidebarUser ?? this.currentUser;
+
+    if (!user?.username) {
+      return user?.profilePictureUrl ?? null;
+    }
+
+    if (this.lastAvatarUsername === user.username) {
+      return this.avatarUrlCache;
+    }
+
+    this.lastAvatarUsername = user.username;
+    this.avatarUrlCache = user.profilePictureUrl
+      ?? this.avatarUrlCache
+      ?? null;
+
+    if (!this.avatarUrlCache) {
+      this.avatarUrlCache = apiEndpoint(`/v1/users/${user.username}/profile-picture`);
+    }
+
+    return this.avatarUrlCache;
   }
 }

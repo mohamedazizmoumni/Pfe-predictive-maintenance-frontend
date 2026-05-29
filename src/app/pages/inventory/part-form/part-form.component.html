@@ -7,18 +7,24 @@
     <div class="form-group">
       <label for="name">Name *</label>
       <input id="name" formControlName="name" placeholder="Enter part name" required />
+      <small class="field-error" *ngIf="partForm.get('name')?.invalid && partForm.get('name')?.touched">
+        Name is required
+      </small>
     </div>
 
     <div class="form-group">
       <label for="partNumber">Part Number *</label>
       <input id="partNumber" formControlName="partNumber" placeholder="Enter part number" required />
+      <small class="field-error" *ngIf="partForm.get('partNumber')?.invalid && partForm.get('partNumber')?.touched">
+        Part Number is required
+      </small>
     </div>
 
     <!-- Category selection -->
     <div class="form-group">
       <label for="category">Category *</label>
       <div class="category-flex">
-        <select id="category" formControlName="category" [disabled]="loadingCategories">
+        <select id="category" formControlName="category" [disabled]="loadingCategories" (change)="onCategoryChange($event)">
           <option value="">Select category…</option>
           <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
         </select>
@@ -27,6 +33,18 @@
           <a class="btn btn-sm" [routerLink]="['/inventory/categories']">Manage</a>
         </div>
       </div>
+      <small class="field-error" *ngIf="partForm.get('category')?.invalid && partForm.get('category')?.touched">
+        Category is required
+      </small>
+    </div>
+
+    <!-- Subcategory selection -->
+    <div class="form-group">
+      <label for="subCategory">Subcategory</label>
+      <select id="subCategory" formControlName="subCategory" [disabled]="subCategories.length === 0">
+        <option value="">Select subcategory…</option>
+        <option *ngFor="let sub of subCategories" [value]="sub">{{ sub }}</option>
+      </select>
     </div>
 
     <!-- Cost & Stock info -->
@@ -36,8 +54,19 @@
     </div>
 
     <div class="form-group">
+      <label for="currentStock">Current Stock *</label>
+      <input id="currentStock" type="number" formControlName="currentStock" min="0" placeholder="0" required />
+      <small class="field-error" *ngIf="partForm.get('currentStock')?.invalid && partForm.get('currentStock')?.touched">
+        Current Stock is required
+      </small>
+    </div>
+
+    <div class="form-group">
       <label for="minimumStock">Minimum Stock *</label>
       <input id="minimumStock" type="number" formControlName="minimumStock" min="0" placeholder="0" required />
+      <small class="field-error" *ngIf="partForm.get('minimumStock')?.invalid && partForm.get('minimumStock')?.touched">
+        Minimum Stock is required
+      </small>
     </div>
 
     <div class="form-group">
@@ -67,15 +96,52 @@
       <textarea id="notes" formControlName="notes" rows="3" placeholder="Optional notes"></textarea>
     </div>
 
+    <!-- Image Upload -->
+    <div class="form-group form-group-full">
+      <label for="imageFile">Part Image</label>
+      <div class="image-upload-container">
+        <input 
+          id="imageFile" 
+          type="file" 
+          accept="image/*" 
+          (change)="onImageSelected($event)"
+          [disabled]="loading || uploadingImage"
+        />
+        <small class="field-hint">Max size: 5MB. Formats: JPEG, PNG, GIF, WebP</small>
+        
+        <!-- Image Preview -->
+        <div *ngIf="imagePreview" class="image-preview">
+          <img [src]="imagePreview" alt="Part image preview" />
+          <div class="image-actions">
+            <button 
+              type="button" 
+              class="btn-remove" 
+              (click)="selectedImage ? removeImage() : deleteExistingImage()"
+              [disabled]="uploadingImage"
+            >
+              {{ selectedImage ? 'Remove' : 'Delete Image' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Actions -->
     <div class="form-actions">
-      <button type="submit" [disabled]="loading || partForm.invalid">
-        {{ isEdit ? 'Update' : 'Create' }} Part
+      <button type="submit" [disabled]="loading || partForm.invalid || uploadingImage">
+        {{ uploadingImage ? 'Uploading...' : (isEdit ? 'Update' : 'Create') }} Part
       </button>
       <button type="button" (click)="router.navigate(['../'], { relativeTo: route })" class="cancel-btn">Cancel</button>
     </div>
 
-    <div *ngIf="error" class="error">{{ error }}</div>
+    <div *ngIf="error" class="error-message">
+      <strong>⚠️ Error:</strong> {{ error }}
+      <div *ngIf="error.includes('Category') && error.includes('does not exist')" class="error-actions">
+        <a [routerLink]="['/inventory/categories']" class="btn-link">
+          → Go to Manage Categories
+        </a>
+      </div>
+    </div>
     <div *ngIf="loading" class="loading">Loading...</div>
   </form>
 </div>

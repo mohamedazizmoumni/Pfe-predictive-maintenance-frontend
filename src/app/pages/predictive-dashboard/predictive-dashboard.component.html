@@ -71,42 +71,157 @@
         <thead>
           <tr>
             <th>Machine</th>
-            <th>Timestamp</th>
-            <th>Usage Hours</th>
-            <th>Anomaly Count</th>
-            <th>Risk</th>
-            <th>Predicted Failure Days</th>
-            <th></th>
+            <th>Risk Status</th>
+            <th>Failure Prediction</th>
+            <th>Anomalies</th>
+            <th>Last Update</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           <ng-container *ngFor="let reading of simulatedReadings; trackBy: trackByReading">
-            <tr>
-              <td>{{ reading.machineName }}</td>
-              <td>{{ reading.timestamp | date : 'medium' }}</td>
-              <td>{{ reading.usageHours }}</td>
-              <td>{{ reading.anomalyCount }}</td>
+            <!-- Main Row -->
+            <tr [class.row-expanded]="expandedReadingMachineId === reading.machineId">
+              <!-- Machine Identity -->
               <td>
-                <span [class]="getRiskClass(reading.risk)">{{ toRiskPercent(reading.risk) | number : '1.0-1' }}%</span>
+                <div class="machine-cell">
+                  <div class="machine-name">{{ reading.machineName }}</div>
+                  <div class="machine-id">ID: {{ reading.machineId }}</div>
+                  <div class="machine-hours">{{ reading.usageHours }}h</div>
+                </div>
               </td>
-              <td>{{ reading.predictedFailureDays }}</td>
+              
+              <!-- Risk Visualization -->
               <td>
-                <button type="button" class="btn btn-ghost" (click)="toggleReadingDetails(reading.machineId)">
-                  {{ expandedReadingMachineId === reading.machineId ? 'Hide sensors' : 'View sensors' }}
-                </button>
+                <div class="risk-cell">
+                  <span [class]="getRiskBadgeClass(reading.normalizedRisk ?? reading.risk ?? 0)">
+                    {{ getRiskLabel(reading.normalizedRisk ?? reading.risk ?? 0) }}
+                  </span>
+                  <div class="risk-bar">
+                    <div 
+                      class="risk-bar-fill" 
+                      [class]="getRiskClass(reading.normalizedRisk ?? reading.risk ?? 0)"
+                      [style.width.%]="toRiskPercent(reading.normalizedRisk ?? reading.risk ?? 0)">
+                    </div>
+                  </div>
+                  <div class="risk-percent">{{ toRiskPercent(reading.normalizedRisk ?? reading.risk ?? 0) | number : '1.0-1' }}%</div>
+                </div>
               </td>
-            </tr>
-            <tr *ngIf="expandedReadingMachineId === reading.machineId">
-              <td colspan="7" class="sensor-cell">
-                <div class="sensor-grid" *ngIf="(reading.sensorValues | keyvalue).length > 0; else noSensors">
-                  <div *ngFor="let sensor of reading.sensorValues | keyvalue">
-                    <span>{{ sensor.key }}</span>
-                    <strong>{{ sensor.value }}</strong>
+              
+              <!-- Remaining Useful Life -->
+              <td>
+                <div class="failure-cell">
+                  <div class="failure-days">{{ getFailureDaysDisplay(reading.predictedFailureDays) }}</div>
+                  <div class="failure-label" *ngIf="reading.predictedFailureDays <= 100">
+                    Predicted in {{ reading.predictedFailureDays | number : '1.0-0' }} days
                   </div>
                 </div>
-                <ng-template #noSensors>
-                  <p class="empty-inline">No sensor values in this reading.</p>
-                </ng-template>
+              </td>
+              
+              <!-- Anomaly Count -->
+              <td>
+                <div class="anomaly-cell">
+                  <span class="anomaly-count" [class.anomaly-high]="reading.anomalyCount >= 3">
+                    {{ reading.anomalyCount }}
+                  </span>
+                  <span class="anomaly-label">detected</span>
+                </div>
+              </td>
+              
+              <!-- Timestamp -->
+              <td>
+                <div class="timestamp-cell">
+                  {{ reading.timestamp | date : 'short' }}
+                </div>
+              </td>
+              
+              <!-- Actions -->
+              <td>
+                <div class="actions-cell">
+                  <button 
+                    type="button" 
+                    class="btn btn-ghost btn-sm" 
+                    (click)="toggleReadingDetails(reading.machineId)">
+                    {{ expandedReadingMachineId === reading.machineId ? '▲ Hide Details' : '▼ View Details' }}
+                  </button>
+                  <span 
+                    *ngIf="shouldShowAutoAlert(reading)" 
+                    class="auto-alert-indicator"
+                    title="Auto alert triggered">
+                    🚨
+                  </span>
+                </div>
+              </td>
+            </tr>
+            
+            <!-- Expanded Details Row -->
+            <tr *ngIf="expandedReadingMachineId === reading.machineId" class="expanded-row">
+              <td colspan="6" class="expanded-cell">
+                <div class="expanded-content">
+                  
+                  <!-- ML Prediction Panel -->
+                  <div class="detail-panel">
+                    <h4>📊 ML Prediction</h4>
+                    <div class="detail-grid">
+                      <div class="detail-item">
+                        <span class="detail-label">Risk Level</span>
+                        <span 
+                          class="detail-value risk-level-badge" 
+                          [style.background-color]="getRiskLevelColor(reading.mlPrediction?.riskLevel || 'LOW')">
+                          {{ reading.mlPrediction?.riskLevel || 'N/A' }}
+                        </span>
+                      </div>
+                      <div class="detail-item">
+                        <span class="detail-label">Anomaly Probability</span>
+                        <span class="detail-value">
+                          {{ (reading.mlPrediction?.anomalyProbability ?? 0) * 100 | number : '1.0-1' }}%
+                        </span>
+                      </div>
+                      <div class="detail-item">
+                        <span class="detail-label">RUL (Raw ML Output)</span>
+                        <span class="detail-value">
+                          {{ reading.mlPrediction?.rul ?? 0 | number : '1.0-2' }} days
+                        </span>
+                      </div>
+                      <div class="detail-item">
+                        <span class="detail-label">Normalized Risk Score</span>
+                        <span class="detail-value">
+                          {{ (reading.normalizedRisk ?? reading.risk ?? 0) | number : '1.0-3' }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Live Sensor Snapshot -->
+                  <div class="detail-panel">
+                    <h4>🌡️ Live Sensor Snapshot</h4>
+                    <div class="sensor-grid" *ngIf="(reading.sensorValues | keyvalue).length > 0; else noSensors">
+                      <div class="sensor-item" *ngFor="let sensor of reading.sensorValues | keyvalue">
+                        <span class="sensor-label">{{ sensor.key }}</span>
+                        <span class="sensor-value">{{ sensor.value | number : '1.0-2' }}</span>
+                      </div>
+                    </div>
+                    <ng-template #noSensors>
+                      <p class="empty-inline">No sensor values available</p>
+                    </ng-template>
+                  </div>
+                  
+                  <!-- Auto-Alert Indicator -->
+                  <div class="detail-panel" *ngIf="shouldShowAutoAlert(reading)">
+                    <h4>🚨 Auto Alert Status</h4>
+                    <div class="alert-indicator">
+                      <span class="alert-badge alert-badge--critical">Auto Alert Triggered</span>
+                      <p class="alert-reason">
+                        <span *ngIf="(reading.normalizedRisk ?? reading.risk ?? 0) >= 0.85">High risk detected (≥85%)</span>
+                        <span *ngIf="reading.anomalyCount >= 3">Multiple anomalies detected (≥3)</span>
+                      </p>
+                      <a [routerLink]="['/alerts']" [queryParams]="{machineId: reading.machineId}" class="btn btn-sm btn-secondary">
+                        View Alerts →
+                      </a>
+                    </div>
+                  </div>
+                  
+                </div>
               </td>
             </tr>
           </ng-container>

@@ -4,41 +4,165 @@
   </div>
 
   <ng-container *ngIf="!isLoading">
+    <header class="dashboard-hero">
+      <div class="hero-text">
+        <p class="eyebrow">Operations command</p>
+        <h1>Maintenance Intelligence</h1>
+        <p class="hero-subtitle">Live fleet health, risk signals, and cost control in one place.</p>
+        <div class="hero-meta">
+          <span class="meta-chip">Last sync: {{ lastRefreshAt | date: 'shortTime' }}</span>
+          <span class="meta-chip">Assets tracked: {{ totalMachines }}</span>
+          <span class="meta-chip">Maintenance load: {{ maintenanceLoad }}%</span>
+        </div>
+      </div>
+
+      <div class="hero-card">
+        <div class="hero-card-header">
+          <p class="hero-card-label">Fleet health score</p>
+          <span class="hero-score">{{ healthScore }}%</span>
+        </div>
+        <div class="hero-chart">
+          <svg viewBox="0 0 100 40" preserveAspectRatio="none">
+            <polyline [attr.points]="healthTrendPoints" class="trend-line"></polyline>
+          </svg>
+        </div>
+        <div class="hero-card-footer">
+          <span>Operational: {{ statusBreakdown.OPERATIONAL }}</span>
+          <span>Maintenance: {{ statusBreakdown.MAINTENANCE }}</span>
+          <span>Faulty: {{ statusBreakdown.FAULTY }}</span>
+        </div>
+      </div>
+    </header>
+
     <section class="kpi-grid">
       <mat-card class="kpi-card">
-        <p class="kpi-title">Total Machines</p>
+        <p class="kpi-title">Total Assets</p>
         <h2>{{ totalMachines }}</h2>
-        <p class="kpi-subtitle">
-          Running: {{ statusBreakdown.RUNNING }} | Maintenance: {{ statusBreakdown.UNDER_MAINTENANCE }} |
-          Failed: {{ statusBreakdown.FAILED }}
-        </p>
+        <p class="kpi-subtitle">Fleet coverage across all workshops</p>
       </mat-card>
 
       <mat-card class="kpi-card">
         <p class="kpi-title">Active Alerts</p>
         <h2>{{ activeAlerts }}</h2>
-        <p class="kpi-subtitle">Urgent machines needing attention</p>
+        <p class="kpi-subtitle">Critical or high urgency signals</p>
       </mat-card>
 
       <mat-card class="kpi-card" [ngClass]="budgetUsageClass(monthlyBudgetUsed)">
-        <p class="kpi-title">Monthly Budget Used</p>
+        <p class="kpi-title">Budget Utilization</p>
         <h2>{{ monthlyBudgetUsed | number: '1.0-2' }}%</h2>
-        <p class="kpi-subtitle">Green < 60%, Orange 60-80%, Red > 80%</p>
+        <p class="kpi-subtitle">Monthly operational spend</p>
       </mat-card>
 
       <mat-card class="kpi-card">
-        <p class="kpi-title">Estimated Savings Available</p>
+        <p class="kpi-title">Estimated Savings</p>
         <h2>{{ estimatedSavings | currency }}</h2>
-        <p class="kpi-subtitle">From recommendation opportunities</p>
+        <p class="kpi-subtitle">Optimized through recommendations</p>
       </mat-card>
     </section>
 
-    <section class="content-grid">
-      <div class="left-column">
-        <app-machine-list></app-machine-list>
+    <section class="dashboard-grid">
+      <div class="panel-stack">
+        <article class="panel-card insights-card">
+          <div class="panel-header">
+            <h3>System pulse</h3>
+            <span class="panel-meta">Status distribution</span>
+          </div>
+          <div class="status-bars">
+            <div class="status-row">
+              <span class="status-label">Running</span>
+              <div class="status-track">
+                <span class="status-fill running" [style.width.%]="totalMachines ? (statusBreakdown.OPERATIONAL / totalMachines) * 100 : 0"></span>
+              </div>
+              <span class="status-value">{{ statusBreakdown.OPERATIONAL }}</span>
+            </div>
+            <div class="status-row">
+              <span class="status-label">Maintenance</span>
+              <div class="status-track">
+                <span class="status-fill maintenance" [style.width.%]="totalMachines ? (statusBreakdown.MAINTENANCE / totalMachines) * 100 : 0"></span>
+              </div>
+              <span class="status-value">{{ statusBreakdown.MAINTENANCE }}</span>
+            </div>
+            <div class="status-row">
+              <span class="status-label">Failed</span>
+              <div class="status-track">
+                <span class="status-fill failed" [style.width.%]="totalMachines ? (statusBreakdown.FAULTY / totalMachines) * 100 : 0"></span>
+              </div>
+              <span class="status-value">{{ statusBreakdown.FAULTY }}</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel-card activity-card">
+          <div class="panel-header">
+            <h3>Recent activity</h3>
+            <span class="panel-meta">Auto-generated highlights</span>
+          </div>
+          <div class="activity-list">
+            <div class="activity-item" *ngFor="let activity of activityFeed">
+              <span class="activity-dot" [class]="activity.tone"></span>
+              <div class="activity-body">
+                <p class="activity-title">{{ activity.title }}</p>
+                <p class="activity-detail">{{ activity.detail }}</p>
+              </div>
+              <span class="activity-time">{{ activity.time }}</span>
+            </div>
+          </div>
+        </article>
       </div>
-      <div class="right-column">
-        <app-budget-overview></app-budget-overview>
+
+      <div class="panel-stack">
+        <article class="panel-card budget-snapshot">
+          <div class="panel-header">
+            <h3>Budget snapshot</h3>
+            <span class="panel-meta">Workshop A • 2025-Q2</span>
+          </div>
+          <div *ngIf="budgetSnapshot as budget" class="budget-body">
+            <div class="budget-ring" [style.--usage]="budget.percentageUsed + '%'">
+              <span>{{ budget.percentageUsed | number: '1.0-0' }}%</span>
+            </div>
+            <div class="budget-metrics">
+              <div>
+                <p class="metric-label">Allocated</p>
+                <p class="metric-value">{{ budget.allocatedAmount | currency:'TND':'symbol':'1.0-0' }}</p>
+              </div>
+              <div>
+                <p class="metric-label">Spent</p>
+                <p class="metric-value">{{ budget.spentAmount | currency:'TND':'symbol':'1.0-0' }}</p>
+              </div>
+              <div>
+                <p class="metric-label">Remaining</p>
+                <p class="metric-value">{{ budget.remainingAmount | currency:'TND':'symbol':'1.0-0' }}</p>
+              </div>
+            </div>
+            <div class="budget-bars">
+              <div class="bar-row">
+                <span>Allocated</span>
+                <div class="bar-track">
+                  <span class="bar-fill allocated" [style.width.%]="100"></span>
+                </div>
+                <span>100%</span>
+              </div>
+              <div class="bar-row">
+                <span>Spent</span>
+                <div class="bar-track">
+                  <span
+                    class="bar-fill spent"
+                    [style.width.%]="budget.allocatedAmount ? (budget.spentAmount / budget.allocatedAmount) * 100 : 0"
+                  ></span>
+                </div>
+                <span>{{ budget.percentageUsed | number: '1.0-0' }}%</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel-card list-card">
+          <div class="panel-header">
+            <h3>Assets registry</h3>
+            <span class="panel-meta">Quick access list</span>
+          </div>
+          <app-machine-list></app-machine-list>
+        </article>
       </div>
     </section>
   </ng-container>

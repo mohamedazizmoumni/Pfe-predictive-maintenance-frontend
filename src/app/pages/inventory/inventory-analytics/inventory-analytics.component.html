@@ -1,116 +1,119 @@
 <div class="analytics-container" *ngIf="!loading && stats">
-  <h2>Inventory KPIs</h2>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <h2>Inventory Analytics</h2>
+      <p class="subtitle">Real-time stock intelligence & performance metrics</p>
+    </div>
+
+    <div class="meta" *ngIf="stats.lastUpdated">
+      Last sync: {{ stats.lastUpdated | date:'medium' }}
+    </div>
+  </div>
 
   <!-- KPI GRID -->
   <div class="kpi-grid">
+
     <div class="kpi-card">
-      <h3>Total Parts Tracked</h3>
-      <p class="kpi-value">{{ stats.totalPartsTracked }}</p>
-      <span class="kpi-caption">All active SKUs in stock model</span>
+      <span class="icon">📦</span>
+      <h3>Total Parts</h3>
+      <p class="value">{{ stats.totalPartsTracked }}</p>
+      <span class="caption">Active inventory items</span>
     </div>
 
     <div class="kpi-card warning">
-      <h3>Low Stock Parts</h3>
-      <p class="kpi-value">{{ stats.lowStockPartsCount }}</p>
-      <span class="kpi-caption">At or below minimum thresholds</span>
+      <span class="icon">⚠️</span>
+      <h3>Low Stock</h3>
+      <p class="value">{{ stats.lowStockPartsCount }}</p>
+      <span class="caption">Below threshold</span>
     </div>
 
     <div class="kpi-card danger">
-      <h3>Out of Stock Parts</h3>
-      <p class="kpi-value">{{ stats.outOfStockPartsCount }}</p>
-      <span class="kpi-caption">Require urgent replenishment</span>
+      <span class="icon">🚨</span>
+      <h3>Out of Stock</h3>
+      <p class="value">{{ stats.outOfStockPartsCount }}</p>
+      <span class="caption">Critical shortage</span>
     </div>
 
     <div class="kpi-card info">
+      <span class="icon">🛒</span>
       <h3>Pending Orders</h3>
-      <p class="kpi-value">{{ stats.pendingOrdersCount }}</p>
-      <span class="kpi-caption">Purchase orders not yet received</span>
+      <p class="value">{{ stats.pendingOrdersCount }}</p>
+      <span class="caption">Awaiting fulfillment</span>
     </div>
 
     <div class="kpi-card">
-      <h3>Total Inventory Value</h3>
-      <p class="kpi-value">{{ stats.totalInventoryValue | currency:'USD':'symbol' }}</p>
-      <span class="kpi-caption">Current on-book value of spare parts</span>
+      <span class="icon">💰</span>
+      <h3>Inventory Value</h3>
+      <p class="value">{{ stats.totalInventoryValue | currency:'TND':'symbol' }}</p>
+      <span class="caption">Total stock value</span>
     </div>
 
-    <div class="kpi-card" [ngClass]="{'turnover-low': turnoverBucket === 'low', 'turnover-high': turnoverBucket === 'high'}">
+    <div class="kpi-card"
+         [ngClass]="{'turnover-low': turnoverBucket === 'low',
+                     'turnover-high': turnoverBucket === 'high'}">
+      <span class="icon">📊</span>
       <h3>Turnover Rate</h3>
-      <p class="kpi-value">{{ stats.turnoverRate | number:'1.1-2' }} / year</p>
-      <span class="kpi-caption" *ngIf="turnoverBucket === 'low'">Stock is moving slowly (potential overstock)</span>
-      <span class="kpi-caption" *ngIf="turnoverBucket === 'target'">In a healthy range for MRO inventory</span>
-      <span class="kpi-caption" *ngIf="turnoverBucket === 'high'">Very fast consumption (risk of frequent shortages)</span>
+      <p class="value">{{ stats.turnoverRate | number:'1.1-2' }}</p>
+      <span class="caption">
+        {{ turnoverBucket === 'low' ? 'Slow movement' :
+           turnoverBucket === 'high' ? 'Fast consumption' :
+           'Healthy range' }}
+      </span>
     </div>
+
   </div>
 
-  <!-- STOCK HEALTH CHARTS -->
-  <section class="chart-card">
+  <!-- CHART SECTION -->
+  <div class="chart-card">
+
     <div class="chart-header">
       <h3>Stock Health Overview</h3>
-      <span class="chart-subtitle">Distribution of parts by health status</span>
+      <p>Distribution of inventory status</p>
     </div>
 
     <div class="chart-layout" *ngIf="stats.totalPartsTracked > 0">
-      <!-- Donut pie -->
+
+      <!-- PIE -->
       <div class="pie-wrapper">
         <div class="pie" [style.background]="stockHealthPieBackground">
           <div class="pie-inner">
-            <span class="pie-label">{{ stats.totalPartsTracked }}</span>
-            <span class="pie-caption">parts</span>
+            <span class="big">{{ stats.totalPartsTracked }}</span>
+            <span class="small">parts</span>
           </div>
         </div>
       </div>
 
-      <!-- Stacked bar + legend -->
-      <div class="stacked-wrapper">
+      <!-- BAR -->
+      <div class="right-panel">
+
         <div class="stacked-bar">
-          <div
-            class="segment healthy"
-            [style.width.%]="stockHealthPercentages.healthy"
-            *ngIf="stockHealthPercentages.healthy > 0"
-          >
-            <span>{{ stockHealthPercentages.healthy }}% Healthy</span>
+          <div class="segment healthy"
+               [style.width.%]="stockHealthPercentages.healthy">
           </div>
-          <div
-            class="segment low"
-            [style.width.%]="stockHealthPercentages.low"
-            *ngIf="stockHealthPercentages.low > 0"
-          >
-            <span>{{ stockHealthPercentages.low }}% Low</span>
+
+          <div class="segment low"
+               [style.width.%]="stockHealthPercentages.low">
           </div>
-          <div
-            class="segment out"
-            [style.width.%]="stockHealthPercentages.out"
-            *ngIf="stockHealthPercentages.out > 0"
-          >
-            <span>{{ stockHealthPercentages.out }}% Out</span>
+
+          <div class="segment out"
+               [style.width.%]="stockHealthPercentages.out">
           </div>
         </div>
 
-        <ul class="chart-legend">
-          <li>
-            <span class="dot healthy"></span>
-            Healthy parts
-            <strong>{{ healthyPartsCount }}</strong>
-          </li>
-          <li>
-            <span class="dot low"></span>
-            Low stock
-            <strong>{{ stats.lowStockPartsCount }}</strong>
-          </li>
-          <li>
-            <span class="dot out"></span>
-            Out of stock
-            <strong>{{ stats.outOfStockPartsCount }}</strong>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </section>
+        <div class="legend">
+          <div><span class="dot healthy"></span> Healthy <b>{{ healthyPartsCount }}</b></div>
+          <div><span class="dot low"></span> Low <b>{{ stats.lowStockPartsCount }}</b></div>
+          <div><span class="dot out"></span> Out <b>{{ stats.outOfStockPartsCount }}</b></div>
+        </div>
 
-  <div class="last-updated" *ngIf="stats.lastUpdated">
-    Last updated: {{ stats.lastUpdated | date:'medium' }}
+      </div>
+
+    </div>
   </div>
+
 </div>
 
-<div *ngIf="loading" class="loading">Loading...</div>
+<div *ngIf="loading" class="loading">Loading analytics...</div>
 <div *ngIf="error" class="error">{{ error }}</div>

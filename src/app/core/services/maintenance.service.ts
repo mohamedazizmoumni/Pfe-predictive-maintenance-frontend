@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
-import { Maintenance, CreateMaintenanceRequest } from '../models/sentinel.models';
+import { Maintenance, CreateMaintenanceRequest, CreateTaskRequest } from '../models/sentinel.models';
 import { apiEndpoint } from '../http/api-base';
 
 export interface MaintenanceResponse {
@@ -42,13 +42,68 @@ export class MaintenanceService {
     priority?: string;
   } = { page: 0, size: 10 };
 
+  private readonly STORAGE_KEY = 'maintenance_tasks_cache';
+  private readonly PAGINATION_KEY = 'maintenance_pagination_cache';
+
   maintenance$ = this.maintenanceSubject.asObservable();
   isLoading$ = this.isLoadingSubject.asObservable();
   error$ = this.errorSubject.asObservable();
   currentMaintenance$ = this.currentMaintenanceSubject.asObservable();
   pagination$ = this.paginationSubject.asObservable();
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    this.loadFromCache();
+  }
+
+  /**
+   * Load tasks from localStorage cache on service initialization
+   */
+  private loadFromCache(): void {
+    try {
+      const cachedTasks = localStorage.getItem(this.STORAGE_KEY);
+      const cachedPagination = localStorage.getItem(this.PAGINATION_KEY);
+
+      if (cachedTasks) {
+        const tasks = JSON.parse(cachedTasks);
+        console.log('📦 Loaded tasks from cache:', tasks.length);
+        this.maintenanceSubject.next(tasks);
+      }
+
+      if (cachedPagination) {
+        const pagination = JSON.parse(cachedPagination);
+        console.log('📄 Loaded pagination from cache');
+        this.paginationSubject.next(pagination);
+      }
+    } catch (error) {
+      console.error('❌ Error loading from cache:', error);
+    }
+  }
+
+  /**
+   * Save tasks to localStorage cache
+   */
+  private saveToCache(tasks: Maintenance[], pagination: MaintenancePagination): void {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(tasks));
+      localStorage.setItem(this.PAGINATION_KEY, JSON.stringify(pagination));
+      console.log('💾 Tasks saved to cache:', tasks.length);
+    } catch (error) {
+      console.error('❌ Error saving to cache:', error);
+    }
+  }
+
+  /**
+   * Clear cache
+   */
+  clearCache(): void {
+    try {
+      localStorage.removeItem(this.STORAGE_KEY);
+      localStorage.removeItem(this.PAGINATION_KEY);
+      console.log('🗑️ Cache cleared');
+    } catch (error) {
+      console.error('❌ Error clearing cache:', error);
+    }
+  }
 
   loadMaintenanceTasks(
     page: number = 0,
@@ -75,13 +130,19 @@ export class MaintenanceService {
       .get<MaintenanceResponse>(apiEndpoint('/v1/maintenance'), { params })
       .pipe(
         tap((response) => {
-          this.maintenanceSubject.next(response.content);
-          this.paginationSubject.next({
+          const pagination = {
             totalElements: response.totalElements,
             totalPages: response.totalPages,
             currentPage: response.currentPage,
             pageSize: size,
-          });
+          };
+          
+          this.maintenanceSubject.next(response.content);
+          this.paginationSubject.next(pagination);
+          
+          // Save to cache
+          this.saveToCache(response.content, pagination);
+          
           this.isLoadingSubject.next(false);
         }),
         catchError((error) => {
@@ -148,6 +209,29 @@ export class MaintenanceService {
   }
 
   /**
+   * Create task using backend task contract and trigger assignment email flow
+   */
+  createTask(request: CreateTaskRequest): Observable<unknown> {
+    this.isLoadingSubject.next(true);
+    this.errorSubject.next(null);
+
+    return this.http
+      .post<unknown>(apiEndpoint('/api/v1/tasks'), request)
+      .pipe(
+        tap(() => {
+          this.refreshCurrentQuery();
+        }),
+        catchError((error) => {
+          const errorMessage =
+            error.error?.message || error.error?.error || 'Failed to create task';
+          this.errorSubject.next(errorMessage);
+          this.isLoadingSubject.next(false);
+          throw error;
+        })
+      );
+  }
+
+  /**
    * Update maintenance status
    */
   updateMaintenanceStatus(
@@ -157,16 +241,24 @@ export class MaintenanceService {
     this.isLoadingSubject.next(true);
     this.errorSubject.next(null);
 
+    console.log('🔄 Updating maintenance status:', { id, status });
+
+    // Send the status update with proper format
+    const updatePayload = { status };
+
     return this.http
-      .put<Maintenance>(apiEndpoint(`/v1/maintenance/${id}`), { status })
+      .put<Maintenance>(apiEndpoint(`/v1/maintenance/${id}`), updatePayload)
       .pipe(
         tap((maintenance) => {
+          console.log('✅ Maintenance status updated:', { id, status, maintenance });
           this.currentMaintenanceSubject.next(maintenance);
           this.refreshCurrentQuery();
+          this.isLoadingSubject.next(false);
         }),
         catchError((error) => {
+          console.error('❌ Error updating maintenance status:', { id, status, error });
           const errorMessage =
-            error.error?.message || 'Failed to update maintenance status';
+            error.error?.message || error.error?.error || 'Failed to update maintenance status';
           this.errorSubject.next(errorMessage);
           this.isLoadingSubject.next(false);
           throw error;
@@ -288,6 +380,84 @@ export class MaintenanceService {
             error.error?.message || 'Failed to assign technician';
           this.errorSubject.next(errorMessage);
           throw error;
+        })
+      );
+  }
+
+  /**
+   * Get ALL maintenance tasks (for debugging)
+   */
+  getAllMaintenanceTasks(page: number = 0, size: number = 100): Observable<MaintenanceResponse> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString());
+
+    console.log('🔍 getAllMaintenanceTasks called');
+
+    return this.http
+      .get<MaintenanceResponse>(apiEndpoint('/v1/maintenance'), { params })
+      .pipe(
+        tap((response) => {
+          console.log('✅ getAllMaintenanceTasks response:', response);
+          console.log('📊 Tasks with assignedTechnicianId values:');
+          response.content.forEach((task: any, idx: number) => {
+            console.log(`  [${idx}] ID: ${task.id}, assignedTechnicianId: ${task.assignedTechnicianId}, status: ${task.status}`);
+          });
+        }),
+        catchError((error) => {
+          console.error('❌ getAllMaintenanceTasks error:', error);
+          return of({
+            content: [],
+            totalElements: 0,
+            totalPages: 0,
+            currentPage: 0,
+          } as MaintenanceResponse);
+        })
+      );
+  }
+
+  /**
+   * Get maintenance tasks assigned to a specific technician
+   * Supports both numeric ID and username as identifier
+   */
+  getTechnicianTasks(technicianId: string, page: number = 0, size: number = 100): Observable<MaintenanceResponse> {
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('size', size.toString())
+      .set('assignedTechnicianId', technicianId);
+
+    console.log('🔍 getTechnicianTasks called with:', { technicianId, page, size });
+
+    return this.http
+      .get<MaintenanceResponse>(apiEndpoint('/v1/maintenance'), { params })
+      .pipe(
+        tap((response) => {
+          console.log('✅ getTechnicianTasks response:', response);
+          const pagination = {
+            totalElements: response.totalElements,
+            totalPages: response.totalPages,
+            currentPage: response.currentPage,
+            pageSize: size,
+          };
+          
+          this.maintenanceSubject.next(response.content);
+          this.paginationSubject.next(pagination);
+          
+          // Save to cache
+          this.saveToCache(response.content, pagination);
+        }),
+        catchError((error) => {
+          console.error('❌ getTechnicianTasks error:', error);
+          const errorMessage =
+            error.error?.message || 'Failed to load technician tasks';
+          this.errorSubject.next(errorMessage);
+          // Return empty response instead of null to maintain type safety
+          return of({
+            content: [],
+            totalElements: 0,
+            totalPages: 0,
+            currentPage: 0,
+          } as MaintenanceResponse);
         })
       );
   }

@@ -13,7 +13,30 @@ function extractBackendMessage(body: unknown): string | null {
   const record = body as Record<string, unknown>;
   const messageCandidates = [record['message'], record['error'], record['detail']];
   const firstString = messageCandidates.find((candidate) => typeof candidate === 'string' && candidate.trim());
-  return (firstString as string | undefined) ?? null;
+
+  if (firstString) {
+    return firstString as string;
+  }
+
+  const errors = record['errors'];
+  if (Array.isArray(errors)) {
+    const firstError = errors.find((candidate) => typeof candidate === 'string' && candidate.trim());
+    if (typeof firstError === 'string') {
+      return firstError;
+    }
+  }
+
+  const fieldErrors = record['fieldErrors'];
+  if (fieldErrors && typeof fieldErrors === 'object') {
+    const entries = Object.entries(fieldErrors as Record<string, unknown>);
+    const firstFieldError = entries.find(([, value]) => typeof value === 'string' && value.trim());
+    if (firstFieldError) {
+      const [field, message] = firstFieldError;
+      return `${field}: ${message as string}`;
+    }
+  }
+
+  return null;
 }
 
 export function normalizeApiError(

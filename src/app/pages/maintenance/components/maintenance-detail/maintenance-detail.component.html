@@ -1,10 +1,12 @@
 <div class="detail-card surface-card" data-card>
+
   <div *ngIf="isLoading && !maintenance" class="detail-loading" aria-live="polite">
     <span class="spinner" aria-hidden="true"></span>
-    <p>Loading maintenance details…</p>
+    <p>Loading details…</p>
   </div>
 
   <ng-container *ngIf="maintenance as task; else placeholder">
+
     <header>
       <div>
         <p>Maintenance Detail</p>
@@ -27,7 +29,7 @@
       </article>
       <article>
         <p>Duration</p>
-        <h4>{{ task.estimatedDuration }} minutes</h4>
+        <h4>{{ task.estimatedDuration }} min</h4>
         <span>Estimated work window</span>
       </article>
       <article>
@@ -40,31 +42,31 @@
     <section class="timeline">
       <article>
         <p>Scheduled</p>
-        <strong>{{ task.scheduledDate | date: 'medium' }}</strong>
+        <strong>{{ task.scheduledDate | date:'MMM d, y · HH:mm' }}</strong>
       </article>
       <article>
         <p>Started</p>
-        <strong>{{ task.startDate ? (task.startDate | date: 'medium') : 'Pending' }}</strong>
+        <strong>{{ task.startDate ? (task.startDate | date:'MMM d · HH:mm') : 'Pending' }}</strong>
       </article>
       <article>
         <p>Completed</p>
-        <strong>{{ task.completedDate ? (task.completedDate | date: 'medium') : 'Pending' }}</strong>
+        <strong>{{ task.completedDate ? (task.completedDate | date:'MMM d · HH:mm') : 'Pending' }}</strong>
       </article>
       <article>
         <p>Approved</p>
-        <strong>{{ task.approvedDate ? (task.approvedDate | date: 'medium') : 'Pending' }}</strong>
+        <strong>{{ task.approvedDate ? (task.approvedDate | date:'MMM d · HH:mm') : 'Pending' }}</strong>
       </article>
     </section>
 
     <section class="notes">
       <p>Notes</p>
-      <div>
-        {{ task.notes || 'No operator notes yet.' }}
-      </div>
+      <div>{{ task.notes || 'No operator notes yet.' }}</div>
     </section>
 
     <footer class="detail-actions">
-      <button type="button" class="danger ghost" (click)="onCancel()" [disabled]="!canCancel">Cancel</button>
+      <button type="button" class="danger ghost" (click)="onCancel()" [disabled]="!canCancel">
+        Cancel Task
+      </button>
       <div class="action-row">
         <button type="button" (click)="onStart()" [disabled]="!canStart">Start</button>
         <button type="button" (click)="onComplete()" [disabled]="!canComplete">Complete</button>
@@ -72,6 +74,7 @@
         <button type="button" class="danger" (click)="onDelete()">Delete</button>
       </div>
     </footer>
+
   </ng-container>
 
   <ng-template #placeholder>
@@ -80,4 +83,5 @@
       <p>Choose any work order from the queue to inspect details, timeline, and take actions.</p>
     </div>
   </ng-template>
+
 </div>

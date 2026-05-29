@@ -31,7 +31,7 @@
 
     <app-stat-card
       title="Potential Savings"
-      [value]="'€' + (totalSavings() | number:'1.0-0')"
+      [value]="(totalSavings() | currency:'TND':'symbol':'1.0-0')"
       icon="savings"
       accent="success"
       subtitle="If all preventive actions taken">

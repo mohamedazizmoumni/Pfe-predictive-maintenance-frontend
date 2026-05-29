@@ -5,7 +5,7 @@ import {
   computed,
   signal,
 } from '@angular/core';
-import { AsyncPipe, DecimalPipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, CurrencyPipe, DecimalPipe, NgFor, NgIf } from '@angular/common';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { forkJoin, of } from 'rxjs';
 import { catchError, finalize, switchMap } from 'rxjs/operators';
@@ -34,6 +34,7 @@ import { RecommendationCardComponent } from '../../components/recommendation-car
     NgIf,
     NgFor,
     DecimalPipe,
+    CurrencyPipe,
     AsyncPipe,
   ],
   templateUrl: './dashboard.page.html',
@@ -44,13 +45,13 @@ export class DashboardPage implements OnInit {
   readonly machines = signal<Machine[]>([]);
   readonly totalMachines = computed(() => this.machines().length);
   readonly runningCount = computed(
-    () => this.machines().filter((m) => m.status === 'RUNNING').length
+    () => this.machines().filter((m) => this.isOperationalStatus(m.status)).length
   );
   readonly failedCount = computed(
-    () => this.machines().filter((m) => m.status === 'FAILED').length
+    () => this.machines().filter((m) => this.isFaultyStatus(m.status)).length
   );
   readonly maintenanceCount = computed(
-    () => this.machines().filter((m) => m.status === 'UNDER_MAINTENANCE').length
+    () => this.machines().filter((m) => this.isMaintenanceStatus(m.status)).length
   );
   readonly loading = signal(false);
   readonly recommendations = signal<MaintenanceRecommendationDTO[]>([]);
@@ -111,5 +112,20 @@ export class DashboardPage implements OnInit {
           this.recommendations.set([]);
         },
       });
+  }
+
+  private isOperationalStatus(status?: string): boolean {
+    const normalized = (status || '').toUpperCase();
+    return normalized === 'OPERATIONAL';
+  }
+
+  private isMaintenanceStatus(status?: string): boolean {
+    const normalized = (status || '').toUpperCase();
+    return normalized === 'MAINTENANCE';
+  }
+
+  private isFaultyStatus(status?: string): boolean {
+    const normalized = (status || '').toUpperCase();
+    return normalized === 'FAULTY';
   }
 }

@@ -1,11 +1,142 @@
-<div class="part-detail-container" *ngIf="!loading && part">
-  <h2>Part Details</h2>
-  <div class="detail-row"><span>Name:</span> {{ part.name }}</div>
-  <div class="detail-row"><span>Part Number:</span> {{ part.partNumber }}</div>
-  <div class="detail-row"><span>Quantity:</span> {{ part.quantity }}</div>
-  <div class="detail-row"><span>Location:</span> {{ part.location }}</div>
-  <div class="detail-row"><span>Description:</span> {{ part.description }}</div>
-  <button (click)="goBack()">Back</button>
+<div class="page">
+
+  <!-- LOADING -->
+  <div *ngIf="loading" class="state">
+    <div class="spinner"></div>
+    <p>Loading part details...</p>
+  </div>
+
+  <!-- ERROR -->
+  <div *ngIf="error && !loading" class="state error">
+    <div class="icon">⚠️</div>
+    <h3>Unable to load part</h3>
+    <p>{{ error }}</p>
+    <button (click)="goBack()">Go back</button>
+  </div>
+
+  <!-- CONTENT -->
+  <div *ngIf="!loading && !error && part" class="container">
+
+    <!-- HERO -->
+    <div class="hero">
+
+      <div class="hero-left">
+        <button class="back" (click)="goBack()">← Back</button>
+
+        <h1>{{ part.name }}</h1>
+
+        <div class="meta">
+          <span>#{{ part.partNumber }}</span>
+          <span class="dot"></span>
+          <span>{{ part.category }}</span>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <span class="badge" [ngClass]="getStockStatus()">
+          {{ getStockStatusLabel() }}
+        </span>
+      </div>
+
+    </div>
+
+    <!-- BODY -->
+    <div class="grid">
+
+      <!-- IMAGE -->
+      <div class="card image-card">
+
+        <div class="image">
+          <img *ngIf="getImageUrl()" [src]="getImageUrl()" />
+          <div *ngIf="!getImageUrl()" class="placeholder">
+            📦<span>No image</span>
+          </div>
+        </div>
+
+        <button class="danger" *ngIf="getImageUrl()" (click)="deleteImage()">
+          {{ deletingImage ? 'Deleting...' : 'Remove image' }}
+        </button>
+
+      </div>
+
+      <!-- DETAILS -->
+      <div class="right">
+
+        <!-- BASIC -->
+        <div class="surface-panel">
+          <h3>Overview</h3>
+
+          <div class="info">
+            <div><span>Name</span><b>{{ part.name }}</b></div>
+            <div><span>Part #</span><b>{{ part.partNumber }}</b></div>
+            <div><span>Category</span><b>{{ part.category }}</b></div>
+            <div><span>Supplier</span><b>{{ part.supplier || '—' }}</b></div>
+          </div>
+
+        </div>
+
+        <!-- STOCK -->
+        <div class="surface-panel">
+
+          <h3>Stock</h3>
+
+          <div class="stats">
+
+            <div class="stat">
+              <span>Current</span>
+              <b [class.low]="getStockStatus() === 'low'"
+                 [class.critical]="getStockStatus() === 'critical'">
+                {{ part.currentStock }}
+              </b>
+            </div>
+
+            <div class="stat">
+              <span>Minimum</span>
+              <b>{{ part.minimumStock }}</b>
+            </div>
+
+            <div class="stat">
+              <span>Reorder</span>
+              <b>{{ part.reorderQuantity }}</b>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- FINANCIAL -->
+        <div class="surface-panel">
+
+          <h3>Financial</h3>
+
+          <div class="finance">
+            <div>
+              <span>Unit cost</span>
+              <b>{{ part.cost | currency:'TND':'symbol' }}</b>
+            </div>
+
+            <div>
+              <span>Total value</span>
+              <b class="green">{{ getStockValue() | currency:'TND':'symbol' }}</b>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- DESCRIPTION -->
+        <div class="card" *ngIf="part.description || part.notes">
+          <h3>Notes</h3>
+          <p>{{ part.description || part.notes }}</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="actions">
+      <button class="secondary" (click)="goBack()">Back</button>
+      <button class="primary" (click)="editPart()">Edit part</button>
+    </div>
+
+  </div>
 </div>
-<div *ngIf="loading" class="loading">Loading...</div>
-<div *ngIf="error" class="error">{{ error }}</div>

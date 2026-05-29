@@ -2,70 +2,44 @@
   <div class="modal-backdrop" (click)="onClose()"></div>
 
   <div class="modal-card" role="dialog" aria-modal="true">
-    <!-- Modal Header -->
     <header class="modal-header">
       <div class="modal-header-text">
         <p class="modal-subtitle">Alert Workflow</p>
         <h3 class="modal-title">{{ title }}</h3>
         <span class="modal-description">{{ description }}</span>
       </div>
-      <button type="button" class="modal-close" (click)="onClose()">×</button>
+      <button type="button" class="modal-close" (click)="onClose()">✕</button>
     </header>
 
-    <!-- Modal Form -->
     <form [formGroup]="form" (ngSubmit)="onSubmit()" class="modal-form">
       <ng-container [ngSwitch]="mode">
 
-        <!-- Acknowledge Mode -->
+        <!-- Acknowledge -->
         <div *ngSwitchCase="'acknowledge'" class="form-group">
           <label for="acknowledgedDate">Acknowledged Date (optional)</label>
-          <input
-            id="acknowledgedDate"
-            type="datetime-local"
-            formControlName="acknowledgedDate"
-            class="form-control"
-          />
+          <input id="acknowledgedDate" type="datetime-local" formControlName="acknowledgedDate" class="form-control" />
         </div>
 
-        <!-- Escalate Mode -->
+        <!-- Escalate -->
         <div *ngSwitchCase="'escalate'">
           <div class="form-group">
             <label for="escalationNotes">Escalation Notes</label>
-            <textarea
-              id="escalationNotes"
-              rows="3"
-              formControlName="escalationNotes"
-              placeholder="What changed?"
-              class="form-control"
-            ></textarea>
+            <textarea id="escalationNotes" rows="3" formControlName="escalationNotes" placeholder="What changed?" class="form-control"></textarea>
           </div>
-          <div class="form-group">
+          <div class="form-group" style="margin-top: 0.75rem;">
             <label for="reassignTo">Reassign To (optional)</label>
-            <input
-              id="reassignTo"
-              type="text"
-              formControlName="reassignTo"
-              placeholder="username"
-              class="form-control"
-            />
+            <input id="reassignTo" type="text" formControlName="reassignTo" placeholder="username" class="form-control" />
           </div>
         </div>
 
-        <!-- Close Mode -->
+        <!-- Close -->
         <div *ngSwitchCase="'close'" class="form-group">
           <label for="resolutionNotes">Resolution Notes</label>
-          <textarea
-            id="resolutionNotes"
-            rows="4"
-            formControlName="resolutionNotes"
-            placeholder="Explain remediation"
-            class="form-control"
-          ></textarea>
+          <textarea id="resolutionNotes" rows="4" formControlName="resolutionNotes" placeholder="Explain remediation" class="form-control"></textarea>
         </div>
 
       </ng-container>
 
-      <!-- Modal Footer -->
       <footer class="modal-footer">
         <button type="button" class="btn-ghost" (click)="onClose()">Cancel</button>
         <button type="submit" class="btn-primary" [disabled]="isSubmitting">

@@ -1,0 +1,9 @@
+.chips { display:flex; gap:8px; flex-wrap:wrap }
+.chip {
+  padding:6px 10px;
+  border-radius:12px;
+  background: rgba(255,255,255,0.04);
+  color: #cfeef0;
+  font-size:12px;
+  border: 1px solid rgba(255,255,255,0.03);
+}

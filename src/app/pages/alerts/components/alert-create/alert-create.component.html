@@ -1,19 +1,18 @@
 <section class="modal" *ngIf="visible">
   <div class="modal-backdrop" (click)="onClose()"></div>
+
   <div class="modal-card" role="dialog" aria-modal="true">
     <header class="modal-header">
       <div class="modal-header-text">
         <p class="modal-subtitle">New Alert</p>
         <h3 class="modal-title">Create Alert Signal</h3>
-        <span class="modal-description">
-          Log sensor anomalies, manual incidents, or AI-driven recommendations.
-        </span>
+        <span class="modal-description">Log sensor anomalies, manual incidents, or AI-driven recommendations.</span>
       </div>
-      <button type="button" class="modal-close" (click)="onClose()">×</button>
+      <button type="button" class="modal-close" (click)="onClose()">✕</button>
     </header>
 
     <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="modal-form">
-      <!-- Machine Selector -->
+
       <div class="form-group">
         <label for="machine">Machine</label>
         <select id="machine" formControlName="machineId" class="form-control">
@@ -24,31 +23,18 @@
         </select>
       </div>
 
-      <!-- Title Input -->
       <div class="form-group">
         <label for="title">Title</label>
-        <input
-          id="title"
-          type="text"
-          formControlName="title"
-          placeholder="Overheating detected on spindle"
-          class="form-control"
-        />
+        <input id="title" type="text" formControlName="title"
+          placeholder="Overheating detected on spindle" class="form-control" />
       </div>
 
-      <!-- Message Textarea -->
       <div class="form-group">
         <label for="message">Message</label>
-        <textarea
-          id="message"
-          rows="3"
-          formControlName="message"
-          placeholder="Optional context from operator or AI model"
-          class="form-control"
-        ></textarea>
+        <textarea id="message" rows="3" formControlName="message"
+          placeholder="Optional context from operator or AI model" class="form-control"></textarea>
       </div>
 
-      <!-- Two-column Row: Severity & Category -->
       <div class="form-row">
         <div class="form-group">
           <label for="severity">Severity</label>
@@ -56,7 +42,6 @@
             <option *ngFor="let severity of severities" [value]="severity">{{ severity }}</option>
           </select>
         </div>
-
         <div class="form-group">
           <label for="category">Category</label>
           <select id="category" formControlName="category" class="form-control">
@@ -65,50 +50,33 @@
         </div>
       </div>
 
-      <!-- Two-column Row: Source Reference & Assigned To -->
       <div class="form-row">
         <div class="form-group">
           <label for="sourceReference">Source Reference</label>
-          <input
-            id="sourceReference"
-            type="text"
-            formControlName="sourceReference"
-            placeholder="Sensor ID, ticket, or model run"
-            class="form-control"
-          />
+          <input id="sourceReference" type="text" formControlName="sourceReference"
+            placeholder="Sensor ID, ticket, or model run" class="form-control" />
         </div>
-
         <div class="form-group">
-          <label for="assignedTo">Assigned To</label>
-          <input
-            id="assignedTo"
-            type="text"
-            formControlName="assignedTo"
-            placeholder="username (optional)"
-            class="form-control"
-          />
+          <label for="assignedTo">Assigned To (username)</label>
+          <input id="assignedTo" type="text" formControlName="assignedTo"
+            placeholder="Technician username (optional)" class="form-control" />
+          <small class="form-hint">The backend sends the email notification automatically after the alert is saved.</small>
         </div>
       </div>
 
-      <!-- Recommendations -->
       <div class="form-group">
         <label for="recommendations">Recommendations</label>
-        <textarea
-          id="recommendations"
-          rows="3"
-          formControlName="recommendations"
-          placeholder="Share the recommended mitigation plan or next steps"
-          class="form-control"
-        ></textarea>
+        <textarea id="recommendations" rows="3" formControlName="recommendations"
+          placeholder="Share the recommended mitigation plan or next steps" class="form-control"></textarea>
       </div>
 
-      <!-- Footer Actions -->
       <footer class="modal-footer">
         <button type="button" class="btn-ghost" (click)="onClose()">Cancel</button>
         <button type="submit" class="btn-primary" [disabled]="isSubmitting">
           {{ isSubmitting ? 'Publishing…' : 'Create Alert' }}
         </button>
       </footer>
+
     </form>
   </div>
 </section>

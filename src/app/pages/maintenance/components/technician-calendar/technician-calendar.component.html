@@ -1,0 +1,271 @@
+<div class="technician-calendar">
+  <!-- Header -->
+  <header class="calendar-header">
+    <div class="header-content">
+      <div class="header-info">
+        <h1 class="calendar-title">
+          <span class="title-icon">📅</span>
+          Technician Schedule
+        </h1>
+        <p class="calendar-subtitle">View upcoming tasks, meetings, and deadlines</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-today" (click)="goToToday()" type="button">
+          <span class="btn-icon">📍</span>
+          Today
+        </button>
+        <button class="btn-refresh" (click)="loadData()" [disabled]="loading()" type="button">
+          <span class="btn-icon" [class.spinning]="loading()">⟳</span>
+          Refresh
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="calendar-container">
+    <!-- Left: Calendar Grid -->
+    <div class="calendar-main">
+      <!-- Month Navigation -->
+      <div class="month-navigation">
+        <button class="nav-btn prev" (click)="previousMonth()" type="button">
+          <span class="nav-icon">‹</span>
+        </button>
+        <div class="month-display">
+          <h2 class="month-name">{{ monthName() }} {{ currentYear() }}</h2>
+        </div>
+        <button class="nav-btn next" (click)="nextMonth()" type="button">
+          <span class="nav-icon">›</span>
+        </button>
+      </div>
+
+      <!-- Weekday Headers -->
+      <div class="calendar-grid">
+        <div class="weekday-header">
+          <div class="weekday" *ngFor="let day of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']">
+            {{ day }}
+          </div>
+        </div>
+
+        <!-- Calendar Days -->
+        <div class="calendar-days">
+          <div class="calendar-day" 
+               *ngFor="let day of calendarDays()"
+               [class.other-month]="!day.isCurrentMonth"
+               [class.today]="day.isToday"
+               [class.selected]="selectedDate() && selectedDate()!.toDateString() === day.date.toDateString()"
+               (click)="selectDate(day)">
+            
+            <div class="day-number">{{ day.dayOfMonth }}</div>
+            
+            <div class="day-tasks" *ngIf="day.tasks.length > 0">
+              <div class="task-indicator" 
+                   *ngFor="let task of day.tasks.slice(0, 2)"
+                   [title]="task.description"
+                   [style.background-color]="getPriorityColor(task.priority)">
+              </div>
+              <div class="task-more" *ngIf="day.tasks.length > 2">
+                +{{ day.tasks.length - 2 }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected Date Details -->
+      <div class="selected-date-details" *ngIf="selectedDate() as date">
+        <div class="details-header">
+          <h3 class="details-title">{{ formatDate(date) }}</h3>
+          <button class="details-close" (click)="selectedDate.set(null)" type="button">✕</button>
+        </div>
+        
+        <div class="details-content">
+          <div class="tasks-section" *ngIf="getTasksForDate(date).length > 0">
+            <h4 class="section-title">Tasks</h4>
+            <div class="task-list">
+              <div class="task-item" *ngFor="let task of getTasksForDate(date)">
+                <div class="task-type-badge" [class]="'type-' + (task.type || 'PREVENTIVE').toLowerCase()">
+                  {{ task.type }}
+                </div>
+                <div class="task-info">
+                  <p class="task-description">{{ task.description }}</p>
+                  <p class="task-machine" *ngIf="task.machineName">
+                    <span class="machine-icon">⚙️</span>
+                    {{ task.machineName }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="no-tasks" *ngIf="getTasksForDate(date).length === 0">
+            <p class="no-tasks-text">No tasks scheduled for this date</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Sidebar -->
+    <aside class="calendar-sidebar">
+      <!-- Filters -->
+      <div class="filters-section">
+        <h3 class="filters-title">Filters</h3>
+        
+        <div class="filter-group">
+          <label class="filter-label">Type</label>
+          <select class="filter-select" [value]="filterType()" (change)="filterType.set($event.target.value as any)">
+            <option value="ALL">All Types</option>
+            <option value="TASK">Tasks</option>
+            <option value="MEETING">Meetings</option>
+            <option value="DEADLINE">Deadlines</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Priority</label>
+          <select class="filter-select" [value]="filterPriority()" (change)="filterPriority.set($event.target.value as any)">
+            <option value="ALL">All Priorities</option>
+            <option value="CRITICAL">Critical</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Technician</label>
+          <select class="filter-select" [value]="filterTechnician()" (change)="filterTechnician.set($event.target.value)">
+            <option value="">All Technicians</option>
+            <option *ngFor="let tech of technicians()" [value]="tech">{{ tech }}</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Upcoming Events -->
+      <div class="upcoming-section">
+        <h3 class="upcoming-title">
+          <span class="title-icon">⏰</span>
+          Upcoming Events
+        </h3>
+        
+        <div class="events-list">
+          <div class="event-card" 
+               *ngFor="let event of upcomingEvents()"
+               [class]="getEventClass(event)"
+               (click)="selectEvent(event)">
+            
+            <div class="event-header">
+              <div class="event-type-badge" [class]="'type-' + event.type.toLowerCase()">
+                {{ event.type }}
+              </div>
+              <div class="event-priority-badge" [class]="'priority-' + event.priority.toLowerCase()">
+                {{ event.priority }}
+              </div>
+            </div>
+
+            <div class="event-content">
+              <h4 class="event-title">{{ event.title }}</h4>
+              <p class="event-date">
+                <span class="date-icon">📅</span>
+                {{ event.date | date:'MMM dd, yyyy' }}
+              </p>
+              <p class="event-assignee" *ngIf="event.assignee">
+                <span class="assignee-icon">👤</span>
+                {{ event.assignee }}
+              </p>
+            </div>
+
+            <div class="event-action">
+              <span class="action-icon">→</span>
+            </div>
+          </div>
+
+          <div class="no-events" *ngIf="upcomingEvents().length === 0">
+            <p class="no-events-text">No upcoming events</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistics -->
+      <div class="stats-section">
+        <h3 class="stats-title">Statistics</h3>
+        
+        <div class="stat-item">
+          <span class="stat-label">Total Events</span>
+          <span class="stat-value">{{ filteredEvents().length }}</span>
+        </div>
+
+        <div class="stat-item">
+          <span class="stat-label">Critical Tasks</span>
+          <span class="stat-value critical">{{ filteredEvents().filter(e => e.priority === 'CRITICAL').length }}</span>
+        </div>
+
+        <div class="stat-item">
+          <span class="stat-label">This Month</span>
+          <span class="stat-value">{{ filteredEvents().filter(e => e.date.getMonth() === currentMonth() && e.date.getFullYear() === currentYear()).length }}</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Event Detail Modal -->
+  <div class="modal-overlay" *ngIf="showEventModal()" (click)="closeEventModal()">
+    <div class="modal-container" (click)="$event.stopPropagation()" *ngIf="selectedEvent() as event">
+      <div class="modal-header">
+        <div class="modal-title-section">
+          <div class="modal-type-badge" [class]="'type-' + event.type.toLowerCase()">
+            {{ event.type }}
+          </div>
+          <h2 class="modal-title">{{ event.title }}</h2>
+        </div>
+        <button class="modal-close" (click)="closeEventModal()" type="button">✕</button>
+      </div>
+
+      <div class="modal-content">
+        <div class="detail-section">
+          <h3 class="detail-title">Event Details</h3>
+          
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="detail-label">Date</span>
+              <span class="detail-value">{{ formatDate(event.date) }}</span>
+            </div>
+
+            <div class="detail-item">
+              <span class="detail-label">Priority</span>
+              <span class="detail-badge" [class]="'priority-' + event.priority.toLowerCase()">
+                {{ event.priority }}
+              </span>
+            </div>
+
+            <div class="detail-item" *ngIf="event.assignee">
+              <span class="detail-label">Assigned To</span>
+              <span class="detail-value">{{ event.assignee }}</span>
+            </div>
+
+            <div class="detail-item">
+              <span class="detail-label">Type</span>
+              <span class="detail-value">{{ event.type }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section" *ngIf="event.description">
+          <h3 class="detail-title">Description</h3>
+          <p class="detail-description">{{ event.description }}</p>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" (click)="closeEventModal()" type="button">Close</button>
+        <button class="btn-primary" type="button">Edit Event</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-overlay" *ngIf="loading()">
+    <div class="loading-spinner"></div>
+    <p class="loading-text">Loading calendar data...</p>
+  </div>
+</div>
