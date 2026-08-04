@@ -2,13 +2,21 @@ import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MaintenanceService } from '../../core/services/maintenance.service';
-import { Maintenance } from '../../core/models/sentinel.models';
+import { RapportService } from '../../core/services/rapport.service';
+import { AttachmentService } from '../../core/services/attachment.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { ToastService } from '../../core/services/toast.service';
+import { UserService } from '../../core/services/user.service';
+import { AuthService } from '../../core/services/auth.service';
+import { Maintenance, MaintenanceRapportRequest, User } from '../../core/models/sentinel.models';
+import { normalizeRoleName } from '../../core/utils/role.utils';
 import { TaskCompletionModalComponent } from '../technician-dashboard/components/task-completion-modal.component';
+import { MachineCommentsComponent } from '../equipment/digital-twin/components/machine-comments.component';
 
 @Component({
   selector: 'app-maintenance-detail-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, TaskCompletionModalComponent],
+  imports: [CommonModule, RouterLink, TaskCompletionModalComponent, MachineCommentsComponent],
   template: `
     <div class="detail-page">
       <div class="page-header">
@@ -35,13 +43,15 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
               </div>
             </div>
             <div class="task-actions">
-              <!-- Approve Button (SCHEDULED status) -->
-              <button 
+              <!-- Accept Button (SCHEDULED status; disabled — not hidden — for roles without approval rights) -->
+              <button
                 *ngIf="task()?.status === 'SCHEDULED'"
                 class="btn-approve"
+                [disabled]="!canApproveRole()"
+                [title]="!canApproveRole() ? 'Only a Manager or Admin can accept a task' : ''"
                 (click)="approveTask()"
               >
-                ✓ Approve Task
+                ✓ Accept Task
               </button>
 
               <!-- Start Button (APPROVED status) -->
@@ -83,7 +93,7 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
               
               <div class="timer-estimated">
                 <span class="estimated-label">Estimated:</span>
-                <span class="estimated-value">{{ task()?.estimatedDuration }} hours</span>
+                <span class="estimated-value">{{ task()?.estimatedDuration }} min</span>
               </div>
             </div>
 
@@ -140,7 +150,7 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
               </div>
               <div class="info-item">
                 <span class="label">Estimated Duration:</span>
-                <span class="value">{{ task()?.estimatedDuration }} hours</span>
+                <span class="value">{{ task()?.estimatedDuration }} min</span>
               </div>
               <div class="info-item" *ngIf="task()?.startDate">
                 <span class="label">Start Date:</span>
@@ -159,7 +169,7 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
             <div class="info-list">
               <div class="info-item">
                 <span class="label">Assigned Technician:</span>
-                <span class="value">{{ task()?.assignedTechnicianId || 'Not assigned' }}</span>
+                <span class="value">{{ technicianName() }}</span>
               </div>
               <div class="info-item" *ngIf="task()?.approvedBy">
                 <span class="label">Approved By:</span>
@@ -205,6 +215,12 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
           <h3>📌 Notes</h3>
           <p>{{ task()?.notes }}</p>
         </div>
+
+        <!-- Comments -->
+        <div class="notes-card" data-card>
+          <h3>💬 Comments</h3>
+          <app-machine-comments [machineId]="+task()!.id" entityType="MAINTENANCE"></app-machine-comments>
+        </div>
       </div>
 
       <ng-template #loading>
@@ -226,9 +242,8 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
   styles: [`
     .detail-page {
       padding: 2rem;
-      background: #0f172a;
       min-height: 100vh;
-      color: #f1f5f9;
+      color: var(--color-text-primary);
     }
 
     .page-header {
@@ -239,22 +254,22 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
 
       .btn-back {
         padding: 0.75rem 1.5rem;
-        background: #1e293b;
-        border: 1px solid #475569;
+        background: var(--color-bg-sunken);
+        border: 1px solid var(--color-border);
         border-radius: 6px;
-        color: #f1f5f9;
+        color: var(--color-text-primary);
         cursor: pointer;
         transition: all 0.2s ease;
 
         &:hover {
-          background: #334155;
+          background: var(--color-bg-elevated);
         }
       }
 
       h1 {
         margin: 0;
         font-size: 2rem;
-        color: #f1f5f9;
+        color: var(--color-text-primary);
       }
     }
 
@@ -266,7 +281,7 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
 
     .task-header {
       padding: 2rem;
-      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      background: var(--color-accent);
       border-radius: 12px;
       border: 1px solid rgba(255, 255, 255, 0.1);
 
@@ -283,7 +298,7 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
         h2 {
           margin: 0 0 1rem 0;
           font-size: 1.8rem;
-          color: white;
+          color: var(--color-text-on-accent, white);
         }
 
         .task-meta {
@@ -305,15 +320,20 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
           cursor: pointer;
           transition: all 0.3s ease;
 
-          &:hover {
+          &:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+          }
+
+          &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
           }
         }
 
         .btn-primary {
-          background: white;
-          color: #3b82f6;
+          background: var(--color-text-on-accent, white);
+          color: var(--color-accent);
         }
 
         .btn-approve {
@@ -498,14 +518,14 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
 
     .info-card {
       padding: 1.5rem;
-      background: #1e293b;
-      border: 1px solid #475569;
+      background: var(--color-bg-elevated);
+      border: 1px solid var(--color-border);
       border-radius: 12px;
 
       h3 {
         margin: 0 0 1.5rem 0;
         font-size: 1.2rem;
-        color: #f1f5f9;
+        color: var(--color-text-primary);
       }
 
       .info-list {
@@ -519,7 +539,7 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
         justify-content: space-between;
         align-items: center;
         padding-bottom: 0.75rem;
-        border-bottom: 1px solid #334155;
+        border-bottom: 1px solid var(--color-border);
 
         &:last-child {
           border-bottom: none;
@@ -528,13 +548,13 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
 
         .label {
           font-size: 0.9rem;
-          color: #cbd5e1;
+          color: var(--color-text-muted);
           font-weight: 600;
         }
 
         .value {
           font-size: 0.95rem;
-          color: #f1f5f9;
+          color: var(--color-text-primary);
           text-align: right;
 
           &.priority {
@@ -545,23 +565,23 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
           }
 
           &.priority-critical {
-            background: rgba(239, 68, 68, 0.2);
-            color: #fca5a5;
+            background: var(--color-danger-bg);
+            color: var(--color-danger-text);
           }
 
           &.priority-high {
-            background: rgba(245, 158, 11, 0.2);
-            color: #fcd34d;
+            background: var(--color-warning-bg);
+            color: var(--color-warning-text);
           }
 
           &.priority-medium {
-            background: rgba(59, 130, 246, 0.2);
-            color: #93c5fd;
+            background: var(--color-accent-soft, rgba(59, 130, 246, 0.15));
+            color: var(--color-accent);
           }
 
           &.priority-low {
-            background: rgba(100, 116, 139, 0.2);
-            color: #cbd5e1;
+            background: var(--color-bg-sunken);
+            color: var(--color-text-secondary);
           }
 
           &.status {
@@ -572,23 +592,23 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
           }
 
           &.status-scheduled {
-            background: rgba(59, 130, 246, 0.2);
-            color: #93c5fd;
+            background: var(--color-accent-soft, rgba(59, 130, 246, 0.15));
+            color: var(--color-accent);
           }
 
           &.status-in-progress {
-            background: rgba(245, 158, 11, 0.2);
-            color: #fcd34d;
+            background: var(--color-warning-bg);
+            color: var(--color-warning-text);
           }
 
           &.status-completed, &.status-approved {
-            background: rgba(16, 185, 129, 0.2);
-            color: #86efac;
+            background: var(--color-success-bg, #e7f3ec);
+            color: var(--status-success-text, #2f7d5c);
           }
 
           &.status-cancelled {
-            background: rgba(239, 68, 68, 0.2);
-            color: #fca5a5;
+            background: var(--color-danger-bg);
+            color: var(--color-danger-text);
           }
         }
       }
@@ -596,20 +616,20 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
 
     .description-card, .notes-card {
       padding: 1.5rem;
-      background: #1e293b;
-      border: 1px solid #475569;
+      background: var(--color-bg-elevated);
+      border: 1px solid var(--color-border);
       border-radius: 12px;
 
       h3 {
         margin: 0 0 1rem 0;
         font-size: 1.2rem;
-        color: #f1f5f9;
+        color: var(--color-text-primary);
       }
 
       p {
         margin: 0;
         line-height: 1.6;
-        color: #cbd5e1;
+        color: var(--color-text-secondary);
       }
     }
 
@@ -624,14 +644,14 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
       .spinner {
         width: 50px;
         height: 50px;
-        border: 4px solid #334155;
-        border-top-color: #3b82f6;
+        border: 4px solid var(--color-border);
+        border-top-color: var(--color-accent);
         border-radius: 50%;
         animation: spin 1s linear infinite;
       }
 
       p {
-        color: #cbd5e1;
+        color: var(--color-text-secondary);
         font-size: 1.1rem;
       }
 
@@ -663,6 +683,7 @@ import { TaskCompletionModalComponent } from '../technician-dashboard/components
 })
 export class MaintenanceDetailPageComponent implements OnInit, OnDestroy {
   task = signal<Maintenance | null>(null);
+  technicians = signal<User[]>([]);
   showCompletionModal = signal(false);
   
   // Timer state
@@ -679,7 +700,13 @@ export class MaintenanceDetailPageComponent implements OnInit, OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private maintenanceService: MaintenanceService
+    private maintenanceService: MaintenanceService,
+    private rapportService: RapportService,
+    private attachmentService: AttachmentService,
+    private confirmDialog: ConfirmDialogService,
+    private toastService: ToastService,
+    private userService: UserService,
+    private authService: AuthService
   ) {}
 
   ngOnInit(): void {
@@ -687,6 +714,37 @@ export class MaintenanceDetailPageComponent implements OnInit, OnDestroy {
     if (taskId) {
       this.loadTask(taskId);
     }
+    this.userService.getTechnicians().subscribe({
+      next: (technicians) => this.technicians.set(technicians),
+      error: () => {},
+    });
+  }
+
+  /**
+   * Mirrors MaintenanceController.approveMaintenance: Manager/Admin/Super
+   * Admin may accept any task; a Technician may only accept a task assigned
+   * to them.
+   */
+  canApproveRole(): boolean {
+    const user = this.authService.getCurrentUser();
+    const roles = (user?.roles ?? []).map((r) => normalizeRoleName(r.name));
+    if (roles.some((r) => ['MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(r))) return true;
+    if (!roles.includes('TECHNICIAN')) return false;
+
+    const currentUserId = user?.id;
+    const assignedTechnicianId = this.task()?.assignedTechnicianId;
+    return !!currentUserId && !!assignedTechnicianId && String(assignedTechnicianId) === String(currentUserId);
+  }
+
+  technicianName(): string {
+    const id = this.task()?.assignedTechnicianId;
+    if (!id) return 'Not assigned';
+    const match = this.technicians().find((t) => String(t.id) === String(id));
+    if (!match) return `Technician #${id}`;
+    return match.displayName?.trim()
+      || `${match.firstName || ''} ${match.lastName || ''}`.trim()
+      || match.username
+      || `Technician #${id}`;
   }
 
   ngOnDestroy(): void {
@@ -703,9 +761,10 @@ export class MaintenanceDetailPageComponent implements OnInit, OnDestroy {
           this.initializeTimer(task);
         }
         
-        // Calculate estimated seconds
+        // Calculate estimated seconds — estimatedDuration is stored in minutes
+        // (matches the create form and every other consumer of this field).
         if (task.estimatedDuration) {
-          this.estimatedSeconds.set(task.estimatedDuration * 3600); // hours to seconds
+          this.estimatedSeconds.set(task.estimatedDuration * 60);
         }
       },
       error: (err: any) => {
@@ -770,44 +829,50 @@ export class MaintenanceDetailPageComponent implements OnInit, OnDestroy {
     return num.toString().padStart(2, '0');
   }
 
-  approveTask(): void {
+  async approveTask(): Promise<void> {
     const task = this.task();
     if (!task) return;
-    
-    if (confirm('Approve this task? This will allow you to start working on it.')) {
-      this.maintenanceService.approveMaintenance(task.id).subscribe({
-        next: () => {
-          console.log('✅ Task approved');
-          this.loadTask(task.id);
-          alert('✅ Task approved! You can now start working on it.');
-        },
-        error: (err: any) => {
-          console.error('❌ Error approving task:', err);
-          alert('Failed to approve task. Please try again.');
-        }
-      });
-    }
+
+    const confirmed = await this.confirmDialog.confirm({
+      title: 'Accept task',
+      message: 'Accept this task? This will allow you to start working on it.',
+      confirmLabel: 'Accept',
+    });
+    if (!confirmed) return;
+
+    this.maintenanceService.approveMaintenance(task.id).subscribe({
+      next: () => {
+        this.loadTask(task.id);
+        this.toastService.success('Task accepted — you can now start working on it.');
+      },
+      error: (err: any) => {
+        this.toastService.error(err?.error?.message || 'Failed to accept task. Please try again.');
+      }
+    });
   }
 
-  startTask(): void {
+  async startTask(): Promise<void> {
     const task = this.task();
     if (!task) return;
-    
-    if (confirm('Start this task? The timer will begin counting.')) {
-      this.maintenanceService.startMaintenance(task.id).subscribe({
-        next: (updatedTask) => {
-          console.log('✅ Task started');
-          this.task.set(updatedTask);
-          this.elapsedSeconds.set(0);
-          this.startTimer();
-          alert('✅ Task started! Timer is now running.');
-        },
-        error: (err: any) => {
-          console.error('❌ Error starting task:', err);
-          alert('Failed to start task. Please try again.');
-        }
-      });
-    }
+
+    const confirmed = await this.confirmDialog.confirm({
+      title: 'Start task',
+      message: 'Start this task? The timer will begin counting.',
+      confirmLabel: 'Start',
+    });
+    if (!confirmed) return;
+
+    this.maintenanceService.startMaintenance(task.id).subscribe({
+      next: (updatedTask) => {
+        this.task.set(updatedTask);
+        this.elapsedSeconds.set(0);
+        this.startTimer();
+        this.toastService.success('Task started — timer is now running.');
+      },
+      error: (err: any) => {
+        this.toastService.error(err?.error?.message || 'Failed to start task. Please try again.');
+      }
+    });
   }
 
   openCompletionModal(): void {
@@ -819,26 +884,69 @@ export class MaintenanceDetailPageComponent implements OnInit, OnDestroy {
   }
 
   handleTaskCompletion(data: any): void {
-    console.log('📋 Task completion data:', data);
-
     // Stop the timer
     this.stopTimer();
 
-    // Mark task as completed (expense submission removed - simple finance module deleted)
+    // Mark task as completed
     if (data.taskId) {
       this.maintenanceService.completeMaintenance(data.taskId).subscribe({
         next: () => {
-          console.log('✅ Task marked as completed');
+          this.submitRapport(data);
           this.showCompletionModal.set(false);
           this.loadTask(data.taskId);
-          
+
           const elapsed = this.timerDisplay();
-          alert(`✅ Task completed successfully!\nTime taken: ${elapsed}`);
+          this.toastService.success(`Task completed successfully — time taken: ${elapsed}.`);
         },
         error: (err: any) => {
-          console.error('❌ Error completing task:', err);
-          alert('Task completion failed. Please try again.');
+          this.toastService.error(err?.error?.message || 'Task completion failed. Please try again.');
         },
+      });
+    }
+  }
+
+  private submitRapport(data: any): void {
+    const machineId = Number(data.expense?.machineId);
+    if (!machineId) return;
+
+    const request: MaintenanceRapportRequest = {
+      taskId: data.taskId,
+      machineId,
+      title: data.expense?.title || `Task #${data.taskId} completion rapport`,
+      description: [data.rapport?.issuesFound, data.rapport?.recommendations].filter(Boolean).join(' | ') || undefined,
+      workPerformed: data.rapport?.workPerformed || '',
+      partsReplaced: (data.partsUsed || []).map((p: any) => p.name).filter(Boolean).join(', ') || undefined,
+      laborHours: Number(data.rapport?.timeSpent) || 0,
+      laborCost: Number(data.expense?.laborCost) || 0,
+      parts: (data.partsUsed || [])
+        .filter((p: any) => p.name)
+        .map((p: any) => ({
+          partName: p.name,
+          quantity: Number(p.quantity) || 1,
+          unitCost: Number(p.unitCost) || 0,
+        })),
+      checklistItems: (data.checklistItems || []).map((c: any) => ({
+        description: c.description,
+        passed: !!c.passed,
+        notes: c.notes || undefined,
+      })),
+    };
+
+    this.rapportService.createRapport(request).subscribe({
+      next: (rapport) => {
+        console.log('📄 Maintenance rapport submitted for manager approval');
+        this.uploadEvidencePhotos(rapport.id, data.attachmentFiles);
+      },
+      error: (err: any) => console.error('❌ Failed to submit maintenance rapport:', err),
+    });
+  }
+
+  private uploadEvidencePhotos(rapportId: number, files: File[] | undefined): void {
+    if (!files || files.length === 0) return;
+    for (const file of files) {
+      this.attachmentService.upload(file, 'MaintenanceRapport', rapportId).subscribe({
+        next: () => console.log(`📎 Evidence photo "${file.name}" attached to rapport ${rapportId}`),
+        error: (err: any) => console.error(`❌ Failed to upload evidence photo "${file.name}":`, err),
       });
     }
   }

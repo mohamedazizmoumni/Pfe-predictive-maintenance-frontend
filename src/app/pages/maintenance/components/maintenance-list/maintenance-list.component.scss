@@ -54,6 +54,104 @@ header {
   padding-top: var(--space-1);
 }
 
+// ── Action Buttons ───────────────────────────────────────────────────────
+// Shared pill-button styling for header actions, pagination, and the
+// empty-state CTA — kept in one place so they read as one design system.
+
+@keyframes mnt-list-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-icon.spinning {
+    animation: none !important;
+  }
+}
+
+.header-actions button,
+.empty-state button,
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 38px;
+  padding: 0 1.1rem;
+  border-radius: var(--radius-full);
+  border: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semi);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+.header-actions .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &.spinning {
+    animation: mnt-list-spin 0.9s linear infinite;
+  }
+}
+
+.header-actions .btn-primary,
+.empty-state .btn-primary {
+  color: var(--color-text-on-accent);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
+  box-shadow: 0 8px 20px var(--color-accent-glow);
+
+  .btn-icon {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 28px var(--color-accent-glow);
+  }
+}
+
+.header-actions .ghost,
+.pagination-btn {
+  color: var(--color-text-primary);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+
+  &:hover:not(:disabled) {
+    background: var(--color-accent-dim);
+    border-color: var(--color-accent);
+    color: var(--color-accent-text);
+  }
+}
+
+.header-actions .ghost .btn-icon {
+  background: var(--color-accent-dim);
+  color: var(--color-accent-text);
+}
+
+.pagination-btn {
+  height: 34px;
+  padding: 0 0.9rem;
+  font-size: var(--text-xs);
+}
+
 // ── Filters ───────────────────────────────────────────────────────────────
 
 .filters {

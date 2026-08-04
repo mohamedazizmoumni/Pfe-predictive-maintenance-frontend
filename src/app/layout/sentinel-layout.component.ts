@@ -8,6 +8,7 @@
 } from '@angular/core';
 
 import { CommonModule, DOCUMENT } from '@angular/common';
+import { LucideAngularModule } from 'lucide-angular';
 
 import {
   RouterLink,
@@ -20,6 +21,7 @@ import {
 import { AuthService } from '../core/services/auth.service';
 import { NotificationsRestService } from '../core/services/notifications-rest.service';
 import { FinanceService } from '../core/services/finance.service';
+import { RapportService } from '../core/services/rapport.service';
 import { apiEndpoint } from '../core/http/api-base';
 import { DashboardRoutingService } from '../pages/dashboards/dashboard-routing.service';
 import { ThemeService } from '../core/services';
@@ -54,6 +56,7 @@ type SidebarRoleKey =
   | 'STOCK_MANAGER'
   | 'DATA_SCIENTIST'
   | 'VIEWER'
+  | 'CUSTOMER'
   | 'GUEST';
 
 @Component({
@@ -64,6 +67,7 @@ type SidebarRoleKey =
     RouterLink,
     RouterLinkActive,
     RouterOutlet,
+    LucideAngularModule,
     ChatbotComponent,
     NotificationBellComponent
   ],
@@ -115,137 +119,247 @@ export class SentinelLayoutComponent implements OnInit, OnDestroy {
     return this.financeService.pendingCount$;
   }
 
+  get pendingRapportCount$() {
+    return this.rapportService.pendingCount$;
+  }
+
   readonly menuItems: MenuItem[] = [
     {
       label: 'Dashboard',
       path: '/dashboards/admin',
-      icon: '📊',
+      icon: 'LayoutDashboard',
       caption: 'Overview & KPIs',
       requiredRoles: []
     },
     {
       label: 'Profile',
       path: '/profile',
-      icon: '👤',
+      icon: 'UserCircle',
       caption: 'My profile & settings',
       requiredRoles: []
     },
     {
       label: 'Equipment',
       path: '/equipment',
-      icon: '⚙️',
+      icon: 'Cog',
       caption: 'Machines & assets',
       requiredRoles: ['SUPER_ADMIN','ADMIN','MANAGER','TECHNICIAN','VIEWER']
     },
     {
       label: 'Maintenance',
       path: '/maintenance',
-      icon: '🔧',
+      icon: 'Wrench',
       caption: 'Maintenance tasks',
       requiredRoles: ['SUPER_ADMIN','ADMIN','MANAGER','TECHNICIAN']
     },
     {
       label: 'Technician Calendar',
       path: '/technician-calendar',
-      icon: '📅',
+      icon: 'CalendarClock',
       caption: 'Schedule & events',
       requiredRoles: ['TECHNICIAN']
     },
     {
       label: 'Alerts',
       path: '/alerts',
-      icon: '🚨',
+      icon: 'TriangleAlert',
       caption: 'Active alerts',
+      requiredRoles: ['SUPER_ADMIN','ADMIN','MANAGER','TECHNICIAN','DATA_SCIENTIST']
+    },
+    {
+      label: 'Predictive Dashboard',
+      path: '/predictive-dashboard',
+      icon: 'Radar',
+      caption: 'Live readings, sensor data & failure reports',
       requiredRoles: ['SUPER_ADMIN','ADMIN','MANAGER','TECHNICIAN','DATA_SCIENTIST']
     },
     {
       label: 'Inventory',
       path: '/inventory',
-      icon: '📦',
+      icon: 'Package',
       caption: 'Parts & stock',
       requiredRoles: ['SUPER_ADMIN','ADMIN','STOCK_MANAGER','MANAGER']
     },
     {
       label: 'Parts',
       path: '/inventory/parts',
-      icon: '🧩',
+      icon: 'PackageSearch',
       caption: 'Browse and manage parts',
       requiredRoles: ['SUPER_ADMIN','ADMIN','STOCK_MANAGER','MANAGER']
     },
     {
       label: 'Reorder Requests',
       path: '/inventory/reorders',
-      icon: '📩',
+      icon: 'Inbox',
       caption: 'Approve replenishment requests',
       requiredRoles: ['SUPER_ADMIN','ADMIN','STOCK_MANAGER','MANAGER']
     },
     {
       label: 'Stock Orders',
       path: '/inventory/stock-orders',
-      icon: '🚚',
+      icon: 'Truck',
       caption: 'Track purchase orders',
       requiredRoles: ['SUPER_ADMIN','ADMIN','STOCK_MANAGER','MANAGER']
     },
     {
       label: 'Analytics',
       path: '/inventory/analytics',
-      icon: '📊',
+      icon: 'BarChart3',
       caption: 'Inventory KPIs and stock health',
+      requiredRoles: ['SUPER_ADMIN','ADMIN','STOCK_MANAGER','MANAGER']
+    },
+    {
+      label: 'Suppliers',
+      path: '/inventory/suppliers',
+      icon: 'Building2',
+      caption: 'Supplier directory & delivery scorecards',
+      requiredRoles: ['SUPER_ADMIN','ADMIN','STOCK_MANAGER','MANAGER']
+    },
+    {
+      label: 'Demand Forecast',
+      path: '/inventory/demand-forecast',
+      icon: 'TrendingDown',
+      caption: 'Projected stockouts from real consumption',
       requiredRoles: ['SUPER_ADMIN','ADMIN','STOCK_MANAGER','MANAGER']
     },
     {
       label: 'Stock Notifications',
       path: '/stock-notifications',
-      icon: '🔔',
+      icon: 'Bell',
       caption: 'Stock alerts & updates',
       requiredRoles: ['SUPER_ADMIN','ADMIN','STOCK_MANAGER']
     },
     {
       label: 'User Management',
       path: '/user-management',
-      icon: '👥',
+      icon: 'Users',
       caption: 'Users & roles',
+      requiredRoles: ['SUPER_ADMIN','ADMIN','MANAGER']
+    },
+    {
+      label: 'Inquiries',
+      path: '/inquiries',
+      icon: 'Inbox',
+      caption: 'Contact & demo requests',
       requiredRoles: ['SUPER_ADMIN','ADMIN']
     },
     {
       label: 'AI Intelligence',
       path: '/ai-assistant',
-      icon: '🧠',
+      icon: 'Brain',
       caption: 'Assistant diagnosis and risk overview',
       requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'DATA_SCIENTIST']
     },
     {
       label: 'Expenses',
       path: '/finance/expenses',
-      icon: '💰',
+      icon: 'Wallet',
       caption: 'Submit & track expenses',
       requiredRoles: []
     },
     {
       label: 'Finance Dashboard',
       path: '/finance/dashboard',
-      icon: '📈',
+      icon: 'LineChart',
       caption: 'Budget & spending overview',
       requiredRoles: ['FINANCE_MANAGER', 'ADMIN', 'SUPER_ADMIN']
     },
     {
       label: 'Budget Management',
       path: '/finance/budget',
-      icon: '🏦',
+      icon: 'Landmark',
       caption: 'Annual budget control',
       requiredRoles: ['FINANCE_MANAGER', 'ADMIN', 'SUPER_ADMIN']
+    },
+    {
+      label: 'Rapport Approvals',
+      path: '/finance/rapports',
+      icon: 'ClipboardCheck',
+      caption: 'Approve technician job rapports',
+      requiredRoles: ['FINANCE_MANAGER', 'MANAGER', 'ADMIN', 'SUPER_ADMIN']
+    },
+    {
+      label: 'Maintenance Cost Analytics',
+      path: '/finance/maintenance-costs',
+      icon: 'PieChart',
+      caption: 'Cost breakdown, failures & recommendations',
+      requiredRoles: ['FINANCE_MANAGER', 'MANAGER', 'ADMIN', 'SUPER_ADMIN']
+    },
+    {
+      label: 'Team Capacity',
+      path: '/team-capacity',
+      icon: 'CalendarDays',
+      caption: 'Technician workload & upcoming schedule',
+      requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
+    },
+    {
+      label: 'Reliability',
+      path: '/reliability',
+      icon: 'Activity',
+      caption: 'MTBF/MTTR and root-cause tracking',
+      requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
+    },
+    {
+      label: 'Work Order Templates',
+      path: '/work-order-templates',
+      icon: 'ClipboardList',
+      caption: 'Reusable work order defaults and recurring maintenance rules',
+      requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
+    },
+    {
+      label: 'Part Reservations',
+      path: '/inventory/reservations',
+      icon: 'Lock',
+      caption: 'Hold stock against a job before it is consumed',
+      requiredRoles: ['TECHNICIAN', 'MANAGER', 'STOCK_MANAGER', 'ADMIN', 'SUPER_ADMIN']
+    },
+    {
+      label: 'Export Center',
+      path: '/export-center',
+      icon: 'Download',
+      caption: 'Download CSV snapshots of your data',
+      requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'STOCK_MANAGER', 'FINANCE_MANAGER']
+    },
+    {
+      label: 'Audit Console',
+      path: '/audit-console',
+      icon: 'History',
+      caption: 'Governance log — role changes, approvals, automation',
+      requiredRoles: ['SUPER_ADMIN', 'ADMIN']
+    },
+    {
+      label: 'My Machines',
+      path: '/portal',
+      icon: 'Factory',
+      caption: 'Your equipment, health & maintenance history',
+      requiredRoles: ['CUSTOMER']
+    },
+    {
+      label: 'Support Tickets',
+      path: '/portal/tickets',
+      icon: 'Ticket',
+      caption: 'Get help with your equipment',
+      requiredRoles: ['CUSTOMER']
+    },
+    {
+      label: 'Billing',
+      path: '/portal/billing',
+      icon: 'Receipt',
+      caption: 'Invoices for servicing and parts',
+      requiredRoles: ['CUSTOMER']
     },
   ];
 
   private readonly sidebarMenuByRole: Record<SidebarRoleKey, string[]> = {
-    SUPER_ADMIN: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Technician Calendar', 'Alerts', 'Inventory', 'Parts', 'Reorder Requests', 'Stock Orders', 'Analytics', 'Stock Notifications', 'User Management', 'Expenses', 'Finance Dashboard', 'Budget Management'],
-    ADMIN: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Technician Calendar', 'Alerts', 'Inventory', 'Parts', 'Reorder Requests', 'Stock Orders', 'Analytics', 'Stock Notifications', 'User Management', 'Expenses', 'Finance Dashboard', 'Budget Management'],
-    FINANCE_MANAGER: ['Dashboard', 'Profile', 'Expenses', 'Finance Dashboard', 'Budget Management'],
-    MANAGER: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Alerts', 'Analytics'],
-    TECHNICIAN: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Technician Calendar', 'Alerts', 'AI Intelligence'],
-    STOCK_MANAGER: ['Dashboard', 'Profile', 'Inventory', 'Parts', 'Reorder Requests', 'Stock Orders', 'Analytics', 'Stock Notifications', 'Expenses'],
+    SUPER_ADMIN: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Technician Calendar', 'Alerts', 'Inventory', 'Parts', 'Reorder Requests', 'Stock Orders', 'Analytics', 'Suppliers', 'Demand Forecast', 'Stock Notifications', 'User Management', 'Inquiries', 'Expenses', 'Finance Dashboard', 'Budget Management', 'Rapport Approvals', 'Maintenance Cost Analytics', 'Team Capacity', 'Reliability', 'Work Order Templates', 'Audit Console', 'Part Reservations', 'Export Center'],
+    ADMIN: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Technician Calendar', 'Alerts', 'Inventory', 'Parts', 'Reorder Requests', 'Stock Orders', 'Analytics', 'Suppliers', 'Demand Forecast', 'Stock Notifications', 'User Management', 'Inquiries', 'Expenses', 'Finance Dashboard', 'Budget Management', 'Rapport Approvals', 'Maintenance Cost Analytics', 'Team Capacity', 'Reliability', 'Work Order Templates', 'Audit Console', 'Part Reservations', 'Export Center'],
+    FINANCE_MANAGER: ['Dashboard', 'Profile', 'Expenses', 'Finance Dashboard', 'Budget Management', 'Reorder Requests', 'Rapport Approvals', 'Maintenance Cost Analytics', 'Export Center'],
+    MANAGER: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Alerts', 'Analytics', 'User Management', 'Rapport Approvals', 'Team Capacity', 'Reliability', 'Work Order Templates', 'Suppliers', 'Demand Forecast', 'Part Reservations', 'Export Center'],
+    TECHNICIAN: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Technician Calendar', 'Alerts', 'AI Intelligence', 'Part Reservations', 'Export Center'],
+    STOCK_MANAGER: ['Dashboard', 'Profile', 'Inventory', 'Parts', 'Reorder Requests', 'Stock Orders', 'Analytics', 'Suppliers', 'Demand Forecast', 'Stock Notifications', 'Expenses', 'Part Reservations', 'Export Center'],
     DATA_SCIENTIST: ['Dashboard', 'Profile', 'Alerts', 'AI Intelligence', 'Expenses'],
     VIEWER: ['Dashboard', 'Profile', 'Equipment', 'Alerts', 'Expenses'],
+    CUSTOMER: ['My Machines', 'Support Tickets', 'Billing', 'Profile'],
     GUEST: ['Dashboard', 'Profile'],
   };
 
@@ -254,6 +368,7 @@ export class SentinelLayoutComponent implements OnInit, OnDestroy {
     private router: Router,
     private notificationsService: NotificationsRestService,
     private financeService: FinanceService,
+    private rapportService: RapportService,
     private dashboardRoutingService: DashboardRoutingService,
     private themeService: ThemeService,
     private cdr: ChangeDetectorRef,
@@ -354,6 +469,10 @@ export class SentinelLayoutComponent implements OnInit, OnDestroy {
         this.financeService.refreshPendingCount();
       }
 
+      if (this.canReviewRapports) {
+        this.rapportService.refreshPendingCount(this.canReviewManagerRapports, this.canReviewFinanceRapports);
+      }
+
       this.cdr.detectChanges();
     });
 
@@ -369,14 +488,10 @@ export class SentinelLayoutComponent implements OnInit, OnDestroy {
         ? 'SUPER_ADMIN'
         : normalizedRoles[0] ?? null;
 
-    if (preferredRole !== 'STOCK_MANAGER') {
-      this.notificationsService.setRole(preferredRole);
-      this.notificationsService.loadNotifications(preferredRole).subscribe();
-      this.notificationsService.loadUnreadCount().subscribe();
-      this.notificationsService.startPolling(30000);
-    } else {
-      this.notificationsService.stopPolling();
-    }
+    this.notificationsService.setRole(preferredRole);
+    this.notificationsService.loadNotifications(preferredRole ?? undefined).subscribe();
+    this.notificationsService.loadUnreadCount().subscribe();
+    this.notificationsService.startPolling(30000);
   }
 
   ngOnDestroy(): void {
@@ -390,6 +505,20 @@ export class SentinelLayoutComponent implements OnInit, OnDestroy {
   get isFinanceRole(): boolean {
     const roles = this.getNormalizedRoles(this.sidebarUser ?? this.currentUser);
     return roles.includes('FINANCE_MANAGER') || roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+  }
+
+  get canReviewManagerRapports(): boolean {
+    const roles = this.getNormalizedRoles(this.sidebarUser ?? this.currentUser);
+    return roles.includes('MANAGER') || roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+  }
+
+  get canReviewFinanceRapports(): boolean {
+    const roles = this.getNormalizedRoles(this.sidebarUser ?? this.currentUser);
+    return roles.includes('FINANCE_MANAGER') || roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
+  }
+
+  get canReviewRapports(): boolean {
+    return this.canReviewManagerRapports || this.canReviewFinanceRapports;
   }
 
   getDashboardPath(): string {
@@ -447,6 +576,9 @@ export class SentinelLayoutComponent implements OnInit, OnDestroy {
     }
     if (normalizedRoles.includes('VIEWER')) {
       return 'VIEWER';
+    }
+    if (normalizedRoles.includes('CUSTOMER')) {
+      return 'CUSTOMER';
     }
 
     return 'GUEST';

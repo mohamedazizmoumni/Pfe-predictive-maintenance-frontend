@@ -49,11 +49,21 @@ export class NotificationsRestService {
   }
 
   /**
-   * Load unread notification count
+   * Load unread notification count. Must send the same role param as
+   * loadNotifications() — the backend used to count ALL unread notifications
+   * regardless of role while the list was role-filtered, so the header
+   * badge could show a nonzero count for a role with nothing actually
+   * addressed to it, and clicking the bell opened an empty panel.
    */
-  loadUnreadCount(): Observable<UnreadCountResponse> {
+  loadUnreadCount(role?: string): Observable<UnreadCountResponse> {
+    const resolvedRole = role ?? this.roleParam ?? undefined;
+    let params = new HttpParams();
+    if (resolvedRole) {
+      params = params.set('role', resolvedRole);
+    }
+
     return this.http
-      .get<UnreadCountResponse>(apiEndpoint('/notifications/unread-count'))
+      .get<UnreadCountResponse>(apiEndpoint('/notifications/unread-count'), { params })
       .pipe(
         tap((response) => {
           this.unreadCountSubject.next(response.count);

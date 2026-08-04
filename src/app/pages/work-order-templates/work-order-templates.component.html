@@ -1,0 +1,138 @@
+<div class="admin-page">
+  <header class="admin-header">
+    <h1>Work Order Templates</h1>
+    <p>Reusable defaults for creating work orders, and rules that auto-spawn recurring maintenance from them.</p>
+  </header>
+
+  <div class="tabs">
+    <button type="button" [class.active]="tab === 'templates'" (click)="setTab('templates')">Templates</button>
+    <button type="button" [class.active]="tab === 'recurring'" (click)="setTab('recurring')">Recurring Rules</button>
+  </div>
+
+  <section class="tab-panel" *ngIf="tab === 'templates'">
+    <div class="panel-header">
+      <button type="button" class="btn-primary" (click)="openCreateTemplate()" *ngIf="!showTemplateForm">+ New Template</button>
+    </div>
+
+    <form class="form-card" *ngIf="showTemplateForm" (ngSubmit)="saveTemplate()">
+      <h3>{{ editingTemplateId ? 'Edit Template' : 'New Template' }}</h3>
+      <div class="form-grid">
+        <div class="form-row form-row-wide">
+          <label>Name</label>
+          <input type="text" [(ngModel)]="templateForm.name" name="name" required />
+        </div>
+        <div class="form-row">
+          <label>Type</label>
+          <select [(ngModel)]="templateForm.type" name="type">
+            <option *ngFor="let t of types" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Priority</label>
+          <select [(ngModel)]="templateForm.priority" name="priority">
+            <option *ngFor="let p of priorities" [value]="p">{{ p }}</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Estimated Duration (min)</label>
+          <input type="number" [(ngModel)]="templateForm.estimatedDuration" name="estimatedDuration" />
+        </div>
+        <div class="form-row form-row-wide">
+          <label>Description</label>
+          <input type="text" [(ngModel)]="templateForm.description" name="description" />
+        </div>
+        <div class="form-row form-row-wide">
+          <label>Default Notes</label>
+          <input type="text" [(ngModel)]="templateForm.defaultNotes" name="defaultNotes" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" (click)="cancelTemplateForm()">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="!templateForm.name.trim() || isSavingTemplate">
+          {{ isSavingTemplate ? 'Saving…' : 'Save Template' }}
+        </button>
+      </div>
+    </form>
+
+    <div class="loading" *ngIf="isLoadingTemplates">Loading templates…</div>
+    <div class="twrap" *ngIf="!isLoadingTemplates && templates.length">
+      <table>
+        <thead><tr><th>Name</th><th>Type</th><th>Priority</th><th>Duration</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <tr *ngFor="let template of templates">
+            <td>{{ template.name }}</td>
+            <td>{{ template.type }}</td>
+            <td>{{ template.priority }}</td>
+            <td>{{ template.estimatedDuration ? template.estimatedDuration + ' min' : '—' }}</td>
+            <td><span class="status" [class.status-active]="template.active" [class.status-inactive]="!template.active">{{ template.active ? 'Active' : 'Inactive' }}</span></td>
+            <td class="actions">
+              <button type="button" class="btn-link" (click)="openEditTemplate(template)">Edit</button>
+              <button type="button" class="btn-link danger" (click)="deactivateTemplate(template)" *ngIf="template.active">Deactivate</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="empty" *ngIf="!isLoadingTemplates && templates.length === 0">No templates yet.</p>
+  </section>
+
+  <section class="tab-panel" *ngIf="tab === 'recurring'">
+    <div class="lookup-row">
+      <label>Machine ID</label>
+      <input type="number" [(ngModel)]="lookupMachineId" name="lookupMachineId" />
+      <button type="button" class="btn-secondary" (click)="lookupRules()" [disabled]="lookupMachineId == null">Look up</button>
+    </div>
+
+    <div class="twrap" *ngIf="rules.length">
+      <table>
+        <thead><tr><th>Template</th><th>Interval</th><th>Next Run</th><th>Last Generated</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <tr *ngFor="let rule of rules">
+            <td>{{ rule.workOrderTemplateName || ('#' + rule.workOrderTemplateId) }}</td>
+            <td>Every {{ rule.intervalDays }} day(s)</td>
+            <td>{{ rule.nextRunDate | date:'medium' }}</td>
+            <td>{{ rule.lastGeneratedMaintenanceId ? ('#' + rule.lastGeneratedMaintenanceId) : '—' }}</td>
+            <td><span class="status" [class.status-active]="rule.active" [class.status-inactive]="!rule.active">{{ rule.active ? 'Active' : 'Stopped' }}</span></td>
+            <td class="actions">
+              <button type="button" class="btn-link danger" (click)="deactivateRule(rule)" *ngIf="rule.active">Stop</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="empty" *ngIf="!isLoadingRules && lookupMachineId != null && rules.length === 0">No recurring rules for this machine yet.</p>
+
+    <div class="form-card">
+      <h3>Create a recurring rule</h3>
+      <div class="alert-error" *ngIf="ruleError">{{ ruleError }}</div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label>Machine ID</label>
+          <input type="number" [(ngModel)]="ruleForm.machineId" name="ruleMachineId" />
+        </div>
+        <div class="form-row">
+          <label>Template</label>
+          <select [(ngModel)]="ruleForm.workOrderTemplateId" name="ruleTemplateId">
+            <option [ngValue]="0" disabled>Select a template</option>
+            <option *ngFor="let t of templates" [ngValue]="t.id">{{ t.name }}</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Interval (days)</label>
+          <input type="number" [(ngModel)]="ruleForm.intervalDays" name="intervalDays" />
+        </div>
+        <div class="form-row">
+          <label>Assigned Technician ID (optional)</label>
+          <input type="number" [(ngModel)]="ruleForm.assignedTechnicianId" name="assignedTechnicianId" />
+        </div>
+        <div class="form-row">
+          <label>First Run Date (optional, defaults to now)</label>
+          <input type="datetime-local" [(ngModel)]="ruleForm.firstRunDate" name="firstRunDate" />
+        </div>
+      </div>
+      <button type="button" class="btn-primary" [disabled]="isSavingRule" (click)="createRule()">
+        {{ isSavingRule ? 'Creating…' : 'Create Rule' }}
+      </button>
+    </div>
+  </section>
+</div>

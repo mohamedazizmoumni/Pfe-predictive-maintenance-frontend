@@ -27,10 +27,13 @@ export interface CreateUserPayload {
 }
 
 export interface UpdateUserPayload {
-  username: string;
-  firstName: string;
-  lastName: string;
-  email: string;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  // Admin-only "reset password" action — only sent when an admin explicitly
+  // sets a new password for another user; omitted otherwise.
+  password?: string;
   department?: string;
   phoneNumber?: string;
   status?: string;
@@ -80,6 +83,24 @@ export class UserService {
         })
       )
       .subscribe();
+  }
+
+  /**
+   * Fetch technicians directly from the backend (GET /v1/users?role=TECHNICIAN),
+   * without touching the shared users$ list used elsewhere.
+   */
+  getTechnicians(): Observable<User[]> {
+    const params = new HttpParams().set('role', 'TECHNICIAN');
+    return this.http
+      .get<User[] | UsersResponse>(apiEndpoint('/v1/users'), { params })
+      .pipe(
+        map((response) => this.extractUsers(response).map((user) => this.mapUser(user))),
+        catchError((error) => {
+          const errorMessage = error.error?.error || error.error?.message || 'Failed to load technicians';
+          this.errorSubject.next(errorMessage);
+          throw error;
+        })
+      );
   }
 
   /**
@@ -184,6 +205,24 @@ export class UserService {
   }
 
   /**
+   * Reset a user's face enrollment (admin-only). Clears faceEnrolled,
+   * faceEnrolledAt, and the profile picture set during enrollment, and
+   * best-effort removes the embedding from the ML service. The user will be
+   * prompted to re-enroll on next login / can capture a new face immediately.
+   */
+  resetFaceEnrollment(userId: string | number): Observable<{ message: string; faceEnrolled: boolean }> {
+    return this.http
+      .delete<{ message: string; faceEnrolled: boolean }>(apiEndpoint(`/v1/users/${userId}/face-enrollment`))
+      .pipe(
+        catchError((error) => {
+          const errorMessage = error.error?.error || error.error?.message || 'Failed to reset face enrollment';
+          this.errorSubject.next(errorMessage);
+          throw error;
+        })
+      );
+  }
+
+  /**
    * Load all available roles
    */
   loadRoles(): void {
@@ -259,6 +298,18 @@ export class UserService {
    */
   getProfilePictureUrl(username: string): string {
     return apiEndpoint(`/v1/users/${username}/profile-picture`);
+  }
+
+  /**
+   * Fetch the profile picture as a Blob via HttpClient (so the auth
+   * interceptor attaches the bearer token). A plain `<img src>` pointed at
+   * this endpoint cannot carry the Authorization header and will 401 if the
+   * backend requires auth to view it.
+   */
+  getProfilePictureBlob(username: string): Observable<Blob> {
+    return this.http.get(apiEndpoint(`/v1/users/${username}/profile-picture`), {
+      responseType: 'blob',
+    });
   }
 
   /**

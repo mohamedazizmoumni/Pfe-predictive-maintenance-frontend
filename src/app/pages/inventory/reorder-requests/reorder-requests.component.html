@@ -46,7 +46,7 @@
 
     <div class="actions">
       <div *ngIf="canApprove() && request.status === 'REQUESTED'" class="approval-controls">
-        <input placeholder="Reason (optional)" [(ngModel)]="approvalReason" />
+        <input placeholder="Reason (optional)" [(ngModel)]="approvalReasons[request.id]" [name]="'approvalReason-' + request.id" />
         <button type="button" class="btn-approve"
                 (click)="approveRequest(request, true)"
                 [disabled]="approvingId === request.id">

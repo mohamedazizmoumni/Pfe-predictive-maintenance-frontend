@@ -135,3 +135,46 @@
   border-top: 1px solid var(--color-border);
   flex-shrink: 0;
 }
+
+// ── Field states ──────────────────────────────────────────────────
+
+.required {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.form-group.has-error .form-control {
+  border-color: #f87171;
+  background: rgba(254, 226, 226, 0.08);
+}
+
+.form-error {
+  color: #f87171;
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.form-hint {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+// ── Select wrapper with loading state ────────────────────────────
+
+.select-wrapper {
+  position: relative;
+
+  &.loading .form-control {
+    opacity: 0.7;
+    cursor: wait;
+  }
+}
+
+.select-spinner {
+  position: absolute;
+  right: 36px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  pointer-events: none;
+}

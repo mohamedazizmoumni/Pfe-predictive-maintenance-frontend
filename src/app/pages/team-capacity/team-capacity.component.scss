@@ -1,0 +1,164 @@
+.capacity-page {
+  padding: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 1.5rem;
+  h1 { margin: 0 0 0.35rem; font-size: 1.6rem; color: var(--color-text-primary); }
+  p { margin: 0; color: var(--color-text-secondary); }
+}
+
+.loading, .empty { color: var(--color-text-muted); padding: 1.5rem 0; text-align: center; }
+
+.alert-error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid var(--color-danger-border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+  color: var(--color-text-primary);
+  margin: 0 0 0.75rem;
+  .hint { font-size: 0.8rem; font-weight: 400; color: var(--color-text-muted); }
+}
+
+.capacity-section { margin-bottom: 2rem; }
+
+.capacity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.9rem;
+}
+
+.capacity-card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+
+    h3 { margin: 0; font-size: 0.95rem; color: var(--color-text-primary); }
+  }
+
+  .hours { margin: 0; font-size: 0.85rem; color: var(--color-text-secondary); }
+}
+
+.load-chip {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+
+  &.load-low { background: var(--color-success-bg, #e7f3ec); color: var(--status-success-text, #2f7d5c); }
+  &.load-medium { background: var(--color-warning-bg); color: var(--color-warning-text); }
+  &.load-high { background: var(--color-danger-bg); color: var(--color-danger-text); }
+}
+
+.twrap { overflow-x: auto; border: 1px solid var(--color-border); border-radius: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+th, td { text-align: left; padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--color-border); }
+th { background: var(--color-bg-sunken); color: var(--color-text-muted); font-size: 0.72rem; text-transform: uppercase; }
+
+.calendar-section { margin-top: 2rem; }
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.9rem;
+
+  h2 { margin: 0; }
+}
+
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  button {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-sunken);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    font-size: 1rem;
+  }
+
+  .month-label { font-size: 0.9rem; font-weight: 600; color: var(--color-text-primary); min-width: 130px; text-align: center; }
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  opacity: 1;
+  transition: opacity 0.15s;
+
+  &.loading { opacity: 0.5; }
+}
+
+.weekday {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  padding-bottom: 0.4rem;
+}
+
+.day-cell {
+  aspect-ratio: 1.1;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-family: inherit;
+  padding: 0;
+
+  &.out-of-month { opacity: 0.35; }
+  &.today { border-color: var(--color-accent); border-width: 2px; }
+  &.has-events { background: var(--color-accent-dim, rgba(79, 124, 255, 0.1)); }
+
+  .day-number { font-size: 0.82rem; font-weight: 600; }
+  .event-count {
+    font-size: 0.65rem;
+    font-weight: 700;
+    background: var(--color-accent);
+    color: var(--color-text-on-accent);
+    border-radius: 999px;
+    padding: 0 0.4rem;
+  }
+}
+
+.day-detail {
+  margin-top: 1rem;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+
+  h3 { margin: 0 0 0.6rem; font-size: 0.95rem; color: var(--color-text-primary); }
+
+  ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+  li { display: flex; flex-direction: column; font-size: 0.85rem; color: var(--color-text-secondary); }
+  li strong { color: var(--color-text-primary); }
+}

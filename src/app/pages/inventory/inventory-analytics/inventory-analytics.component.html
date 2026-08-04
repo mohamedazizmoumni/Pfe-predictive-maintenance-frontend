@@ -1,119 +1,158 @@
-<div class="analytics-container" *ngIf="!loading && stats">
+<div class="ia-page">
 
   <!-- HEADER -->
-  <div class="header">
-    <div>
-      <h2>Inventory Analytics</h2>
-      <p class="subtitle">Real-time stock intelligence & performance metrics</p>
+  <header class="ia-header">
+    <div class="ia-header__titles">
+      <p class="ia-header__eyebrow">Inventory · Analytics</p>
+      <h1>Stock Analytics</h1>
+      <p class="ia-header__subtitle">Real-time health, risk and procurement intelligence for every tracked part</p>
     </div>
 
-    <div class="meta" *ngIf="stats.lastUpdated">
-      Last sync: {{ stats.lastUpdated | date:'medium' }}
+    <div class="ia-header__actions">
+      <span class="ia-header__live"><span class="dot"></span>Live</span>
+      <span class="ia-header__meta" *ngIf="lastUpdated">Last sync {{ lastUpdated | date:'HH:mm:ss' }}</span>
+      <button type="button" class="ia-refresh" [class.ia-refresh--spinning]="refreshing" [disabled]="refreshing" (click)="refresh()">
+        <lucide-icon name="RefreshCw" [size]="15"></lucide-icon>
+        {{ refreshing ? 'Syncing…' : 'Refresh' }}
+      </button>
     </div>
+  </header>
+
+  <div class="ia-banner ia-banner--danger" *ngIf="error">
+    <lucide-icon name="TriangleAlert" [size]="16"></lucide-icon>{{ error }}
   </div>
 
-  <!-- KPI GRID -->
-  <div class="kpi-grid">
-
-    <div class="kpi-card">
-      <span class="icon">📦</span>
-      <h3>Total Parts</h3>
-      <p class="value">{{ stats.totalPartsTracked }}</p>
-      <span class="caption">Active inventory items</span>
-    </div>
-
-    <div class="kpi-card warning">
-      <span class="icon">⚠️</span>
-      <h3>Low Stock</h3>
-      <p class="value">{{ stats.lowStockPartsCount }}</p>
-      <span class="caption">Below threshold</span>
-    </div>
-
-    <div class="kpi-card danger">
-      <span class="icon">🚨</span>
-      <h3>Out of Stock</h3>
-      <p class="value">{{ stats.outOfStockPartsCount }}</p>
-      <span class="caption">Critical shortage</span>
-    </div>
-
-    <div class="kpi-card info">
-      <span class="icon">🛒</span>
-      <h3>Pending Orders</h3>
-      <p class="value">{{ stats.pendingOrdersCount }}</p>
-      <span class="caption">Awaiting fulfillment</span>
-    </div>
-
-    <div class="kpi-card">
-      <span class="icon">💰</span>
-      <h3>Inventory Value</h3>
-      <p class="value">{{ stats.totalInventoryValue | currency:'TND':'symbol' }}</p>
-      <span class="caption">Total stock value</span>
-    </div>
-
-    <div class="kpi-card"
-         [ngClass]="{'turnover-low': turnoverBucket === 'low',
-                     'turnover-high': turnoverBucket === 'high'}">
-      <span class="icon">📊</span>
-      <h3>Turnover Rate</h3>
-      <p class="value">{{ stats.turnoverRate | number:'1.1-2' }}</p>
-      <span class="caption">
-        {{ turnoverBucket === 'low' ? 'Slow movement' :
-           turnoverBucket === 'high' ? 'Fast consumption' :
-           'Healthy range' }}
-      </span>
-    </div>
-
+  <div class="ia-banner ia-banner--info" *ngIf="!loading && !error">
+    <lucide-icon name="Info" [size]="16"></lucide-icon>
+    Stock levels, values, and reorder data below are real. Usage/consumption is real where technicians have logged part usage on a maintenance rapport, and estimated elsewhere. Forecasts, supplier quality scores, and machine-part dependency are modeled estimates until more operational history is recorded.
   </div>
 
-  <!-- CHART SECTION -->
-  <div class="chart-card">
+  <div class="ia-skeleton" *ngIf="loading">
+    <div class="ia-skeleton__row" *ngFor="let i of [1,2,3,4]"></div>
+  </div>
 
-    <div class="chart-header">
-      <h3>Stock Health Overview</h3>
-      <p>Distribution of inventory status</p>
-    </div>
+  <div class="ia-grid" *ngIf="!loading">
 
-    <div class="chart-layout" *ngIf="stats.totalPartsTracked > 0">
+    <!-- KPI STRIP -->
+    <section class="col-12">
+      <app-kpi-strip [metrics]="kpis"></app-kpi-strip>
+    </section>
 
-      <!-- PIE -->
-      <div class="pie-wrapper">
-        <div class="pie" [style.background]="stockHealthPieBackground">
-          <div class="pie-inner">
-            <span class="big">{{ stats.totalPartsTracked }}</span>
-            <span class="small">parts</span>
-          </div>
-        </div>
-      </div>
+    <!-- CHARTS ROW 1 -->
+    <section class="col-8">
+      <app-chart-card
+        title="Inventory Trend"
+        subtitle="Stock value over time"
+        icon="LineChart"
+        accentColor="#3B82F6"
+        [config]="trendChartConfig"
+        [height]="280"
+        [toggleOptions]="trendRangeOptions"
+        [activeToggle]="trendRange"
+        (toggleChange)="onTrendRangeChange($event)"
+      ></app-chart-card>
+    </section>
 
-      <!-- BAR -->
-      <div class="right-panel">
+    <section class="col-4">
+      <app-chart-card
+        title="Inventory Distribution"
+        subtitle="Where every part stands today"
+        icon="PieChart"
+        accentColor="#8B5CF6"
+        [config]="distributionChartConfig"
+        [height]="220"
+        [legend]="distributionLegend"
+      ></app-chart-card>
+    </section>
 
-        <div class="stacked-bar">
-          <div class="segment healthy"
-               [style.width.%]="stockHealthPercentages.healthy">
-          </div>
+    <!-- CHARTS ROW 2 -->
+    <section class="col-6">
+      <app-chart-card
+        title="Top Consumed Parts"
+        [subtitle]="topConsumedSubtitle"
+        icon="BarChart3"
+        accentColor="#3B82F6"
+        [config]="topConsumedChartConfig"
+        [height]="280"
+      ></app-chart-card>
+    </section>
 
-          <div class="segment low"
-               [style.width.%]="stockHealthPercentages.low">
-          </div>
+    <section class="col-6">
+      <app-chart-card
+        title="Inventory Value by Category"
+        subtitle="Healthy vs. at-risk value on hand"
+        icon="LayoutGrid"
+        accentColor="#22C55E"
+        [config]="valueByCategoryChartConfig"
+        [height]="280"
+        [legend]="valueByCategoryLegend"
+      ></app-chart-card>
+    </section>
 
-          <div class="segment out"
-               [style.width.%]="stockHealthPercentages.out">
-          </div>
-        </div>
+    <!-- CHARTS ROW 3 -->
+    <section class="col-6">
+      <app-chart-card
+        title="Stock Movement"
+        subtitle="Incoming vs. outgoing"
+        icon="Activity"
+        accentColor="#22C55E"
+        [config]="movementChartConfig"
+        [height]="260"
+        [toggleOptions]="movementOptions"
+        [activeToggle]="movementGranularity"
+        (toggleChange)="onMovementGranularityChange($event)"
+      ></app-chart-card>
+    </section>
 
-        <div class="legend">
-          <div><span class="dot healthy"></span> Healthy <b>{{ healthyPartsCount }}</b></div>
-          <div><span class="dot low"></span> Low <b>{{ stats.lowStockPartsCount }}</b></div>
-          <div><span class="dot out"></span> Out <b>{{ stats.outOfStockPartsCount }}</b></div>
-        </div>
+    <section class="col-6">
+      <app-chart-card
+        title="Monthly Consumption Forecast"
+        subtitle="Historical vs. AI-predicted demand"
+        icon="Radar"
+        accentColor="#8B5CF6"
+        [config]="forecastChartConfig"
+        [height]="260"
+      ></app-chart-card>
+    </section>
 
-      </div>
+    <!-- AI INSIGHTS -->
+    <section class="col-12">
+      <app-ai-insights-panel [insights]="aiInsights"></app-ai-insights-panel>
+    </section>
 
-    </div>
+    <!-- CRITICAL PARTS TABLE -->
+    <section class="col-12">
+      <app-critical-parts-table [rows]="criticalRows"></app-critical-parts-table>
+    </section>
+
+    <!-- REORDER RECOMMENDATIONS -->
+    <section class="col-12">
+      <app-reorder-recommendations [recommendations]="recommendations" (created)="onRecommendationCreated()"></app-reorder-recommendations>
+    </section>
+
+    <!-- SUPPLIER PERFORMANCE / MACHINE DEPENDENCY -->
+    <section class="col-6">
+      <app-supplier-performance [rows]="supplierRows"></app-supplier-performance>
+    </section>
+
+    <section class="col-6">
+      <app-machine-dependency [rows]="machineRows"></app-machine-dependency>
+    </section>
+
+    <!-- ALERTS TIMELINE / HEATMAP -->
+    <section class="col-5">
+      <app-alerts-timeline [events]="timelineEvents"></app-alerts-timeline>
+    </section>
+
+    <section class="col-7">
+      <app-category-heatmap [cells]="heatmapCells"></app-category-heatmap>
+    </section>
+
+    <!-- BOTTOM STATS -->
+    <section class="col-12">
+      <app-bottom-stats [stats]="bottomStats"></app-bottom-stats>
+    </section>
+
   </div>
 
 </div>
-
-<div *ngIf="loading" class="loading">Loading analytics...</div>
-<div *ngIf="error" class="error">{{ error }}</div>

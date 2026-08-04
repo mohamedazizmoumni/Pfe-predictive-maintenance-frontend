@@ -2,7 +2,7 @@ export type RiskLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 
 export interface Notification {
   id: number;
-  machineId: number;
+  machineId: number | null;
   title: string;
   body: string;
   riskLevel: RiskLevel;

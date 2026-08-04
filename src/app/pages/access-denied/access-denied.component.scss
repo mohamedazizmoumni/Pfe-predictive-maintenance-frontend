@@ -1,52 +1,28 @@
 .denied-shell {
   max-width: 520px;
   margin: 6rem auto;
-  padding: var(--ui-space-5, 1.75rem);
-  border-radius: var(--ui-radius-lg, 24px);
+  padding: var(--space-8);
   text-align: center;
-  box-shadow: 0 25px 55px rgba(15, 23, 42, 0.15);
 }
 
 .eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  font-size: 0.75rem;
-  color: rgba(15, 23, 42, 0.6);
+  margin-bottom: var(--space-2);
 }
 
 h1 {
-  margin: 0.5rem 0 1rem;
+  margin: var(--space-2) 0 var(--space-4);
+  color: var(--color-text-primary);
 }
 
 p {
-  color: rgba(15, 23, 42, 0.7);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-normal);
 }
 
 .actions {
-  margin-top: var(--ui-space-4, 1.25rem);
+  margin-top: var(--space-6);
   display: flex;
   justify-content: center;
-  gap: var(--ui-space-3, 0.75rem);
+  gap: var(--space-3);
   flex-wrap: wrap;
-}
-
-.primary,
-.ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  padding: 0.75rem 1.75rem;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.primary {
-  background: linear-gradient(135deg, #5b5dd8, #8b5cf6);
-  color: #fff;
-}
-
-.ghost {
-  background: rgba(91, 93, 216, 0.12);
-  color: #4c1d95;
 }

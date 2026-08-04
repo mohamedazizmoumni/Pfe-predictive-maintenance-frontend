@@ -116,7 +116,7 @@
 
         <div class="field">
           <label>Department</label>
-          <select formControlName="department" [disabled]="!isEditMode">
+          <select formControlName="department">
             <option *ngFor="let d of departments">{{ d }}</option>
           </select>
         </div>
@@ -129,6 +129,24 @@
       </form>
     </section>
 
+    <!-- FACE SIGN-IN -->
+    <section class="control-console face-security">
+      <div class="face-security__body">
+        <div>
+          <h3>Face Sign-In</h3>
+          <p>
+            Register (or update) the face used for the face-recognition sign-in step.
+            Taking a photo above only changes your profile picture — it does not
+            register your face for login.
+          </p>
+        </div>
+
+        <a routerLink="/auth/face-enroll" class="edit-btn">📷 Enroll / Update Face</a>
+      </div>
+    </section>
+
+    <app-notification-preferences></app-notification-preferences>
+
   </div>
 
   <!-- CAMERA MODAL -->
@@ -138,7 +156,9 @@
       <video #cameraVideo autoplay playsinline class="camera-preview"></video>
       <canvas #faceCanvas style="display:none"></canvas>
       <div class="camera-modal-actions">
-        <button type="button" class="photo-btn" (click)="capturePhoto()">📸 Capture</button>
+        <button type="button" class="photo-btn" (click)="capturePhoto()" [disabled]="isCapturingPhoto">
+          {{ isCapturingPhoto ? 'Capturing…' : '📸 Capture' }}
+        </button>
         <button type="button" class="photo-btn ghost" (click)="closeCameraModal()">Cancel</button>
       </div>
     </div>

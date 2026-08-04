@@ -26,7 +26,7 @@ export type DashboardRole =
 export const ROLE_DASHBOARD_ROUTE: Record<DashboardRole, string> = {
   SUPER_ADMIN: '/dashboards/super-admin',
   ADMIN: '/dashboards/admin',
-  FINANCE_MANAGER: '/dashboards/finance',
+  FINANCE_MANAGER: '/finance/dashboard',
   MANAGER: '/dashboards/manager',
   STOCK_MANAGER: '/dashboards/stock-manager',
   TECHNICIAN: '/dashboards/technician',

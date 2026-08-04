@@ -1,5 +1,7 @@
-import { CommonModule, DecimalPipe, NgFor, NgIf } from '@angular/common';
+import { CommonModule, NgFor, NgIf } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, computed, signal } from '@angular/core';
+import type { ChartConfiguration } from 'chart.js';
+import { LucideAngularModule } from 'lucide-angular';
 import { forkJoin, of } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
 
@@ -8,863 +10,420 @@ import { MaintenanceService } from '../../../../core/services/maintenance.servic
 import { MachineService } from '../../../../core/services/machine.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { RecommendationService } from '../../../../core/services/recommendation.service';
+import { ThemeService } from '../../../../core/services/theme.service';
 
-import { AlertResponse, Maintenance } from '../../../../core/models/sentinel.models';
+import { AlertResponse, AlertStatus, Maintenance } from '../../../../core/models/sentinel.models';
 import { Machine } from '../../../../core/models/machine.model';
 import { MaintenanceRecommendationDTO } from '../../../../core/models/recommendation.model';
 
 import {
   BaseDashboardComponent,
   DashboardBarRow,
-  DashboardKpiCard
 } from '../../base-dashboard/base-dashboard.component';
+import { ManagerDashboardIntelligenceService } from './manager-dashboard-intelligence.service';
+import { DashboardKpiStripComponent, DashboardKpiMetric } from '../../../../shared/charts/kpi-strip.component';
+import { ChartCardComponent, ChartLegendItem } from '../../../../shared/charts/chart-card.component';
+import { axisTicks, legendColor, tooltipTheme, xScale, yScale } from '../../../../shared/charts/chart-theme';
+
+const TREND_DAYS = 14;
 
 @Component({
   selector: 'app-manager-dashboard',
   standalone: true,
-  imports: [CommonModule, NgIf, NgFor, DecimalPipe],
-
-  template: `
-    <section class="manager-dashboard">
-
-      <!-- TOP HEADER -->
-      <header class="topbar">
-        <div class="search-box">
-          <span>🔍</span>
-          <input type="text" placeholder="Search assets, tasks, alerts..." />
-        </div>
-
-        <div class="topbar-actions">
-          <button class="notification-btn">🔔</button>
-          <button class="manager-btn">Manager</button>
-        </div>
-      </header>
-
-      <!-- KPI BANNER (4 wide cards like screenshot) -->
-      <section class="kpi-banner">
-        <article class="kpi-banner-card" *ngFor="let card of kpiCards()">
-          <p class="kpi-banner-label">{{ card.label }}</p>
-          <h2 class="kpi-banner-value">{{ card.value }}</h2>
-          <p class="kpi-banner-note">{{ card.note }}</p>
-        </article>
-      </section>
-
-      <!-- LOADING -->
-      <div class="loading-card" *ngIf="loading()">
-        Loading dashboard data...
-      </div>
-
-      <!-- ERROR -->
-      <div class="error-card" *ngIf="error()">
-        {{ error() }}
-      </div>
-
-      <ng-container *ngIf="!loading()">
-
-        <!-- ROW 1: Line chart + Critical Assets -->
-        <section class="row-grid">
-
-          <!-- MAINTENANCE WORKLOAD LINE CHART -->
-          <article class="panel chart-panel">
-            <div class="panel-header">
-              <div>
-                <h3>Maintenance Workload</h3>
-                <p class="panel-sub">This week</p>
-              </div>
-              <button class="refresh-btn" (click)="refresh()">Refresh Dashboard</button>
-            </div>
-
-            <div class="line-chart-area">
-              <svg viewBox="0 0 860 200" preserveAspectRatio="none" class="line-svg">
-                <!-- Grid lines -->
-                <line x1="0" y1="160" x2="860" y2="160" stroke="#e2e8f0" stroke-width="1"/>
-                <line x1="0" y1="120" x2="860" y2="120" stroke="#e2e8f0" stroke-width="1"/>
-                <line x1="0" y1="80"  x2="860" y2="80"  stroke="#e2e8f0" stroke-width="1"/>
-                <line x1="0" y1="40"  x2="860" y2="40"  stroke="#e2e8f0" stroke-width="1"/>
-
-                <!-- Y labels -->
-                <text x="0" y="164" fill="#94a3b8" font-size="11">0</text>
-                <text x="0" y="124" fill="#94a3b8" font-size="11">5</text>
-                <text x="0" y="84"  fill="#94a3b8" font-size="11">10</text>
-                <text x="0" y="44"  fill="#94a3b8" font-size="11">15</text>
-
-                <!-- Operational line (blue) -->
-                <polyline
-                  points="20,120 160,100 310,88 450,72 600,60 750,58 840,56"
-                  fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linejoin="round"/>
-
-                <!-- Maintenance line (green) -->
-                <polyline
-                  points="20,108 160,112 310,108 450,100 600,96 750,92 840,90"
-                  fill="none" stroke="#10b981" stroke-width="2.5" stroke-linejoin="round"/>
-
-                <!-- Faulty line (red) -->
-                <polyline
-                  points="20,155 160,152 310,148 450,150 600,152 750,150 840,152"
-                  fill="none" stroke="#f43f5e" stroke-width="2" stroke-linejoin="round"/>
-
-                <!-- X axis labels -->
-                <text x="20"  y="185" fill="#94a3b8" font-size="11" text-anchor="middle">Mon</text>
-                <text x="160" y="185" fill="#94a3b8" font-size="11" text-anchor="middle">Tue</text>
-                <text x="310" y="185" fill="#94a3b8" font-size="11" text-anchor="middle">Wed</text>
-                <text x="450" y="185" fill="#94a3b8" font-size="11" text-anchor="middle">Thu</text>
-                <text x="600" y="185" fill="#94a3b8" font-size="11" text-anchor="middle">Fri</text>
-                <text x="750" y="185" fill="#94a3b8" font-size="11" text-anchor="middle">Sat</text>
-                <text x="840" y="185" fill="#94a3b8" font-size="11" text-anchor="middle">Sun</text>
-              </svg>
-
-              <!-- Legend -->
-              <div class="chart-legend">
-                <span class="legend-dot blue"></span><span>Operational</span>
-                <span class="legend-dot green"></span><span>Maintenance</span>
-                <span class="legend-dot red"></span><span>Faulty</span>
-              </div>
-            </div>
-          </article>
-
-          <!-- CRITICAL ASSETS (right sidebar) -->
-          <article class="panel">
-            <div class="panel-header">
-              <h3>Critical Assets</h3>
-            </div>
-
-            <div class="assets-list">
-              <div class="asset-row" *ngFor="let row of uptimeRows()">
-                <div class="asset-top">
-                  <div class="asset-dot" [ngClass]="row.tone"></div>
-                  <span class="asset-name">{{ row.label }}</span>
-                  <span class="asset-pct">{{ row.display }}</span>
-                </div>
-                <div class="progress-track">
-                  <div
-                    class="progress-fill"
-                    [ngClass]="row.tone"
-                    [style.width.%]="row.value"
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </article>
-
-        </section>
-
-        <!-- ROW 2: Alert Trend bar chart + Team Roster + Today's Priorities -->
-        <section class="row-grid-3">
-
-          <!-- ALERT TREND BAR CHART -->
-          <article class="panel">
-            <div class="panel-header">
-              <h3>Alert Trend</h3>
-            </div>
-
-            <div class="bar-chart-area">
-              <svg viewBox="0 0 340 160" class="bar-svg">
-                <!-- Grid -->
-                <line x1="30" y1="20"  x2="330" y2="20"  stroke="#e2e8f0" stroke-width="1"/>
-                <line x1="30" y1="55"  x2="330" y2="55"  stroke="#e2e8f0" stroke-width="1"/>
-                <line x1="30" y1="90"  x2="330" y2="90"  stroke="#e2e8f0" stroke-width="1"/>
-                <line x1="30" y1="125" x2="330" y2="125" stroke="#e2e8f0" stroke-width="1"/>
-
-                <!-- Y labels -->
-                <text x="24" y="24"  fill="#94a3b8" font-size="10" text-anchor="end">4</text>
-                <text x="24" y="59"  fill="#94a3b8" font-size="10" text-anchor="end">3</text>
-                <text x="24" y="94"  fill="#94a3b8" font-size="10" text-anchor="end">2</text>
-                <text x="24" y="129" fill="#94a3b8" font-size="10" text-anchor="end">1</text>
-                <text x="24" y="145" fill="#94a3b8" font-size="10" text-anchor="end">0</text>
-
-                <!-- Bars (Mon–Sun) -->
-                <rect x="42"  y="90"  width="26" height="35" rx="5" fill="#f43f5e" opacity=".85"/>
-                <rect x="88"  y="55"  width="26" height="70" rx="5" fill="#f43f5e" opacity=".85"/>
-                <rect x="134" y="20"  width="26" height="105" rx="5" fill="#f43f5e" opacity=".85"/>
-                <rect x="180" y="55"  width="26" height="70" rx="5" fill="#f43f5e" opacity=".85"/>
-                <rect x="226" y="90"  width="26" height="35" rx="5" fill="#f43f5e" opacity=".6"/>
-                <rect x="272" y="108" width="26" height="17" rx="5" fill="#f43f5e" opacity=".6"/>
-                <rect x="296" y="108" width="26" height="17" rx="5" fill="#f43f5e" opacity=".5"/>
-
-                <!-- X labels -->
-                <text x="55"  y="150" fill="#94a3b8" font-size="10" text-anchor="middle">Mon</text>
-                <text x="101" y="150" fill="#94a3b8" font-size="10" text-anchor="middle">Tue</text>
-                <text x="147" y="150" fill="#94a3b8" font-size="10" text-anchor="middle">Wed</text>
-                <text x="193" y="150" fill="#94a3b8" font-size="10" text-anchor="middle">Thu</text>
-                <text x="239" y="150" fill="#94a3b8" font-size="10" text-anchor="middle">Fri</text>
-                <text x="285" y="150" fill="#94a3b8" font-size="10" text-anchor="middle">Sat</text>
-                <text x="309" y="150" fill="#94a3b8" font-size="10" text-anchor="middle">Sun</text>
-              </svg>
-            </div>
-          </article>
-
-          <!-- TEAM ROSTER -->
-          <article class="panel">
-            <div class="panel-header">
-              <h3>Team Roster</h3>
-            </div>
-
-            <div class="team-list">
-              <div class="team-item" *ngFor="let row of teamRows()">
-                <div class="team-info">
-                  <h4>{{ row.label }}</h4>
-                  <p>{{ row.display }}</p>
-                </div>
-                <span class="team-badge" [ngClass]="row.tone">{{ row.display }}</span>
-              </div>
-            </div>
-          </article>
-
-          <!-- TODAY'S PRIORITIES -->
-          <article class="panel">
-            <div class="panel-header">
-              <h3>Today's Priorities</h3>
-            </div>
-
-            <div
-              class="priority-item"
-              *ngFor="let item of recommendations().slice(0,5)"
-            >
-              <div class="priority-index">
-                {{ recommendations().indexOf(item) + 1 }}
-              </div>
-              <div class="priority-content">
-                <h4>{{ item.machineName || ('Machine #' + item.machineId) }}</h4>
-                <p>{{ item.recommendedAction }}</p>
-              </div>
-              <span class="priority-arrow">↗</span>
-            </div>
-
-            <div class="empty-small" *ngIf="!recommendations().length">
-              No recommendations available.
-            </div>
-          </article>
-
-        </section>
-
-        <!-- ROW 3: Maintenance + Alerts -->
-        <section class="row-grid-2">
-
-          <!-- MAINTENANCE -->
-          <article class="panel">
-            <div class="panel-header">
-              <h3>Maintenance Overview</h3>
-            </div>
-            <div class="table-wrapper">
-              <div class="table-item" *ngFor="let row of maintenanceRows()">
-                <div>
-                  <h4>{{ row.task }}</h4>
-                  <p>{{ row.machine }}</p>
-                </div>
-                <div class="table-badges">
-                  <span class="badge status">{{ row.status }}</span>
-                  <span
-                    class="badge"
-                    [class.critical]="row.tone === 'critical'"
-                    [class.warning]="row.tone === 'warning'"
-                    [class.good]="row.tone === 'good'"
-                  >{{ row.priority }}</span>
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <!-- ALERTS -->
-          <article class="panel">
-            <div class="panel-header">
-              <h3>Operational Alerts</h3>
-            </div>
-            <div class="table-wrapper">
-              <div class="table-item" *ngFor="let row of alertRows()">
-                <div>
-                  <h4>{{ row.title }}</h4>
-                  <p>{{ row.machine }} • {{ row.age }}</p>
-                </div>
-                <span
-                  class="badge"
-                  [class.critical]="row.tone === 'critical'"
-                  [class.warning]="row.tone === 'warning'"
-                  [class.info]="row.tone === 'info'"
-                >{{ row.severity }}</span>
-              </div>
-            </div>
-          </article>
-
-        </section>
-
-      </ng-container>
-    </section>
-  `,
-
-  styles: [`
-    :host {
-      display: block;
-      width: 100%;
-      min-height: 100vh;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      font-family: 'Inter', sans-serif;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    /* ── DASHBOARD WRAPPER ── */
-    .manager-dashboard {
-      padding: 24px;
-      min-height: 100vh;
-      background:
-        radial-gradient(circle at top left, rgba(59,130,246,.07), transparent 35%),
-        radial-gradient(circle at bottom right, rgba(16,185,129,.05), transparent 35%),
-        #f1f5f9;
-    }
-
-    /* ── TOPBAR ── */
-    .topbar {
-      height: 64px;
-      border-radius: 18px;
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      box-shadow: 0 2px 12px rgba(15,23,42,.06);
-      padding: 0 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 20px;
-    }
-
-    .search-box {
-      width: 340px;
-      height: 40px;
-      border-radius: 12px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 0 14px;
-    }
-
-    .search-box input {
-      border: none;
-      outline: none;
-      width: 100%;
-      background: transparent;
-      color: var(--text-primary);
-      font-size: 14px;
-    }
-
-    .search-box input::placeholder { color: #94a3b8; }
-
-    .topbar-actions { display: flex; align-items: center; gap: 10px; }
-
-    .notification-btn,
-    .manager-btn,
-    .refresh-btn {
-      border: none;
-      cursor: pointer;
-      transition: .2s ease;
-      font-family: inherit;
-    }
-
-    .notification-btn {
-      width: 40px;
-      height: 40px;
-      border-radius: 12px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      font-size: 16px;
-    }
-
-    .notification-btn:hover { background: var(--hover-bg); }
-
-    .manager-btn {
-      height: 40px;
-      padding: 0 18px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #2563eb, #3b82f6);
-      color: white;
-      font-weight: 600;
-      font-size: 14px;
-      box-shadow: 0 4px 14px rgba(59,130,246,.3);
-    }
-
-    .manager-btn:hover { transform: translateY(-1px); }
-
-    .refresh-btn {
-      height: 36px;
-      padding: 0 16px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #10b981, #14b8a6);
-      color: white;
-      font-weight: 600;
-      font-size: 13px;
-      box-shadow: 0 4px 12px rgba(16,185,129,.25);
-    }
-
-    .refresh-btn:hover { transform: translateY(-1px); }
-
-    /* ── KPI BANNER ── */
-    .kpi-banner {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 0;
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 18px;
-      overflow: hidden;
-      box-shadow: 0 2px 12px rgba(15,23,42,.06);
-      margin-bottom: 20px;
-    }
-
-    .kpi-banner-card {
-      padding: 24px 28px;
-      border-right: 1px solid #e2e8f0;
-      transition: .2s ease;
-    }
-
-    .kpi-banner-card:last-child { border-right: none; }
-    .kpi-banner-card:hover { background: var(--bg-secondary); }
-
-    .kpi-banner-label {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: .1em;
-      text-transform: uppercase;
-      color: var(--text-secondary);
-      margin-bottom: 8px;
-    }
-
-    .kpi-banner-value {
-      font-size: 36px;
-      font-weight: 800;
-      color: var(--text-primary);
-      line-height: 1;
-      margin-bottom: 8px;
-    }
-
-    .kpi-banner-note {
-      font-size: 12px;
-      color: #10b981;
-      font-weight: 500;
-    }
-
-    /* ── PANELS ── */
-    .panel {
-      background: var(--bg-card);
-      border-radius: 18px;
-      padding: 22px;
-      border: 1px solid var(--border-color);
-      box-shadow: 0 2px 12px rgba(15,23,42,.05);
-    }
-
-    .panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 20px;
-    }
-
-    .panel-header h3 {
-      font-size: 16px;
-      font-weight: 700;
-      color: var(--text-primary);
-    }
-
-    .panel-sub {
-      font-size: 12px;
-      color: #94a3b8;
-      margin-top: 2px;
-    }
-
-    /* ── ROW GRIDS ── */
-    .row-grid {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 20px;
-      margin-bottom: 20px;
-    }
-
-    .row-grid-3 {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 20px;
-      margin-bottom: 20px;
-    }
-
-    .row-grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-bottom: 20px;
-    }
-
-    /* ── LINE CHART ── */
-    .chart-panel { }
-
-    .line-chart-area {
-      position: relative;
-    }
-
-    .line-svg {
-      width: 100%;
-      height: 200px;
-      display: block;
-    }
-
-    .chart-legend {
-      display: flex;
-      gap: 18px;
-      align-items: center;
-      margin-top: 10px;
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
-
-    .legend-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-
-    .legend-dot.blue  { background: #3b82f6; }
-    .legend-dot.green { background: #10b981; }
-    .legend-dot.red   { background: #f43f5e; }
-
-    /* ── CRITICAL ASSETS ── */
-    .assets-list {
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-    }
-
-    .asset-row { }
-
-    .asset-top {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .asset-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .asset-dot.good     { background: #10b981; }
-    .asset-dot.warning  { background: #f59e0b; }
-    .asset-dot.critical { background: #ef4444; }
-
-    .asset-name {
-      flex: 1;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .asset-pct {
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
-
-    .progress-track {
-      width: 100%;
-      height: 7px;
-      background: #e2e8f0;
-      border-radius: 999px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      border-radius: inherit;
-      transition: width .4s ease;
-    }
-
-    .progress-fill.good     { background: linear-gradient(90deg, #10b981, #34d399); }
-    .progress-fill.warning  { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
-    .progress-fill.critical { background: linear-gradient(90deg, #ef4444, #fb7185); }
-
-    /* ── BAR CHART ── */
-    .bar-chart-area { }
-    .bar-svg { width: 100%; height: 160px; display: block; }
-
-    /* ── TEAM ROSTER ── */
-    .team-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .team-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      border-radius: 12px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      transition: .2s;
-    }
-
-    .team-item:hover { background: var(--hover-bg); border-color: #bfdbfe; }
-
-    .team-info h4 {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 2px;
-    }
-
-    .team-info p {
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
-
-    .team-badge {
-      font-size: 11px;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 999px;
-    }
-
-    .team-badge.info    { background: #dbeafe; color: #2563eb; }
-    .team-badge.warning { background: #fef3c7; color: #d97706; }
-
-    /* ── PRIORITIES ── */
-    .priority-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      padding: 12px 0;
-      border-bottom: 1px solid #f1f5f9;
-    }
-
-    .priority-item:last-of-type { border-bottom: none; }
-
-    .priority-index {
-      min-width: 30px;
-      height: 30px;
-      border-radius: 9px;
-      background: linear-gradient(135deg, #2563eb, #60a5fa);
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: 700;
-      flex-shrink: 0;
-      box-shadow: 0 4px 10px rgba(59,130,246,.2);
-    }
-
-    .priority-content { flex: 1; }
-
-    .priority-content h4 {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 3px;
-    }
-
-    .priority-content p {
-      font-size: 12px;
-      color: var(--text-secondary);
-      line-height: 1.5;
-    }
-
-    .priority-arrow {
-      font-size: 14px;
-      color: #94a3b8;
-      flex-shrink: 0;
-      transition: .2s;
-    }
-
-    .priority-item:hover .priority-arrow {
-      color: #2563eb;
-      transform: translateX(2px) translateY(-2px);
-    }
-
-    /* ── TABLE ITEMS ── */
-    .table-wrapper {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .table-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      padding: 14px 16px;
-      border-radius: 12px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      transition: .2s;
-    }
-
-    .table-item:hover {
-      transform: translateX(3px);
-      background: var(--bg-card);
-      border-color: #bfdbfe;
-    }
-
-    .table-item h4 {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 3px;
-    }
-
-    .table-item p {
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
-
-    .table-badges {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    /* ── BADGES ── */
-    .badge {
-      padding: 5px 10px;
-      border-radius: 999px;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: .04em;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-
-    .badge.status   { background: #dbeafe; color: #2563eb; }
-    .badge.good     { background: #dcfce7; color: #16a34a; }
-    .badge.warning  { background: #fef3c7; color: #d97706; }
-    .badge.critical { background: #fee2e2; color: #dc2626; }
-    .badge.info     { background: #dbeafe; color: #2563eb; }
-
-    /* ── STATES ── */
-    .loading-card,
-    .error-card,
-    .empty-small {
-      padding: 18px;
-      border-radius: 14px;
-      background: white;
-      border: 1px solid var(--border-color);
-      color: var(--text-secondary);
-      font-size: 14px;
-      margin-bottom: 20px;
-    }
-
-    .error-card {
-      color: #dc2626;
-      border-color: #fecaca;
-      background: #fef2f2;
-    }
-
-    /* ── RESPONSIVE ── */
-    @media (max-width: 1200px) {
-      .row-grid,
-      .row-grid-3 { grid-template-columns: 1fr; }
-      .kpi-banner { grid-template-columns: repeat(2, 1fr); }
-      .kpi-banner-card:nth-child(2) { border-right: none; }
-    }
-
-    @media (max-width: 768px) {
-      .manager-dashboard { padding: 14px; }
-      .topbar { flex-direction: column; height: auto; padding: 14px; gap: 12px; }
-      .search-box { width: 100%; }
-      .kpi-banner { grid-template-columns: 1fr; }
-      .kpi-banner-card { border-right: none; border-bottom: 1px solid #e2e8f0; }
-      .kpi-banner-card:last-child { border-bottom: none; }
-      .row-grid-2 { grid-template-columns: 1fr; }
-    }
-  `],
-
+  imports: [CommonModule, NgIf, NgFor, LucideAngularModule, DashboardKpiStripComponent, ChartCardComponent],
+  templateUrl: './manager-dashboard.component.html',
+  styleUrls: ['./manager-dashboard.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ManagerDashboardComponent extends BaseDashboardComponent implements OnInit {
 
-  readonly machines = signal<Machine[]>([]);
+  readonly machines    = signal<Machine[]>([]);
   readonly maintenance = signal<Maintenance[]>([]);
-  readonly alerts = signal<AlertResponse[]>([]);
+  readonly alerts      = signal<AlertResponse[]>([]);
   readonly recommendations = signal<MaintenanceRecommendationDTO[]>([]);
 
-  readonly kpiCards = computed<DashboardKpiCard[]>(() => {
-    const total = this.machines().length;
+  get isDark(): boolean {
+    return this.themeService.theme() === 'dark';
+  }
 
-    const uptime = this.machines().filter(m => this.isOperational(m)).length;
-
-    const openMaintenance = this.maintenance().filter(
-      item => item.status === 'SCHEDULED' || item.status === 'IN_PROGRESS'
-    ).length;
-
-    const teamMembers = new Set(
-      this.maintenance().map(item => item.assignedTechnicianId || 'Unassigned')
-    ).size;
-
-    return [
-      { label: 'Asset Uptime',       value: `${Math.round((uptime / Math.max(1, total)) * 100)}%`, note: '↑ 1.1% vs last period', tone: 'good' },
-      { label: 'Open Work Orders',   value: openMaintenance,  note: '↓ 6.2% vs last period', tone: 'warning' },
-      { label: 'Active Alerts',      value: this.alerts().length, note: '↓ 3.4% vs last period', tone: 'info' },
-      { label: 'Team Productivity',  value: `${teamMembers > 0 ? 88 : 0}%`, note: '↑ 2.7% vs last period', tone: 'good' },
-    ];
-  });
-
-  readonly uptimeRows = computed<DashboardBarRow[]>(() => {
+  // ── Derived real-data building blocks (shared by KPIs + charts) ─────────────
+  private readonly uptimePct = computed(() => {
     const total = Math.max(1, this.machines().length);
+    const uptime = this.machines().filter(m => this.isOperational(m)).length;
+    return Math.round((uptime / total) * 100);
+  });
 
-    const operational = this.machines().filter(m => this.isOperational(m)).length;
-    const maintenance  = this.machines().filter(m => this.isMaintenance(m)).length;
-    const faulty       = this.machines().filter(m => this.isFaulty(m)).length;
+  private readonly alertVolumeTrend = computed(() => this.intel.buildAlertVolumeTrend(this.alerts(), TREND_DAYS));
+  private readonly maintenanceTrend = computed(() => this.intel.buildMaintenanceCompletionTrend(this.maintenance(), TREND_DAYS));
+  private readonly productivityTrend = computed(() => this.intel.buildProductivityTrend(this.maintenance(), TREND_DAYS));
+  private readonly fleetHealthTrend = computed(() =>
+    this.intel.buildFleetHealthTrend(this.uptimePct(), `mgr:${this.machines().length}:${this.maintenance().length}`, TREND_DAYS)
+  );
+  private readonly openWorkOrdersTrend = computed(() => this.maintenanceTrend().created);
+
+  // ── KPI strip (real values + real/derived sparklines) ───────────────────────
+  readonly kpiMetrics = computed<DashboardKpiMetric[]>(() => {
+    const total         = Math.max(1, this.machines().length);
+    const uptime        = this.machines().filter(m => this.isOperational(m)).length;
+    const openMaint     = this.maintenance().filter(
+      t => t.status === 'SCHEDULED' || t.status === 'IN_PROGRESS'
+    ).length;
+    const completedMaint = this.maintenance().filter(t => t.status === 'COMPLETED').length;
+    const totalMaint     = Math.max(1, this.maintenance().length);
+    const productivity   = Math.round((completedMaint / totalMaint) * 100);
+
+    const alertTrend = this.intel.trendFor(this.alertVolumeTrend().values);
+    const prodTrend = this.intel.trendFor(this.productivityTrend());
+    const healthTrend = this.intel.trendFor(this.fleetHealthTrend());
 
     return [
-      { label: 'Compressor A',  value: Math.round((operational / total) * 100), display: `${operational} machines`, tone: 'good' },
-      { label: 'Boiler 3',      value: Math.round((maintenance  / total) * 100), display: `${maintenance} machines`,  tone: 'warning' },
-      { label: 'Conveyor C7',   value: Math.round(((operational * .8) / total) * 100), display: `${Math.round(operational * .8)} machines`, tone: 'good' },
-      { label: 'Pump P-14',     value: Math.round((faulty / Math.max(1, total)) * 100), display: `${faulty} machines`, tone: 'critical' },
-      { label: 'Generator G2',  value: Math.round((operational / total) * 100), display: `${operational} machines`, tone: 'good' },
+      {
+        id: 'uptime',
+        label: 'Asset Uptime',
+        value: `${Math.round((uptime / total) * 100)}%`,
+        rawValue: Math.round((uptime / total) * 100),
+        format: (v: number) => `${Math.round(v)}%`,
+        caption: `${uptime} of ${total} operational`,
+        icon: 'activity',
+        accent: uptime / total >= 0.8 ? 'success' : 'warning',
+        sparkline: this.fleetHealthTrend(),
+        changeLabel: healthTrend.label,
+        changeDirection: healthTrend.direction,
+      },
+      {
+        id: 'open-work-orders',
+        label: 'Open Work Orders',
+        value: `${openMaint}`,
+        rawValue: openMaint,
+        caption: `${this.maintenance().length} tasks total`,
+        icon: 'clipboard-list',
+        accent: openMaint > 10 ? 'danger' : openMaint > 5 ? 'warning' : 'success',
+        sparkline: this.openWorkOrdersTrend(),
+      },
+      {
+        id: 'active-alerts',
+        label: 'Active Alerts',
+        value: `${this.alerts().length}`,
+        rawValue: this.alerts().length,
+        caption: `${this.criticalAlertCount()} critical`,
+        icon: 'triangle-alert',
+        accent: this.criticalAlertCount() > 0 ? 'danger' : 'info',
+        sparkline: this.alertVolumeTrend().values,
+        changeLabel: alertTrend.label,
+        changeDirection: alertTrend.direction === 'up' ? 'down' : alertTrend.direction === 'down' ? 'up' : 'flat', // fewer alerts = good
+      },
+      {
+        id: 'team-productivity',
+        label: 'Team Productivity',
+        value: `${productivity}%`,
+        rawValue: productivity,
+        format: (v: number) => `${Math.round(v)}%`,
+        caption: `${completedMaint} tasks completed`,
+        icon: 'trending-up',
+        accent: productivity >= 70 ? 'success' : 'warning',
+        sparkline: this.productivityTrend(),
+        changeLabel: prodTrend.label,
+        changeDirection: prodTrend.direction,
+      },
     ];
   });
 
+  // ── Machine status summary (real data) ─────────────────────────────────────
+  readonly machineStatusSummary = computed(() => {
+    const total       = Math.max(1, this.machines().length);
+    const operational = this.machines().filter(m => this.isOperational(m)).length;
+    const inMaint     = this.machines().filter(m => this.isMaintenance(m)).length;
+    const faulty      = this.machines().filter(m => this.isFaulty(m)).length;
+    const other       = total - operational - inMaint - faulty;
+
+    return [
+      { label: 'Operational', count: operational, pct: Math.round((operational / total) * 100), tone: 'good' },
+      { label: 'Maintenance',  count: inMaint,     pct: Math.round((inMaint     / total) * 100), tone: 'warning' },
+      { label: 'Faulty',       count: faulty,      pct: Math.round((faulty      / total) * 100), tone: 'critical' },
+      ...(other > 0 ? [{ label: 'Other', count: other, pct: Math.round((other / total) * 100), tone: 'info' as const }] : []),
+    ];
+  });
+
+  readonly machineStatusChartConfig = computed<ChartConfiguration<any>>(() => {
+    const rows = this.machineStatusSummary();
+    const colorMap: Record<string, string> = { good: '#22C55E', warning: '#F59E0B', critical: '#EF4444', info: '#6b7280' };
+    return {
+      type: 'doughnut',
+      data: {
+        labels: rows.map(r => r.label),
+        datasets: [{
+          data: rows.map(r => r.count),
+          backgroundColor: rows.map(r => colorMap[r.tone]),
+          borderColor: this.isDark ? '#121826' : '#ffffff',
+          borderWidth: 2,
+          hoverOffset: 6,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '66%',
+        plugins: { legend: { display: false }, tooltip: tooltipTheme(this.isDark) },
+      },
+    };
+  });
+
+  readonly machineStatusLegend = computed<ChartLegendItem[]>(() => {
+    const rows = this.machineStatusSummary();
+    const colorMap: Record<string, string> = { good: '#22C55E', warning: '#F59E0B', critical: '#EF4444', info: '#6b7280' };
+    return rows.map(r => ({ label: r.label, value: `${r.count} · ${r.pct}%`, color: colorMap[r.tone] }));
+  });
+
+  // ── Critical assets: real machines ranked by risk score, else status ────────
+  readonly criticalAssets = computed<DashboardBarRow[]>(() => {
+    const ranked = this.intel.buildRiskRanking(this.machines());
+    if (ranked.length) {
+      return ranked.map(r => ({
+        label: r.label,
+        value: r.riskScore,
+        display: `${r.riskScore} risk`,
+        tone: r.riskScore >= 70 ? ('critical' as const) : r.riskScore >= 40 ? ('warning' as const) : ('good' as const),
+      }));
+    }
+
+    const nonOperational = this.machines().filter(m => !this.isOperational(m)).slice(0, 6);
+    if (!nonOperational.length) {
+      return this.machines().slice(0, 5).map(m => ({
+        label:   m.name || `Machine #${m.id}`,
+        value:   this.isOperational(m) ? 100 : this.isMaintenance(m) ? 50 : 10,
+        display: this.statusLabel(m),
+        tone:    this.isOperational(m) ? 'good' : this.isMaintenance(m) ? 'warning' : 'critical',
+      }));
+    }
+    return nonOperational.map(m => ({
+      label:   m.name || `Machine #${m.id}`,
+      value:   this.isMaintenance(m) ? 50 : 10,
+      display: this.statusLabel(m),
+      tone:    this.isMaintenance(m) ? ('warning' as const) : ('critical' as const),
+    }));
+  });
+
+  readonly criticalAssetsChartConfig = computed<ChartConfiguration<any>>(() => {
+    const rows = [...this.criticalAssets()].reverse();
+    const colorMap: Record<string, string> = { good: '#22C55E', warning: '#F59E0B', critical: '#EF4444', info: '#6b7280' };
+    return {
+      type: 'bar',
+      data: {
+        labels: rows.map(r => r.label),
+        datasets: [{
+          data: rows.map(r => r.value),
+          backgroundColor: rows.map(r => colorMap[r.tone]),
+          borderRadius: 6,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: tooltipTheme(this.isDark) },
+        scales: {
+          x: xScale(this.isDark, true),
+          y: { ticks: axisTicks(this.isDark), grid: { display: false }, border: { display: false } },
+        },
+      },
+    };
+  });
+
+  // ── Alert severity distribution (real data) ─────────────────────────────────
+  readonly alertSeverityDist = computed(() => {
+    const total    = Math.max(1, this.alerts().length);
+    const critical = this.alerts().filter(a => String(a.severity) === 'CRITICAL').length;
+    const warning  = this.alerts().filter(a => String(a.severity) === 'WARNING').length;
+    const info     = total - critical - warning;
+
+    return [
+      { label: 'Critical', count: critical, pct: Math.round((critical / total) * 100), tone: 'critical' as const },
+      { label: 'Warning',  count: warning,  pct: Math.round((warning  / total) * 100), tone: 'warning'  as const },
+      { label: 'Info',     count: info,     pct: Math.round((info     / total) * 100), tone: 'info'     as const },
+    ].filter(d => d.count > 0);
+  });
+
+  readonly alertSeverityChartConfig = computed<ChartConfiguration<any>>(() => {
+    const rows = this.alertSeverityDist();
+    const colorMap: Record<string, string> = { critical: '#EF4444', warning: '#F59E0B', info: '#6b7280' };
+    return {
+      type: 'doughnut',
+      data: {
+        labels: rows.map(r => r.label),
+        datasets: [{
+          data: rows.map(r => r.count),
+          backgroundColor: rows.map(r => colorMap[r.tone]),
+          borderColor: this.isDark ? '#121826' : '#ffffff',
+          borderWidth: 2,
+          hoverOffset: 6,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '66%',
+        plugins: { legend: { display: false }, tooltip: tooltipTheme(this.isDark) },
+      },
+    };
+  });
+
+  readonly alertSeverityLegend = computed<ChartLegendItem[]>(() => {
+    const rows = this.alertSeverityDist();
+    const colorMap: Record<string, string> = { critical: '#EF4444', warning: '#F59E0B', info: '#6b7280' };
+    return rows.map(r => ({ label: r.label, value: `${r.count} · ${r.pct}%`, color: colorMap[r.tone] }));
+  });
+
+  // ── Fleet health trend chart ─────────────────────────────────────────────────
+  readonly fleetHealthChartConfig = computed<ChartConfiguration<any>>(() => {
+    const values = this.fleetHealthTrend();
+    const labels = this.alertVolumeTrend().labels;
+    return {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Fleet health',
+          data: values,
+          borderColor: '#6b7280',
+          backgroundColor: 'rgba(107,114,128,0.14)',
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.35,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: { ...tooltipTheme(this.isDark), callbacks: { label: (ctx: any) => ` ${ctx.parsed.y}% healthy` } },
+        },
+        scales: { x: xScale(this.isDark), y: yScale(this.isDark) },
+      },
+    };
+  });
+
+  // ── Alert volume trend chart ─────────────────────────────────────────────────
+  readonly alertVolumeChartConfig = computed<ChartConfiguration<any>>(() => {
+    const { labels, values } = this.alertVolumeTrend();
+    return {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Alerts created',
+          data: values,
+          backgroundColor: '#EF4444',
+          borderRadius: 4,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: tooltipTheme(this.isDark) },
+        scales: { x: xScale(this.isDark), y: yScale(this.isDark) },
+      },
+    };
+  });
+
+  // ── Maintenance completion trend chart ──────────────────────────────────────
+  readonly maintenanceTrendChartConfig = computed<ChartConfiguration<any>>(() => {
+    const { labels, created, completed } = this.maintenanceTrend();
+    return {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Created', data: created, borderColor: '#6b7280', backgroundColor: 'rgba(107,114,128,0.12)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+          { label: 'Completed', data: completed, borderColor: '#22C55E', backgroundColor: 'rgba(34,197,94,0.14)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: true, position: 'top', labels: { color: legendColor(this.isDark), boxWidth: 10, font: { size: 11 } } },
+          tooltip: tooltipTheme(this.isDark),
+        },
+        scales: { x: xScale(this.isDark), y: yScale(this.isDark) },
+      },
+    };
+  });
+
+  // ── Team roster from real maintenance assignments ────────────────────────────
   readonly teamRows = computed<DashboardBarRow[]>(() => {
-   const assignments = new Map<string, number>();
-
-this.maintenance().forEach(item => {
-  const key = item.assignedTechnicianId
-    ? String(item.assignedTechnicianId)
-    : 'Unassigned';
-
-  assignments.set(key, (assignments.get(key) || 0) + 1);
-});
+    const assignments = new Map<string, number>();
+    this.maintenance().forEach(item => {
+      const key = item.assignedTechnicianId
+        ? String(item.assignedTechnicianId)
+        : 'Unassigned';
+      assignments.set(key, (assignments.get(key) || 0) + 1);
+    });
 
     const rows  = Array.from(assignments.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
     const total = Math.max(1, this.maintenance().length);
 
-    return rows.map(([label, value]) => ({
+    return rows.map(([label, count]) => ({
       label,
-      value: Math.round((value / total) * 100),
-      display: `${value} tasks`,
-      tone: value > 4 ? 'warning' : 'info',
+      value:   Math.round((count / total) * 100),
+      display: `${count} task${count !== 1 ? 's' : ''}`,
+      tone:    count > 4 ? ('warning' as const) : ('info' as const),
     }));
   });
 
+  readonly teamWorkloadChartConfig = computed<ChartConfiguration<any>>(() => {
+    const rows = [...this.teamRows()].reverse();
+    return {
+      type: 'bar',
+      data: {
+        labels: rows.map(r => r.label === 'Unassigned' ? 'Unassigned' : `Tech #${r.label}`),
+        datasets: [{
+          data: rows.map(r => r.value),
+          backgroundColor: rows.map(r => r.tone === 'warning' ? '#F59E0B' : '#6b7280'),
+          borderRadius: 6,
+          borderSkipped: false,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { ...tooltipTheme(this.isDark), callbacks: { label: (ctx: any) => ` ${rows[ctx.dataIndex].display}` } },
+        },
+        scales: {
+          x: xScale(this.isDark, true),
+          y: { ticks: axisTicks(this.isDark), grid: { display: false }, border: { display: false } },
+        },
+      },
+    };
+  });
+
+  // ── Maintenance rows (real data) ─────────────────────────────────────────────
   readonly maintenanceRows = computed(() =>
     this.maintenance().slice(0, 6).map(item => ({
-      task:     item.description,
+      task:     item.description || 'Unnamed task',
       status:   item.status,
       priority: item.priority,
       machine:  `Machine #${item.machineId}`,
       tone:
         item.priority === 'CRITICAL' || item.priority === 'HIGH' ? 'critical' :
-        item.priority === 'MEDIUM' ? 'warning' : 'good',
+        item.priority === 'MEDIUM'   ? 'warning' : 'good',
     }))
   );
 
+  // ── Alert rows (real data) ────────────────────────────────────────────────────
   readonly alertRows = computed(() =>
     this.alerts().slice(0, 6).map(alert => ({
       title:    alert.title,
-      machine:  alert.machineSerial || String(alert.machineId),
+      machine:  alert.machineSerial || `Machine #${alert.machineId}`,
       severity: String(alert.severity),
       age:      this.getAgeLabel(alert.createdDate),
       tone:
@@ -873,12 +432,19 @@ this.maintenance().forEach(item => {
     }))
   );
 
+  // ── Helper ───────────────────────────────────────────────────────────────────
+  private criticalAlertCount(): number {
+    return this.alerts().filter(a => String(a.severity) === 'CRITICAL').length;
+  }
+
   constructor(
     private readonly machineService: MachineService,
     private readonly maintenanceService: MaintenanceService,
     private readonly alertService: AlertApiService,
     private readonly recommendationService: RecommendationService,
     private readonly notificationService: NotificationService,
+    private readonly intel: ManagerDashboardIntelligenceService,
+    private readonly themeService: ThemeService,
   ) {
     super();
   }
@@ -905,7 +471,7 @@ this.maintenance().forEach(item => {
             .pipe(catchError(() => of({ content: [] as Maintenance[] }))),
 
           alerts: this.alertService
-            .list({ size: 25 })
+            .list({ size: 50, status: AlertStatus.NEW })
             .pipe(catchError(() => of({ content: [] as AlertResponse[] }))),
 
           recommendations: recommendationCalls.length
@@ -941,9 +507,14 @@ this.maintenance().forEach(item => {
     return (machine.status || '').toUpperCase() === 'FAULTY';
   }
 
+  private statusLabel(machine: Machine): string {
+    const s = (machine.status || 'UNKNOWN').toUpperCase();
+    return s.charAt(0) + s.slice(1).toLowerCase();
+  }
+
   private getAgeLabel(createdDate: string): string {
     const created = new Date(createdDate);
-    const hours = Math.max(0, Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60)));
+    const hours   = Math.max(0, Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60)));
     return hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
   }
 }

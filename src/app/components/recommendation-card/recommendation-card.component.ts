@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CurrencyPipe, DecimalPipe, NgFor, NgIf } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -24,5 +24,6 @@ import { UrgencyBadgeComponent } from '../../shared/urgency-badge/urgency-badge.
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RecommendationCardComponent {
-  @Input({ required: true }) recommendation!: MaintenanceRecommendationDTO | any;
+  @Input({ required: true }) recommendation!: MaintenanceRecommendationDTO;
+  @Output() schedule = new EventEmitter<MaintenanceRecommendationDTO>();
 }

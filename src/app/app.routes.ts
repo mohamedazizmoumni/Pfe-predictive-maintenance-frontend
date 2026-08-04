@@ -4,7 +4,6 @@ import { redirectLoggedInGuard } from './core/guards/redirect-logged-in.guard';
 import { dataRoleGuard } from './core/guards/role.guard';
 import { SentinelLayoutComponent } from './layout/sentinel-layout.component';
 import { LoginComponent } from './pages/auth/login.component';
-import { RegisterComponent } from './pages/auth/register.component';
 import { EquipmentComponent } from './pages/equipment/equipment.component';
 import { MaintenanceComponent } from './pages/maintenance/maintenance.component';
 import { AlertsComponent } from './pages/alerts/alerts.component';
@@ -28,11 +27,18 @@ import { StockManagerDashboardComponent } from './pages/dashboards/role-dashboar
 import { TechnicianDashboardComponent } from './pages/dashboards/role-dashboards/technician-dashboard/technician-dashboard.component';
 
 export const routes: Routes = [
+  // ── Public marketing site (home/features/how-it-works/demo/contact) ────
+  // Relocated to its own deployable project (sentinel-marketing) — see
+  // environment.marketingUrl for where it's hosted. Not part of this app.
+
+  // ── Convenience alias ──────────────────────────────────────────
   {
     path: 'login',
     redirectTo: 'auth/login',
     pathMatch: 'full',
   },
+
+  // ── Auth routes (no layout) ────────────────────────────────────
   {
     path: 'auth',
     children: [
@@ -42,11 +48,17 @@ export const routes: Routes = [
         canActivate: [redirectLoggedInGuard],
       },
       {
-        path: 'register',
-        component: RegisterComponent,
-        canActivate: [redirectLoggedInGuard],
+        // Face enrollment — only accessible when already authenticated
+        // (user passed credentials in step 1 but has no face yet)
+        path: 'face-enroll',
+        loadComponent: () =>
+          import('./pages/auth/face-enroll.component').then(
+            (m) => m.FaceEnrollComponent
+          ),
+        canActivate: [authGuard],
       },
       {
+        // Standalone face-only login (kept for future use / deep-link)
         path: 'face-login',
         loadComponent: () =>
           import('./pages/auth/face-login.component').then(
@@ -56,8 +68,9 @@ export const routes: Routes = [
       },
     ],
   },
+
+  // ── Error / utility pages ──────────────────────────────────────
   {
-    // Legacy alias kept for backward compatibility
     path: 'access-denied',
     component: AccessDeniedComponent,
     canActivate: [authGuard],
@@ -67,6 +80,8 @@ export const routes: Routes = [
     component: AccessDeniedComponent,
     canActivate: [authGuard],
   },
+
+  // ── Main application (with layout) ────────────────────────────
   {
     path: '',
     component: SentinelLayoutComponent,
@@ -182,7 +197,7 @@ export const routes: Routes = [
           import('./pages/equipment/machine-visualization.component').then(
             (m) => m.MachineVisualizationComponent
           ),
-        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'VIEWER'] },
+        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'VIEWER', 'FINANCE_MANAGER'] },
         canActivate: [dataRoleGuard],
       },
       {
@@ -199,19 +214,17 @@ export const routes: Routes = [
       },
       {
         path: 'predictive-dashboard',
-        redirectTo: 'dashboards/admin',
-        pathMatch: 'full',
-      },
-      {
-        path: 'recommendations',
-        component: RecommendationPageComponent,
-        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'DATA_SCIENTIST'] },
+        loadComponent: () =>
+          import('./pages/predictive-dashboard/predictive-dashboard.component').then(
+            (m) => m.PredictiveDashboardComponent
+          ),
+        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DATA_SCIENTIST', 'TECHNICIAN'] },
         canActivate: [dataRoleGuard],
       },
       {
         path: 'recommendations/:machineId',
         component: RecommendationPageComponent,
-        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'DATA_SCIENTIST'] },
+        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'DATA_SCIENTIST', 'FINANCE_MANAGER'] },
         canActivate: [dataRoleGuard],
       },
       {
@@ -224,11 +237,11 @@ export const routes: Routes = [
         canActivate: [dataRoleGuard],
       },
       {
-  path: 'technician-calendar',
-  loadComponent: () =>
-    import('./pages/technician-calendar/technician-calendar.component')
-      .then(m => m.TechnicianCalendarComponent)
-},
+        path: 'technician-calendar',
+        loadComponent: () =>
+          import('./pages/technician-calendar/technician-calendar.component')
+            .then(m => m.TechnicianCalendarComponent),
+      },
 
       // STOCK_MANAGER + MANAGER + ADMIN
       {
@@ -249,7 +262,7 @@ export const routes: Routes = [
           {
             path: 'reorders',
             component: ReorderRequestsComponent,
-            data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'STOCK_MANAGER', 'MANAGER'] },
+            data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'STOCK_MANAGER', 'MANAGER', 'FINANCE_MANAGER'] },
             canActivate: [dataRoleGuard],
           },
           {
@@ -288,6 +301,24 @@ export const routes: Routes = [
             data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'STOCK_MANAGER'] },
             canActivate: [dataRoleGuard],
           },
+          {
+            path: 'suppliers',
+            loadComponent: () =>
+              import('./pages/inventory/suppliers/suppliers.component').then(
+                (m) => m.SuppliersComponent
+              ),
+            data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'STOCK_MANAGER', 'MANAGER'] },
+            canActivate: [dataRoleGuard],
+          },
+          {
+            path: 'demand-forecast',
+            loadComponent: () =>
+              import('./pages/inventory/demand-forecast/demand-forecast.component').then(
+                (m) => m.DemandForecastComponent
+              ),
+            data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'STOCK_MANAGER', 'MANAGER'] },
+            canActivate: [dataRoleGuard],
+          },
         ],
       },
 
@@ -295,19 +326,133 @@ export const routes: Routes = [
       {
         path: 'budgets',
         component: BudgetOverviewComponent,
-        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER','FINANCE_MANAGER'] },
+        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE_MANAGER'] },
         canActivate: [dataRoleGuard],
       },
 
-      // ADMIN / SUPER_ADMIN only
+      // ADMIN / SUPER_ADMIN: full access. MANAGER: scoped to technician accounts only
+      // (enforced inside UserManagementComponent via isTechnicianScoped).
       {
         path: 'user-management',
         loadComponent: () =>
           import('./pages/user-management/user-management.component').then(
             (m) => m.UserManagementComponent
           ),
+        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
+        canActivate: [dataRoleGuard],
+      },
+      // Contact/demo-request inbox fed by the public marketing site.
+      {
+        path: 'inquiries',
+        loadComponent: () =>
+          import('./pages/inquiries/inquiries.component').then(
+            (m) => m.InquiriesComponent
+          ),
         data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN'] },
         canActivate: [dataRoleGuard],
+      },
+      // TEAM CAPACITY — scheduling/capacity-planning folded into Manager
+      // rather than a separate Maintenance Planner role.
+      {
+        path: 'team-capacity',
+        loadComponent: () =>
+          import('./pages/team-capacity/team-capacity.component').then(
+            (m) => m.TeamCapacityComponent
+          ),
+        canActivate: [dataRoleGuard],
+        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
+      },
+      // RELIABILITY — MTBF/MTTR + root-cause tracking, folded into Manager
+      // rather than a separate Reliability Engineer role.
+      {
+        path: 'reliability',
+        loadComponent: () =>
+          import('./pages/reliability/reliability.component').then(
+            (m) => m.ReliabilityComponent
+          ),
+        canActivate: [dataRoleGuard],
+        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
+      },
+      // AUDIT CONSOLE — Super Admin / Admin governance log (extends Super
+      // Admin's role rather than a separate Auditor role).
+      {
+        path: 'audit-console',
+        loadComponent: () =>
+          import('./pages/audit-console/audit-console.component').then(
+            (m) => m.AuditConsoleComponent
+          ),
+        canActivate: [dataRoleGuard],
+        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN'] },
+      },
+      {
+        path: 'inventory/reservations',
+        loadComponent: () =>
+          import('./pages/inventory/reservations/reservations.component').then(
+            (m) => m.ReservationsComponent
+          ),
+        canActivate: [dataRoleGuard],
+        data: { requiredRoles: ['TECHNICIAN', 'MANAGER', 'STOCK_MANAGER', 'ADMIN', 'SUPER_ADMIN'] },
+      },
+      {
+        path: 'export-center',
+        loadComponent: () =>
+          import('./pages/export-center/export-center.component').then(
+            (m) => m.ExportCenterComponent
+          ),
+        canActivate: [dataRoleGuard],
+        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'STOCK_MANAGER', 'FINANCE_MANAGER'] },
+      },
+      {
+        path: 'work-order-templates',
+        loadComponent: () =>
+          import('./pages/work-order-templates/work-order-templates.component').then(
+            (m) => m.WorkOrderTemplatesComponent
+          ),
+        canActivate: [dataRoleGuard],
+        data: { requiredRoles: ['MANAGER', 'ADMIN', 'SUPER_ADMIN'] },
+      },
+      // CUSTOMER PORTAL — row-level scoped to the authenticated customer's
+      // own linked machines (enforced server-side, see PortalAccessService).
+      {
+        path: 'portal',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./pages/portal/portal-home/portal-home.component').then(
+                (m) => m.PortalHomeComponent
+              ),
+            canActivate: [dataRoleGuard],
+            data: { requiredRoles: ['CUSTOMER'] },
+          },
+          {
+            path: 'tickets',
+            loadComponent: () =>
+              import('./pages/portal/portal-tickets/portal-tickets.component').then(
+                (m) => m.PortalTicketsComponent
+              ),
+            canActivate: [dataRoleGuard],
+            data: { requiredRoles: ['CUSTOMER'] },
+          },
+          {
+            path: 'machines/:id',
+            loadComponent: () =>
+              import('./pages/portal/portal-machine-detail/portal-machine-detail.component').then(
+                (m) => m.PortalMachineDetailComponent
+              ),
+            canActivate: [dataRoleGuard],
+            data: { requiredRoles: ['CUSTOMER'] },
+          },
+          {
+            path: 'billing',
+            loadComponent: () =>
+              import('./pages/portal/portal-billing/portal-billing.component').then(
+                (m) => m.PortalBillingComponent
+              ),
+            canActivate: [dataRoleGuard],
+            data: { requiredRoles: ['CUSTOMER'] },
+          },
+        ],
       },
       {
         path: 'finance',
@@ -340,12 +485,43 @@ export const routes: Routes = [
             canActivate: [dataRoleGuard],
             data: { requiredRoles: ['FINANCE_MANAGER', 'ADMIN', 'SUPER_ADMIN'] },
           },
+          {
+            path: 'rapports',
+            loadComponent: () =>
+              import('./pages/rapports/rapport-approvals.component').then(
+                (m) => m.RapportApprovalsComponent
+              ),
+            canActivate: [dataRoleGuard],
+            data: { requiredRoles: ['FINANCE_MANAGER', 'MANAGER', 'ADMIN', 'SUPER_ADMIN'] },
+          },
+          {
+            path: 'maintenance-costs',
+            loadComponent: () =>
+              import('./pages/maintenance-costs/maintenance-costs.component').then(
+                (m) => m.MaintenanceCostsComponent
+              ),
+            canActivate: [dataRoleGuard],
+            data: { requiredRoles: ['FINANCE_MANAGER', 'ADMIN', 'SUPER_ADMIN'] },
+          },
         ],
+      },
+
+      // ── Unmatched path within the authenticated shell ────────────
+      // Rendered inside SentinelLayoutComponent (sidebar/header stay visible)
+      // instead of silently bouncing an authenticated user back to /auth/login.
+      {
+        path: '**',
+        loadComponent: () =>
+          import('./pages/not-found/not-found.component').then(
+            (m) => m.NotFoundComponent
+          ),
       },
     ],
   },
-{
-  path: '**',
-  redirectTo: 'auth/login',
-},
+
+  // ── Catch-all (unauthenticated / no layout matched) ─────────────
+  {
+    path: '**',
+    redirectTo: 'auth/login',
+  },
 ];

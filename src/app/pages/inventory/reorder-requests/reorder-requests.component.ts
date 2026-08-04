@@ -21,7 +21,10 @@ export class ReorderRequestsComponent implements OnInit {
 
   // UI state for per-request actions
   approvingId: number | null = null;
-  approvalReason = '';
+  // Keyed by request id — each card's reason textbox must be independent,
+  // otherwise typing on one request's card would overwrite every other
+  // visible request's reason (a real data-integrity risk on an approval flow).
+  approvalReasons: Record<number, string> = {};
   creatingOrderForId: number | null = null;
   newStockOrder: StockOrderRequest = { reorderRequestId: 0, supplierPurchaseOrder: '', expectedDeliveryDate: '', notes: '' };
 
@@ -55,7 +58,7 @@ export class ReorderRequestsComponent implements OnInit {
   }
 
   canApprove(): boolean {
-    return rolesCollectionHasAny(this.currentRoles, ['SUPER_ADMIN', 'ADMIN', 'MANAGER']);
+    return rolesCollectionHasAny(this.currentRoles, ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE_MANAGER']);
   }
 
   canManageStock(): boolean {
@@ -69,11 +72,12 @@ export class ReorderRequestsComponent implements OnInit {
       return;
     }
     this.approvingId = request.id;
-    const payload: ReorderApprovalRequest = { approved: approve, reason: this.approvalReason || (approve ? 'Approved' : 'Rejected') };
+    const reason = this.approvalReasons[request.id];
+    const payload: ReorderApprovalRequest = { approved: approve, reason: reason || (approve ? 'Approved' : 'Rejected') };
     this.inventoryService.approveReorder(request.id, payload).subscribe({
       next: () => {
         this.approvingId = null;
-        this.approvalReason = '';
+        delete this.approvalReasons[request.id];
         this.loadReorders();
       },
       error: (err) => {

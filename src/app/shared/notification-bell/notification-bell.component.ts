@@ -10,6 +10,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { map, takeUntil } from 'rxjs/operators';
+import { trigger, transition, style, animate } from '@angular/animations';
 import { NotificationsRestService } from '../../core/services/notifications-rest.service';
 import { Notification, RISK_CONFIG } from '../../core/models/notification.model';
 import { AuthService } from '../../core/services/auth.service';
@@ -21,6 +22,20 @@ import { userHasRequiredRole } from '../../core/utils/role.utils';
   imports: [CommonModule],
   templateUrl: './notification-bell.component.html',
   styleUrl: './notification-bell.component.scss',
+  animations: [
+    trigger('slideDown', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(-6px) scale(0.98)' }),
+        animate(
+          '160ms cubic-bezier(0.16, 1, 0.3, 1)',
+          style({ opacity: 1, transform: 'translateY(0) scale(1)' })
+        ),
+      ]),
+      transition(':leave', [
+        animate('120ms ease-in', style({ opacity: 0, transform: 'translateY(-6px) scale(0.98)' })),
+      ]),
+    ]),
+  ],
 })
 export class NotificationBellComponent implements OnInit, OnDestroy {
   @ViewChild('dropdownPanel', { read: ElementRef }) dropdownPanel: ElementRef | null = null;

@@ -433,34 +433,6 @@
   background: var(--color-bg-sunken);
 }
 
-// ── Delete Modal ──────────────────────────────────────────────────────────
-
-.delete-modal {
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-danger-border);
-  padding: var(--space-8);
-  border-radius: var(--radius-xl);
-  max-width: 400px;
-  width: 100%;
-  text-align: center;
-  box-shadow: var(--shadow-xl);
-  animation: modal-in 0.2s ease;
-
-  h3 {
-    margin: 0 0 var(--space-2);
-    color: var(--color-danger-text);
-    font-size: var(--text-lg);
-    font-weight: var(--weight-bold);
-  }
-
-  p {
-    color: var(--color-text-secondary);
-    font-size: var(--text-sm);
-    line-height: var(--leading-normal);
-    margin-bottom: var(--space-6);
-  }
-}
-
 // ── Loading State ─────────────────────────────────────────────────────────
 
 .loading-state {

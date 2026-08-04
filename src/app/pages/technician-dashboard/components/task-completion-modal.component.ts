@@ -112,6 +112,46 @@ interface PartUsed {
                 </select>
               </div>
             </div>
+
+            <!-- Inspection Checklist -->
+            <div class="checklist-section" formArrayName="checklist">
+              <div class="checklist-header">
+                <label>Inspection Checklist</label>
+                <span class="checklist-hint">Mark each item pass/fail — a failed item won't block submission, but the manager will need to acknowledge it before approving.</span>
+              </div>
+              <div *ngFor="let item of checklist.controls; let i = index" [formGroupName]="i" class="checklist-item">
+                <input
+                  type="text"
+                  formControlName="description"
+                  class="checklist-desc"
+                  placeholder="e.g., Bearing lubrication verified"
+                />
+                <label class="checklist-pass">
+                  <input type="checkbox" formControlName="passed" />
+                  Passed
+                </label>
+                <button type="button" class="btn-remove" (click)="removeChecklistItem(i)">✕</button>
+              </div>
+              <button type="button" class="btn-add-part" (click)="addChecklistItem()">➕ Add checklist item</button>
+            </div>
+
+            <!-- Repair Evidence Photos -->
+            <div class="form-group">
+              <label for="evidencePhotos">Repair Evidence Photos</label>
+              <input
+                id="evidencePhotos"
+                type="file"
+                accept="image/*"
+                multiple
+                (change)="onFilesSelected($event)"
+              />
+              <ul class="file-list" *ngIf="selectedFiles.length">
+                <li *ngFor="let file of selectedFiles; let i = index">
+                  {{ file.name }}
+                  <button type="button" class="btn-remove" (click)="removeFile(i)">✕</button>
+                </li>
+              </ul>
+            </div>
           </div>
 
           <!-- Step 2: Parts Used -->
@@ -530,6 +570,75 @@ interface PartUsed {
       gap: 1rem;
     }
 
+    .checklist-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .checklist-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+
+      label {
+        font-weight: 600;
+        color: var(--color-text-primary);
+        font-size: 0.9rem;
+      }
+
+      .checklist-hint {
+        font-size: 0.8rem;
+        color: var(--color-text-muted);
+      }
+    }
+
+    .checklist-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+
+      .checklist-desc {
+        flex: 1;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm, 10px);
+        background: var(--color-bg-sunken);
+        color: var(--color-text-primary);
+        font-family: inherit;
+      }
+
+      .checklist-pass {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.85rem;
+        color: var(--color-text-secondary);
+        white-space: nowrap;
+      }
+    }
+
+    .file-list {
+      list-style: none;
+      margin: 0.5rem 0 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+
+      li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0.75rem;
+        background: var(--color-bg-sunken);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm, 10px);
+        font-size: 0.85rem;
+        color: var(--color-text-secondary);
+      }
+    }
+
     .parts-list {
       display: flex;
       flex-direction: column;
@@ -700,6 +809,7 @@ export class TaskCompletionModalComponent implements OnInit {
 
   currentStep = signal(1);
   isSubmitting = signal(false);
+  selectedFiles: File[] = [];
 
   form: FormGroup;
   machines$: Observable<Machine[]>;
@@ -716,6 +826,9 @@ export class TaskCompletionModalComponent implements OnInit {
       recommendations: [''],
       timeSpent: ['', [Validators.required, Validators.min(0)]],
       completionStatus: ['COMPLETED', Validators.required],
+
+      // Step 1: Checklist
+      checklist: this.fb.array([]),
 
       // Step 2: Parts
       partsUsed: this.fb.array([]),
@@ -757,6 +870,34 @@ export class TaskCompletionModalComponent implements OnInit {
         this.form.patchValue({ expenseTitle: title });
       }
     });
+  }
+
+  get checklist(): FormArray {
+    return this.form.get('checklist') as FormArray;
+  }
+
+  addChecklistItem(): void {
+    this.checklist.push(this.fb.group({
+      description: ['', Validators.required],
+      passed: [true],
+      notes: [''],
+    }));
+  }
+
+  removeChecklistItem(index: number): void {
+    this.checklist.removeAt(index);
+  }
+
+  onFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (input.files) {
+      this.selectedFiles.push(...Array.from(input.files));
+      input.value = '';
+    }
+  }
+
+  removeFile(index: number): void {
+    this.selectedFiles.splice(index, 1);
   }
 
   get partsUsed(): FormArray {
@@ -839,11 +980,14 @@ export class TaskCompletionModalComponent implements OnInit {
         timeSpent: formValue.timeSpent,
         completionStatus: formValue.completionStatus,
       },
+      checklistItems: (formValue.checklist || []).filter((c: any) => c.description?.trim()),
+      attachmentFiles: this.selectedFiles,
       partsUsed: formValue.partsUsed,
       expense: {
         machineId: formValue.machineId,
         title: formValue.expenseTitle,
         amount: formValue.totalExpense,
+        laborCost: formValue.laborCost,
         category: formValue.expenseCategory,
         description: formValue.expenseDescription || this.generateExpenseDescription(formValue),
       },
@@ -865,6 +1009,6 @@ export class TaskCompletionModalComponent implements OnInit {
   }
 
   formatCurrency(value: number): string {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'TND' }).format(value);
   }
 }

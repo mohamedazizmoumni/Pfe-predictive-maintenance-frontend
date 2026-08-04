@@ -1,0 +1,36 @@
+import {
+  Activity,
+  Bell,
+  ClipboardCheck,
+  ClipboardList,
+  Cpu,
+  Flame,
+  HeartPulse,
+  Minus,
+  RefreshCw,
+  ShieldAlert,
+  TriangleAlert,
+  TrendingDown,
+  TrendingUp,
+  Users,
+  Wrench,
+} from 'lucide-angular';
+
+// Icon registry for the Manager Dashboard redesign.
+export const MANAGER_DASHBOARD_ICONS = {
+  Activity,
+  Bell,
+  ClipboardCheck,
+  ClipboardList,
+  Cpu,
+  Flame,
+  HeartPulse,
+  Minus,
+  RefreshCw,
+  ShieldAlert,
+  TriangleAlert,
+  TrendingDown,
+  TrendingUp,
+  Users,
+  Wrench,
+};

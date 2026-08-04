@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { LucideAngularModule } from 'lucide-angular';
 import { Router } from '@angular/router';
 import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, takeUntil } from 'rxjs/operators';
@@ -55,7 +56,7 @@ interface SummarySlice {
 @Component({
   selector: 'app-finance-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideAngularModule],
   templateUrl: './finance-dashboard.component.html',
   styleUrl: './finance-dashboard.component.scss',
 })
@@ -80,13 +81,17 @@ export class FinanceDashboardComponent implements OnInit, OnDestroy {
   selectedMonth: number = new Date().getMonth() + 1;
   dismissedAlertLevel: string | null = null;
 
+  // Validated categorical order (blue, orange, aqua, yellow, magenta) — passes
+  // adjacent-pair CVD separation and normal-vision floors in both themes.
   private readonly categoryPalette: Record<string, string> = {
-    [ExpenseCategory.MAINTENANCE]: '#38bdf8',
-    [ExpenseCategory.PARTS]: '#22c55e',
-    [ExpenseCategory.LABOR]: '#fbbf24',
-    [ExpenseCategory.EQUIPMENT]: '#a855f7',
-    [ExpenseCategory.OTHER]: '#fb7185',
+    [ExpenseCategory.MAINTENANCE]: '#2a78d6',
+    [ExpenseCategory.PARTS]: '#eb6834',
+    [ExpenseCategory.LABOR]: '#1baf7a',
+    [ExpenseCategory.EQUIPMENT]: '#eda100',
+    [ExpenseCategory.OTHER]: '#e87ba4',
   };
+
+  hoveredIndex: number | null = null;
 
   constructor(
     private readonly financeService: FinanceService,
@@ -153,18 +158,18 @@ export class FinanceDashboardComponent implements OnInit, OnDestroy {
     };
 
     const iconMap: Record<string, string> = {
-      [ExpenseCategory.MAINTENANCE]: '🔧',
-      [ExpenseCategory.PARTS]: '⚙️',
-      [ExpenseCategory.LABOR]: '👷',
-      [ExpenseCategory.EQUIPMENT]: '🏭',
-      [ExpenseCategory.OTHER]: '📦',
+      [ExpenseCategory.MAINTENANCE]: 'Wrench',
+      [ExpenseCategory.PARTS]: 'Boxes',
+      [ExpenseCategory.LABOR]: 'HardHat',
+      [ExpenseCategory.EQUIPMENT]: 'Factory',
+      [ExpenseCategory.OTHER]: 'Package',
     };
 
     return entries
       .map(([key, amount]) => ({
         key,
         label: labelMap[key] ?? key,
-        icon: iconMap[key] ?? '📄',
+        icon: iconMap[key] ?? 'Package',
         amount,
         pct: Math.round((amount / total) * 100),
         color: this.categoryPalette[key] ?? '#38bdf8',
@@ -237,7 +242,7 @@ export class FinanceDashboardComponent implements OnInit, OnDestroy {
   get summarySlices(): SummarySlice[] {
     const entries = this.categoryEntries;
     const total = entries.reduce((sum, entry) => sum + entry.amount, 0) || 1;
-    const colors = ['#38bdf8', '#22c55e', '#fbbf24', '#a855f7', '#fb7185'];
+    const colors = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4'];
 
     return entries.map((entry, index) => ({
       label: entry.name,
@@ -263,34 +268,108 @@ export class FinanceDashboardComponent implements OnInit, OnDestroy {
     return `conic-gradient(${parts.join(', ')})`;
   }
 
-  get trendPoints(): { x: number; y: number; label: string; amount: number }[] {
-    const values = this.trendSeries.map((item) => item.approvedAmount);
-    const max = Math.max(...values, 1);
-    const width = 720;
-    const height = 220;
-    const count = Math.max(values.length - 1, 1);
+  // ==================== CASH FLOW CHART ====================
+  private static readonly CHART_WIDTH = 720;
+  private static readonly CHART_HEIGHT = 220;
 
-    return values.map((value, index) => ({
+  get chartGridLines(): number[] {
+    return [0, 0.25, 0.5, 0.75, 1];
+  }
+
+  private get chartMax(): number {
+    const values = this.trendSeries.flatMap((item) => [item.approvedAmount, item.pendingAmount, item.rejectedAmount]);
+    return Math.max(...values, 1);
+  }
+
+  private buildSeriesPoints(key: 'approvedAmount' | 'pendingAmount' | 'rejectedAmount'): { x: number; y: number; label: string; amount: number }[] {
+    const { CHART_WIDTH: width, CHART_HEIGHT: height } = FinanceDashboardComponent;
+    const max = this.chartMax;
+    const count = Math.max(this.trendSeries.length - 1, 1);
+
+    return this.trendSeries.map((item, index) => ({
       x: (index / count) * width,
-      y: height - (value / max) * height,
-      label: this.trendSeries[index]?.label ?? '',
-      amount: value,
+      y: height - (item[key] / max) * height,
+      label: item.label,
+      amount: item[key],
     }));
   }
 
-  get trendPath(): string {
-    const points = this.trendPoints;
+  // Catmull-Rom → cubic Bézier conversion for a smooth, premium-feeling curve
+  // instead of a jagged straight-segment polyline.
+  private smoothPath(points: { x: number; y: number }[]): string {
     if (!points.length) return '';
-    return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');
+    if (points.length === 1) return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+
+    let d = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i === 0 ? 0 : i - 1];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[i + 2 < points.length ? i + 2 : i + 1];
+
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+      d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+    }
+
+    return d;
   }
 
-  get trendAreaPath(): string {
-    const points = this.trendPoints;
+  private areaPath(points: { x: number; y: number }[]): string {
     if (!points.length) return '';
-    const width = 720;
-    const height = 220;
-    const line = this.trendPath;
-    return `${line} L ${width} ${height} L 0 ${height} Z`;
+    const { CHART_WIDTH: width, CHART_HEIGHT: height } = FinanceDashboardComponent;
+    return `${this.smoothPath(points)} L ${width} ${height} L 0 ${height} Z`;
+  }
+
+  get approvedPoints() { return this.buildSeriesPoints('approvedAmount'); }
+  get pendingPoints() { return this.buildSeriesPoints('pendingAmount'); }
+  get rejectedPoints() { return this.buildSeriesPoints('rejectedAmount'); }
+
+  get approvedPath(): string { return this.smoothPath(this.approvedPoints); }
+  get pendingPath(): string { return this.smoothPath(this.pendingPoints); }
+  get rejectedPath(): string { return this.smoothPath(this.rejectedPoints); }
+
+  get approvedAreaPath(): string { return this.areaPath(this.approvedPoints); }
+
+  // Kept for the axis labels row under the chart.
+  get trendPoints(): { x: number; y: number; label: string; amount: number }[] {
+    return this.approvedPoints;
+  }
+
+  onChartHover(event: MouseEvent): void {
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const count = this.trendSeries.length;
+    if (!count || !rect.width) return;
+
+    const relX = (event.clientX - rect.left) / rect.width;
+    const index = Math.round(relX * (count - 1));
+    this.hoveredIndex = Math.min(Math.max(index, 0), count - 1);
+  }
+
+  onChartLeave(): void {
+    this.hoveredIndex = null;
+  }
+
+  get hoveredPoint(): TrendPoint | null {
+    if (this.hoveredIndex === null) return null;
+    return this.trendSeries[this.hoveredIndex] ?? null;
+  }
+
+  get hoveredCrosshairX(): number {
+    if (this.hoveredIndex === null) return 0;
+    return this.approvedPoints[this.hoveredIndex]?.x ?? 0;
+  }
+
+  get tooltipLeftPct(): number {
+    const count = this.trendSeries.length;
+    if (this.hoveredIndex === null || count <= 1) return 50;
+    const pct = (this.hoveredIndex / (count - 1)) * 100;
+    return Math.min(Math.max(pct, 8), 92);
   }
 
   get pendingApprovalsRows(): ApprovalRow[] {
@@ -330,6 +409,16 @@ export class FinanceDashboardComponent implements OnInit, OnDestroy {
     const budget = this.totalBudget || 0;
     if (!budget) return 0;
     return ((budget - (this.spentAmount + this.pendingApprovalsAmount)) / budget) * 100;
+  }
+
+  get forecastTrendIcon(): 'ArrowUp' | 'ArrowDown' {
+    return this.forecastVariance >= 0 ? 'ArrowUp' : 'ArrowDown';
+  }
+
+  get utilizationTone(): 'good' | 'warning' | 'critical' {
+    if (this.utilizationPercentage >= 90) return 'critical';
+    if (this.utilizationPercentage >= 70) return 'warning';
+    return 'good';
   }
 
   get budgetStatusLabel(): string {

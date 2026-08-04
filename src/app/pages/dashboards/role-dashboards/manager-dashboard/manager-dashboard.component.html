@@ -1,0 +1,178 @@
+<section class="manager-dashboard">
+
+  <!-- HEADER -->
+  <header class="dashboard-head">
+    <div>
+      <p class="dashboard-head__eyebrow">Manager Overview</p>
+      <h1>Operations Command Center</h1>
+    </div>
+    <button class="refresh-btn" (click)="refresh()">
+      <lucide-icon aria-hidden="true" name="refresh-cw" [size]="14"></lucide-icon>
+      Refresh
+    </button>
+  </header>
+
+  <!-- KPI STRIP -->
+  <app-dashboard-kpi-strip [metrics]="kpiMetrics()"></app-dashboard-kpi-strip>
+
+  <!-- LOADING -->
+  <div class="state-card" *ngIf="loading()">
+    <span class="state-spinner"></span>
+    Loading dashboard data…
+  </div>
+
+  <!-- ERROR -->
+  <div class="state-card state-card--error" *ngIf="error()">
+    {{ error() }}
+  </div>
+
+  <ng-container *ngIf="!loading()">
+
+    <!-- ROW 1: Fleet Health trend (large) + Machine Status donut -->
+    <section class="row-grid-2-wide">
+      <app-chart-card
+        title="Fleet Health Trend"
+        subtitle="Estimated uptime health over the last 14 days"
+        icon="heart-pulse"
+        accentColor="#6b7280"
+        [config]="fleetHealthChartConfig()"
+        [height]="240"
+      ></app-chart-card>
+
+      <app-chart-card
+        title="Machine Status"
+        [subtitle]="machines().length + ' total machines'"
+        icon="cpu"
+        accentColor="#22C55E"
+        [config]="machineStatusChartConfig()"
+        [legend]="machineStatusLegend()"
+        [height]="200"
+      ></app-chart-card>
+    </section>
+
+    <!-- ROW 2: Alert volume trend + Maintenance completion trend -->
+    <section class="row-grid-2">
+      <app-chart-card
+        title="Alert Volume"
+        subtitle="New alerts created per day"
+        icon="bell"
+        accentColor="#EF4444"
+        [config]="alertVolumeChartConfig()"
+        [height]="220"
+      ></app-chart-card>
+
+      <app-chart-card
+        title="Maintenance Completion"
+        subtitle="Created vs. completed per day"
+        icon="clipboard-check"
+        accentColor="#22C55E"
+        [config]="maintenanceTrendChartConfig()"
+        [height]="220"
+      ></app-chart-card>
+    </section>
+
+    <!-- ROW 3: Critical Assets + Alert Severity + Team Workload -->
+    <section class="row-grid-3">
+      <app-chart-card
+        title="Critical Assets"
+        subtitle="Ranked by risk score"
+        icon="flame"
+        accentColor="#EF4444"
+        [config]="criticalAssetsChartConfig()"
+        [height]="220"
+      ></app-chart-card>
+
+      <app-chart-card
+        title="Alert Severity"
+        [subtitle]="alerts().length + ' active'"
+        icon="shield-alert"
+        accentColor="#F59E0B"
+        [config]="alertSeverityChartConfig()"
+        [legend]="alertSeverityLegend()"
+        [height]="180"
+      ></app-chart-card>
+
+      <app-chart-card
+        title="Team Workload"
+        subtitle="Task share by technician"
+        icon="users"
+        accentColor="#6b7280"
+        [config]="teamWorkloadChartConfig()"
+        [height]="220"
+      ></app-chart-card>
+    </section>
+
+    <!-- ROW 4: Maintenance + Alerts + Priorities lists -->
+    <section class="row-grid-3">
+
+      <!-- MAINTENANCE OVERVIEW -->
+      <article class="panel">
+        <div class="panel-header">
+          <h3>Maintenance Overview</h3>
+          <span class="panel-sub">{{ maintenance().length }} tasks total</span>
+        </div>
+
+        <div class="table-list" *ngIf="maintenanceRows().length; else noMaint">
+          <div class="table-item" *ngFor="let row of maintenanceRows()">
+            <div class="table-item-info">
+              <h4>{{ row.task }}</h4>
+              <p>{{ row.machine }}</p>
+            </div>
+            <div class="table-badges">
+              <span class="badge badge--status">{{ row.status }}</span>
+              <span class="badge" [ngClass]="row.tone">{{ row.priority }}</span>
+            </div>
+          </div>
+        </div>
+        <ng-template #noMaint>
+          <div class="empty-msg">No maintenance tasks.</div>
+        </ng-template>
+      </article>
+
+      <!-- OPERATIONAL ALERTS -->
+      <article class="panel">
+        <div class="panel-header">
+          <h3>Operational Alerts</h3>
+          <span class="panel-sub">{{ alerts().length }} new</span>
+        </div>
+
+        <div class="table-list" *ngIf="alertRows().length; else noAlertRows">
+          <div class="table-item" *ngFor="let row of alertRows()">
+            <div class="table-item-info">
+              <h4>{{ row.title }}</h4>
+              <p>{{ row.machine }} · {{ row.age }}</p>
+            </div>
+            <span class="badge" [ngClass]="row.tone">{{ row.severity }}</span>
+          </div>
+        </div>
+        <ng-template #noAlertRows>
+          <div class="empty-msg">No alerts found.</div>
+        </ng-template>
+      </article>
+
+      <!-- TODAY'S PRIORITIES -->
+      <article class="panel">
+        <div class="panel-header">
+          <h3>Today's Priorities</h3>
+          <span class="panel-sub">{{ recommendations().length }} items</span>
+        </div>
+
+        <div class="priority-list" *ngIf="recommendations().length; else noPriorities">
+          <div class="priority-item" *ngFor="let item of recommendations().slice(0, 5); let i = index">
+            <div class="priority-index">{{ i + 1 }}</div>
+            <div class="priority-content">
+              <h4>{{ item.machineName || ('Machine #' + item.machineId) }}</h4>
+              <p>{{ item.recommendedAction }}</p>
+            </div>
+            <span class="priority-arrow" aria-hidden="true">↗</span>
+          </div>
+        </div>
+        <ng-template #noPriorities>
+          <div class="empty-msg">No recommendations available.</div>
+        </ng-template>
+      </article>
+
+    </section>
+
+  </ng-container>
+</section>

@@ -1,32 +1,27 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
-import { Subject, combineLatest, BehaviorSubject } from 'rxjs';
-import { takeUntil, catchError, map } from 'rxjs/operators';
-import { of } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
-import { apiEndpoint } from '../../core/http/api-base';
-
-interface StockNotification {
-  id: string;
-  type: 'LOW_STOCK' | 'OUT_OF_STOCK' | 'REORDER_REQUEST' | 'STOCK_RECEIVED' | 'STOCK_UPDATED';
-  title: string;
-  message: string;
-  partId?: number;
-  partName?: string;
-  quantity?: number;
-  threshold?: number;
-  timestamp: Date;
-  isRead: boolean;
-  priority: 'HIGH' | 'MEDIUM' | 'LOW';
-}
+import { LucideAngularModule } from 'lucide-angular';
+import { Subject, BehaviorSubject, combineLatest } from 'rxjs';
+import { takeUntil, map } from 'rxjs/operators';
+import { NotificationsRestService } from '../../core/services/notifications-rest.service';
+import { AuthService } from '../../core/services/auth.service';
+import { Notification, RiskLevel } from '../../core/models/notification.model';
+import { userHasRequiredRole } from '../../core/utils/role.utils';
 
 type FilterType = 'all' | 'high' | 'unread';
+
+const RISK_ICON: Record<RiskLevel, string> = {
+  CRITICAL: 'Siren',
+  HIGH: 'TriangleAlert',
+  MEDIUM: 'AlertCircle',
+  LOW: 'CircleCheck',
+};
 
 @Component({
   selector: 'app-stock-notifications',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, LucideAngularModule],
   templateUrl: './stock-notifications.component.html',
   styleUrl: './stock-notifications.component.scss',
 })
@@ -34,13 +29,16 @@ export class StockNotificationsComponent implements OnInit, OnDestroy {
   selectedFilter: FilterType = 'all';
   filterOptions: FilterType[] = ['all', 'high', 'unread'];
   isLoading = false;
-  errorMessage: string | null = null;
 
   private destroy$ = new Subject<void>();
-  private notificationsSubject = new BehaviorSubject<StockNotification[]>([]);
+  private notificationsSubject = new BehaviorSubject<Notification[]>([]);
   private filterSubject = new BehaviorSubject<FilterType>('all');
 
   readonly notifications$ = this.notificationsSubject.asObservable();
+
+  readonly canMarkAllAsRead$ = this.authService.currentUser$.pipe(
+    map((user) => userHasRequiredRole(user, ['MANAGER', 'ADMIN', 'SUPER_ADMIN']))
+  );
 
   readonly unreadCount$ = this.notifications$.pipe(
     map((notifications) => notifications.filter((n) => !n.isRead).length)
@@ -53,7 +51,9 @@ export class StockNotificationsComponent implements OnInit, OnDestroy {
     map(([notifications, filter]) => {
       switch (filter) {
         case 'high':
-          return notifications.filter((n) => n.priority === 'HIGH');
+          return notifications.filter(
+            (n) => n.riskLevel === 'HIGH' || n.riskLevel === 'CRITICAL'
+          );
         case 'unread':
           return notifications.filter((n) => !n.isRead);
         case 'all':
@@ -67,18 +67,19 @@ export class StockNotificationsComponent implements OnInit, OnDestroy {
 
   get criticalCount(): number {
     return this.notificationsSubject.value.filter(
-      (n) => n.priority === 'HIGH'
+      (n) => n.riskLevel === 'CRITICAL' || n.riskLevel === 'HIGH'
     ).length;
   }
 
   get mediumCount(): number {
     return this.notificationsSubject.value.filter(
-      (n) => n.priority === 'MEDIUM'
+      (n) => n.riskLevel === 'MEDIUM'
     ).length;
   }
 
   constructor(
-    private http: HttpClient,
+    private notificationsService: NotificationsRestService,
+    private authService: AuthService,
     private router: Router
   ) {}
 
@@ -95,19 +96,14 @@ export class StockNotificationsComponent implements OnInit, OnDestroy {
 
   private loadStockNotifications(): void {
     this.isLoading = true;
-    this.errorMessage = null;
 
-    this.http
-      .get<any[]>(apiEndpoint('/inventory/parts'))
+    this.notificationsService
+      .loadNotifications('STOCK_MANAGER')
       .pipe(
         takeUntil(this.destroy$),
-        map((parts) => this.generateStockNotifications(parts)),
-        catchError((error) => {
-          console.error('Failed to load stock data:', error);
-          this.errorMessage =
-            'Unable to load stock notifications. Please try again later.';
-          return of([]);
-        })
+        // Stock/inventory alerts are never tied to a machine — this filters out
+        // any machine-health notifications that also target STOCK_MANAGER.
+        map((notifications) => notifications.filter((n) => n.machineId == null))
       )
       .subscribe((notifications) => {
         this.notificationsSubject.next(notifications);
@@ -115,94 +111,68 @@ export class StockNotificationsComponent implements OnInit, OnDestroy {
       });
   }
 
-  private generateStockNotifications(parts: any[]): StockNotification[] {
-    const notifications: StockNotification[] = [];
-    const now = new Date();
-
-    parts.forEach((part) => {
-      const currentStock = part.currentStock || 0;
-      const minimumStock = part.minimumStock || 0;
-
-      if (currentStock <= 0) {
-        notifications.push({
-          id: `out-of-stock-${part.id}`,
-          type: 'OUT_OF_STOCK',
-          title: '🚨 Out of Stock',
-          message: `${part.name} is out of stock. Immediate action required.`,
-          partId: part.id,
-          partName: part.name,
-          quantity: currentStock,
-          threshold: minimumStock,
-          timestamp: new Date(now.getTime() - Math.random() * 3600000),
-          isRead: false,
-          priority: 'HIGH',
-        });
-      } else if (currentStock <= minimumStock) {
-        notifications.push({
-          id: `low-stock-${part.id}`,
-          type: 'LOW_STOCK',
-          title: '⚠️ Low Stock Alert',
-          message: `${part.name} is running low (${currentStock} remaining). Minimum stock: ${minimumStock}`,
-          partId: part.id,
-          partName: part.name,
-          quantity: currentStock,
-          threshold: minimumStock,
-          timestamp: new Date(now.getTime() - Math.random() * 7200000),
-          isRead: false,
-          priority: 'HIGH',
-        });
-      }
-    });
-
-    return notifications.sort((a, b) => {
-      if (a.priority !== b.priority) {
-        const priorityOrder = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-        return priorityOrder[b.priority] - priorityOrder[a.priority];
-      }
-      return b.timestamp.getTime() - a.timestamp.getTime();
-    });
-  }
-
   setFilter(filter: FilterType): void {
     this.selectedFilter = filter;
     this.filterSubject.next(filter);
   }
 
-  onMarkAsRead(notification: StockNotification, event: MouseEvent): void {
+  onMarkAsRead(notification: Notification, event: MouseEvent): void {
     event.stopPropagation();
-    if (!notification.isRead) {
-      const notifications = this.notificationsSubject.value.map((n) =>
-        n.id === notification.id ? { ...n, isRead: true } : n
-      );
-      this.notificationsSubject.next(notifications);
-    }
+    this.markRead(notification.id);
   }
 
   onMarkAllAsRead(): void {
-    const notifications = this.notificationsSubject.value.map((n) => ({
-      ...n,
-      isRead: true,
-    }));
-    this.notificationsSubject.next(notifications);
+    this.notificationsService.markAllAsRead().subscribe(() => {
+      const notifications = this.notificationsSubject.value.map((n) => ({
+        ...n,
+        isRead: true,
+      }));
+      this.notificationsSubject.next(notifications);
+    });
   }
 
-  onNotificationClick(notification: StockNotification): void {
+  onNotificationClick(notification: Notification): void {
     if (!notification.isRead) {
-      const notifications = this.notificationsSubject.value.map((n) =>
-        n.id === notification.id ? { ...n, isRead: true } : n
-      );
-      this.notificationsSubject.next(notifications);
+      this.markRead(notification.id);
     }
-
-    if (notification.partId) {
-      this.router.navigate(['/inventory/part-detail', notification.partId]);
-    } else {
-      this.router.navigate(['/inventory']);
-    }
+    this.router.navigate(['/inventory']);
   }
 
   onRefresh(): void {
     this.loadStockNotifications();
+  }
+
+  exportReport(): void {
+    const rows = this.notificationsSubject.value;
+    if (!rows.length) return;
+
+    const header = ['Title', 'Risk Level', 'Message', 'Status', 'Created At'];
+    const lines = rows.map((n) =>
+      [n.title, n.riskLevel, n.body, n.isRead ? 'Read' : 'Unread', n.createdAt]
+        .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
+        .join(',')
+    );
+
+    const csvContent = [header.join(','), ...lines].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'stock-alerts.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  private markRead(id: number): void {
+    const target = this.notificationsSubject.value.find((n) => n.id === id);
+    if (!target || target.isRead) return;
+
+    this.notificationsService.markAsRead(id).subscribe(() => {
+      const notifications = this.notificationsSubject.value.map((n) =>
+        n.id === id ? { ...n, isRead: true } : n
+      );
+      this.notificationsSubject.next(notifications);
+    });
   }
 
   getEmptyStateMessage(): string {
@@ -217,16 +187,12 @@ export class StockNotificationsComponent implements OnInit, OnDestroy {
     }
   }
 
-  getPriorityConfig(priority: string) {
-    const configs: Record<string, { color: string; bgColor: string; label: string; icon: string }> = {
-      HIGH: { color: '#ef4444', bgColor: '#fef2f2', label: 'High Priority', icon: '🚨' },
-      MEDIUM: { color: '#f97316', bgColor: '#fff7ed', label: 'Medium Priority', icon: '⚠️' },
-      LOW: { color: '#22c55e', bgColor: '#f0fdf4', label: 'Low Priority', icon: '✅' },
-    };
-    return configs[priority] ?? configs['LOW'];
+  getRiskIcon(riskLevel: RiskLevel): string {
+    return RISK_ICON[riskLevel] ?? RISK_ICON.LOW;
   }
 
-  getRelativeTime(date: Date): string {
+  getRelativeTime(createdAt: string): string {
+    const date = new Date(createdAt);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -238,16 +204,5 @@ export class StockNotificationsComponent implements OnInit, OnDestroy {
     if (diffHours < 24) return `${diffHours} hr${diffHours > 1 ? 's' : ''} ago`;
     if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
     return date.toLocaleDateString();
-  }
-
-  getTypeIcon(type: string): string {
-    const icons: Record<string, string> = {
-      OUT_OF_STOCK: '🚨',
-      LOW_STOCK: '⚠️',
-      REORDER_REQUEST: '📋',
-      STOCK_RECEIVED: '📦',
-      STOCK_UPDATED: '✅',
-    };
-    return icons[type] ?? '📢';
   }
 }

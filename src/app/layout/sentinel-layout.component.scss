@@ -77,7 +77,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow-accent);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.30);
   flex-shrink: 0;
 }
 
@@ -481,14 +481,15 @@
   &.active {
     background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
     color: var(--color-text-on-accent);
-    box-shadow: var(--shadow-accent);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.30);
 
     .nav-caption {
-      color: rgba(255, 255, 255, 0.65);
+      color: rgba(255, 255, 255, 0.55);
     }
 
     .nav-icon {
-      background: rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--color-text-on-accent);
     }
   }
 }
@@ -498,12 +499,16 @@
   height: 42px;
   border-radius: var(--radius-md);
   background: var(--color-accent-dim);
+  color: var(--color-accent-text);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
   flex-shrink: 0;
-  transition: background var(--ease-fast);
+  transition: background var(--ease-fast), color var(--ease-fast);
+
+  lucide-icon {
+    display: flex;
+  }
 }
 
 .nav-text {
@@ -833,10 +838,10 @@
   height: 52px;
   border-radius: var(--radius-md);
   background: var(--color-accent-dim);
+  color: var(--color-accent-text);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
   flex-shrink: 0;
 }
 
@@ -894,15 +899,161 @@
   color: var(--color-text-on-accent);
   font-size: 22px;
   cursor: pointer;
-  box-shadow: 0 16px 36px var(--color-accent-glow);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.40);
   transition: all var(--ease-base);
   display: flex;
   align-items: center;
   justify-content: center;
+  // Above modals (--z-modal: 100) and toasts (--z-toast: 200) — this is a
+  // persistent global utility, not page content, so a page's own modal or a
+  // toast notification must never be able to sit on top of it and swallow
+  // the click. It previously had no z-index at all (implicit auto), which
+  // meant it silently lost that fight on any page with an open modal.
+  z-index: 210;
 
   &:hover {
     transform: scale(1.08) translateY(-2px);
-    box-shadow: 0 20px 44px var(--color-accent-glow);
+    box-shadow: 0 20px 44px rgba(0, 0, 0, 0.50);
+  }
+}
+
+// ============================================================================
+// CHAT OVERLAY — draggable/resizable floating chat window.
+//
+// This whole block was previously MISSING entirely (only .chat-fab above
+// had any CSS) — the TS already computes chatLeft/chatTop/chatWidth/
+// chatHeight and drives dragging/resizing/maximizing, and the template
+// already binds them via [ngStyle], but with no `position` rule on
+// .chat-overlay__shell those top/left pixel values were no-ops: the panel
+// rendered as an unstyled block in normal document flow instead of a
+// floating window, which is why opening it looked like nothing happened.
+// (The template's "surface-card" class on the shell is also a red herring —
+// that class is only ever defined scoped inside a completely different
+// component, so it had zero effect here either.)
+// ============================================================================
+
+.chat-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  pointer-events: none;
+}
+
+.chat-overlay__shell {
+  position: fixed;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  min-width: 320px;
+  min-height: 360px;
+}
+
+.chat-overlay__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-surface);
+  cursor: move;
+  flex-shrink: 0;
+
+  .eyebrow {
+    margin: 0 0 2px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+}
+
+.chat-overlay__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: default;
+}
+
+.chat-overlay__icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--ease-fast);
+
+  &:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+  }
+}
+
+.chat-overlay__close:hover {
+  border-color: var(--color-danger, #dc2626);
+  color: var(--color-danger, #dc2626);
+}
+
+.chat-overlay__shell app-chatbot {
+  flex: 1;
+  min-height: 0;
+  display: block;
+  overflow: auto;
+}
+
+.chat-overlay__resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: nwse-resize;
+
+  &::after {
+    content: '';
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--color-border-strong);
+    border-bottom: 2px solid var(--color-border-strong);
+  }
+}
+
+@media (max-width: 600px) {
+  .chat-overlay__shell {
+    left: 12px !important;
+    right: 12px;
+    top: 12px !important;
+    bottom: 12px;
+    width: auto !important;
+    height: auto !important;
+  }
+
+  .chat-overlay__resize {
+    display: none;
   }
 }
 

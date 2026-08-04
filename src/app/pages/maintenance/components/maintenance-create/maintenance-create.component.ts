@@ -1,7 +1,15 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CreateTaskRequest, Machine, User } from '../../../../core/models/sentinel.models';
+
+/** Carries context from another page (an alert, an AI recommendation…) into a fresh create form. */
+export interface MaintenanceCreatePrefill {
+  machineId?: number;
+  title?: string;
+  description?: string;
+  priority?: CreateTaskRequest['priority'];
+}
 
 @Component({
   selector: 'app-maintenance-create',
@@ -11,15 +19,26 @@ import { CreateTaskRequest, Machine, User } from '../../../../core/models/sentin
   styleUrl: './maintenance-create.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class MaintenanceCreateComponent {
+export class MaintenanceCreateComponent implements OnChanges {
   @Input() visible = false;
   @Input() machines: Machine[] | null = [];
   @Input() technicians: User[] | null = [];
-  @Input() maintenanceId: number | null = null;
   @Input() isSubmitting = false;
+  @Input() prefill: MaintenanceCreatePrefill | null = null;
 
   @Output() close = new EventEmitter<void>();
   @Output() submitRequest = new EventEmitter<CreateTaskRequest>();
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['visible'] && this.visible && this.prefill) {
+      this.form.patchValue({
+        title: this.prefill.title ?? this.form.value.title,
+        machineId: this.prefill.machineId ? String(this.prefill.machineId) : this.form.value.machineId,
+        priority: this.prefill.priority ?? this.form.value.priority,
+        description: this.prefill.description ?? this.form.value.description,
+      });
+    }
+  }
 
   readonly priorities: Array<{ label: string; value: CreateTaskRequest['priority'] }> = [
     { label: 'Critical', value: 'CRITICAL' },
@@ -28,10 +47,18 @@ export class MaintenanceCreateComponent {
     { label: 'Low', value: 'LOW' },
   ];
 
+  readonly types: Array<{ label: string; value: NonNullable<CreateTaskRequest['type']> }> = [
+    { label: 'Preventive', value: 'PREVENTIVE' },
+    { label: 'Corrective', value: 'CORRECTIVE' },
+    { label: 'Emergency', value: 'EMERGENCY' },
+  ];
+
   form = this.fb.group({
     title: ['', [Validators.required, Validators.minLength(3)]],
     machineId: ['', Validators.required],
+    type: ['PREVENTIVE', Validators.required],
     priority: ['MEDIUM', Validators.required],
+    estimatedDuration: ['', [Validators.required, Validators.min(1)]],
     description: ['', [Validators.required, Validators.minLength(5)]],
     dueDate: ['', Validators.required],
     assignedTechnicianId: ['', Validators.required],
@@ -70,7 +97,9 @@ export class MaintenanceCreateComponent {
     const {
       title,
       machineId,
+      type,
       priority,
+      estimatedDuration,
       description,
       dueDate,
       assignedTechnicianId,
@@ -78,6 +107,7 @@ export class MaintenanceCreateComponent {
 
     const parsedTechnicianId = Number(assignedTechnicianId);
     const parsedMachineId = Number(machineId);
+    const parsedDuration = Number(estimatedDuration);
     const sanitizedTitle = (title || '').trim();
     const sanitizedDescription = (description || '').trim();
 
@@ -105,17 +135,16 @@ export class MaintenanceCreateComponent {
       return;
     }
 
+    // The maintenance record has no title column — fold it into the description
+    // so it's still visible to whoever reads the work order.
     const payload: CreateTaskRequest = {
-      title: sanitizedTitle,
-      description: sanitizedDescription,
       machineId: parsedMachineId,
+      type: type as CreateTaskRequest['type'],
       priority: priority as CreateTaskRequest['priority'],
-      status: 'PENDING',
-      dueDate: this.toApiDateTime(dueDate || ''),
+      estimatedDuration: Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : undefined,
+      description: `${sanitizedTitle}: ${sanitizedDescription}`,
+      scheduledDate: this.toApiDateTime(dueDate || ''),
       assignedTechnicianId: parsedTechnicianId,
-      ...(this.maintenanceId && this.maintenanceId > 0
-        ? { maintenanceId: this.maintenanceId }
-        : {}),
     };
 
     this.submitRequest.emit(payload);
@@ -136,7 +165,9 @@ export class MaintenanceCreateComponent {
     this.form.reset({
       title: '',
       machineId: '',
+      type: 'PREVENTIVE',
       priority: 'MEDIUM',
+      estimatedDuration: '',
       description: '',
       dueDate: '',
       assignedTechnicianId: '',

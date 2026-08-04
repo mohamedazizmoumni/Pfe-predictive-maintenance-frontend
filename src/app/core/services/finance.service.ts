@@ -182,6 +182,33 @@ export class FinanceService {
     );
   }
 
+  getAllBudgets(): Observable<FinanceBudgetResponse[]> {
+    return this.http.get<FinanceBudgetResponse[]>(this.budgetUrl).pipe(
+      catchError(err => { this.setError(err); throw err; }),
+    );
+  }
+
+  getBudgetByYear(year: number): Observable<FinanceBudgetResponse> {
+    return this.http.get<FinanceBudgetResponse>(`${this.budgetUrl}/year/${year}`).pipe(
+      catchError(err => { this.setError(err); throw err; }),
+    );
+  }
+
+  getBudgetById(id: number): Observable<FinanceBudgetResponse> {
+    return this.http.get<FinanceBudgetResponse>(`${this.budgetUrl}/${id}`).pipe(
+      catchError(err => { this.setError(err); throw err; }),
+    );
+  }
+
+  deleteBudget(id: number): Observable<void> {
+    this.setLoading(true);
+    this.clearError();
+    return this.http.delete<void>(`${this.budgetUrl}/${id}`).pipe(
+      catchError(err => { this.setError(err); throw err; }),
+      finalize(() => this.setLoading(false)),
+    );
+  }
+
   // ── DASHBOARD ─────────────────────────────────────────────────────────────
 
   getDashboard(): Observable<FinanceDashboardStats> {

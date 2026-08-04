@@ -2,7 +2,10 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { InventoryService } from '../../../core/services/inventory.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 import { Part } from '../../../core/models/sentinel.models';
+import { rolesCollectionHasAny } from '../../../core/utils/role.utils';
 import { environment } from '../../../../environments/environment';
 
 @Component({
@@ -17,11 +20,14 @@ export class PartDetailComponent implements OnInit {
   loading = false;
   error: string | null = null;
   deletingImage = false;
+  deletingPart = false;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private inventoryService: InventoryService
+    private inventoryService: InventoryService,
+    private authService: AuthService,
+    private confirmDialog: ConfirmDialogService
   ) {}
 
   ngOnInit() {
@@ -59,12 +65,45 @@ export class PartDetailComponent implements OnInit {
     }
   }
 
-  deleteImage() {
+  canDelete(): boolean {
+    // Deleting parts is stricter than create/update — only ADMIN/SUPER_ADMIN.
+    return rolesCollectionHasAny(
+      this.authService.getCurrentUser()?.roles,
+      ['SUPER_ADMIN', 'ADMIN']
+    );
+  }
+
+  async deletePart() {
+    if (!this.part || !this.canDelete() || this.deletingPart) return;
+
+    const confirmed = await this.confirmDialog.confirmDanger(
+      'Delete part',
+      `Delete "${this.part.name}" (#${this.part.partNumber})? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    this.deletingPart = true;
+    this.inventoryService.deletePart(this.part.id).subscribe({
+      next: () => {
+        this.router.navigate(['/inventory']);
+      },
+      error: (err) => {
+        this.deletingPart = false;
+        this.error =
+          err?.error?.message ??
+          'Failed to delete part. It may still be referenced by a reorder or stock order.';
+      }
+    });
+  }
+
+  async deleteImage() {
     if (!this.part?.id) return;
 
-    if (!confirm('Are you sure you want to delete this image?')) {
-      return;
-    }
+    const confirmed = await this.confirmDialog.confirmDanger(
+      'Delete image',
+      'Delete this part image? This cannot be undone.'
+    );
+    if (!confirmed) return;
 
     this.deletingImage = true;
     this.inventoryService.deletePartImage(this.part.id).subscribe({
@@ -110,6 +149,12 @@ export class PartDetailComponent implements OnInit {
   getStockValue(): number {
     if (!this.part) return 0;
     return this.part.currentStock * this.part.cost;
+  }
+
+  getStockPercent(): number {
+    if (!this.part || !this.part.minimumStock) return 100;
+    const ratio = (this.part.currentStock / (this.part.minimumStock * 2)) * 100;
+    return Math.max(4, Math.min(100, ratio));
   }
 
   getStockAboveMinimum(): number {

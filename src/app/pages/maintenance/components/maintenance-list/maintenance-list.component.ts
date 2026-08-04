@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LucideAngularModule } from 'lucide-angular';
 import { Maintenance } from '../../../../core/models/sentinel.models';
 import { MaintenancePagination } from '../../../../core/services/maintenance.service';
 
@@ -12,7 +13,7 @@ interface FilterOption {
 @Component({
   selector: 'app-maintenance-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LucideAngularModule],
   templateUrl: './maintenance-list.component.html',
   styleUrl: './maintenance-list.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -23,14 +23,14 @@
       </ul>
     </div>
 
-    <!-- Add Category Form -->
+    <!-- Categories are a free-text field on Part, not a standalone entity -->
     <div class="form">
-      <h3>Add Category</h3>
-      <div *ngIf="error" class="error">{{ error }}</div>
-      <div class="input-group">
-        <input [(ngModel)]="newCategory" placeholder="Category name" />
-        <button (click)="addCategory()" [disabled]="adding || !newCategory.trim()">Add</button>
-      </div>
+      <h3>Add a Category</h3>
+      <p class="muted">
+        Categories aren't managed separately - they're created automatically
+        the first time you save a part with a new category name.
+      </p>
+      <a class="btn" [routerLink]="['/inventory/part-form']">Create a Part</a>
     </div>
   </section>
 </section>

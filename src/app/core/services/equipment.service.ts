@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 import { tap, catchError, map } from 'rxjs/operators';
-import { Machine, Sensor, CreateMachineRequest } from '../models/sentinel.models';
+import { Machine, Sensor, CreateMachineRequest, MachineTechnicianDTO } from '../models/sentinel.models';
 import { apiEndpoint } from '../http/api-base';
+import { EnvironmentReading } from './machine-websocket.service';
 
 export interface MachinesResponse {
   content: Machine[];
@@ -70,14 +71,19 @@ export class EquipmentService {
 
     let params = new HttpParams()
       .set('page', page.toString())
-      .set('size', size.toString());
+      .set('size', size.toString())
+      // Cache-bust: machine visibility depends on which user is logged in, so a
+      // URL-keyed browser/proxy cache must never serve a response captured under
+      // a different account (e.g. a manager's full list bleeding into a
+      // technician's assigned-only view after switching accounts in one tab).
+      .set('_', Date.now().toString());
 
     if (status) {
       params = params.set('status', status);
     }
 
     this.http
-      .get<MachinesResponse | Machine[]>(this.machinesUrl, { params })
+      .get<MachinesResponse | Machine[]>(this.machinesUrl, { params, headers: this.noCacheHeaders() })
       .pipe(
         tap((response) => {
           const machines = Array.isArray(response) ? response : response.content ?? [];
@@ -88,6 +94,10 @@ export class EquipmentService {
           const errorMessage = error.error?.message || 'Failed to load machines';
           this.errorSubject.next(errorMessage);
           this.isLoadingSubject.next(false);
+          // Never leave a stale/previous machine list visible after a failed reload —
+          // that could show machines from a different session/role that the current
+          // user no longer (or never did) have access to.
+          this.machinesSubject.next([]);
           return of(null);
         })
       )
@@ -101,8 +111,10 @@ export class EquipmentService {
     this.isLoadingSubject.next(true);
     this.errorSubject.next(null);
 
+    const params = new HttpParams().set('_', Date.now().toString());
+
     return this.http
-      .get<Machine>(apiEndpoint(`/api/v1/machines/${id}`))
+      .get<Machine>(apiEndpoint(`/api/v1/machines/${id}`), { params, headers: this.noCacheHeaders() })
       .pipe(
         tap((machine) => {
           this.currentMachineSubject.next(machine);
@@ -230,6 +242,17 @@ export class EquipmentService {
   }
 
   /**
+   * Get the latest real environmental reading (ESP32/DHT11) for a machine,
+   * to populate the detail page before the first WebSocket message arrives.
+   * Returns null if no reading has been ingested yet for this machine.
+   */
+  getLatestEnvironment(machineId: string | number): Observable<EnvironmentReading | null> {
+    return this.http
+      .get<EnvironmentReading>(apiEndpoint(`/machines/${machineId}/environment/latest`))
+      .pipe(catchError(() => of(null)));
+  }
+
+  /**
    * Add a sensor to a machine
    */
   addSensor(machineId: string, sensor: Omit<Sensor, 'id'>): Observable<Sensor> {
@@ -258,6 +281,51 @@ export class EquipmentService {
   }
 
   /**
+   * List technicians assigned to a machine (MANAGER/ADMIN/SUPER_ADMIN only).
+   */
+  getMachineTechnicians(machineId: number | string): Observable<MachineTechnicianDTO[]> {
+    return this.http
+      .get<MachineTechnicianDTO[]>(apiEndpoint(`/machines/${machineId}/technicians`))
+      .pipe(
+        catchError((error) => {
+          const errorMessage = error.error?.message || 'Failed to load assigned technicians';
+          this.errorSubject.next(errorMessage);
+          throw error;
+        })
+      );
+  }
+
+  /**
+   * Assign a technician to a machine (MANAGER/ADMIN/SUPER_ADMIN only).
+   */
+  assignTechnician(machineId: number | string, technicianId: number): Observable<MachineTechnicianDTO> {
+    return this.http
+      .post<MachineTechnicianDTO>(apiEndpoint(`/machines/${machineId}/technicians`), { technicianId })
+      .pipe(
+        catchError((error) => {
+          const errorMessage = error.error?.message || 'Failed to assign technician';
+          this.errorSubject.next(errorMessage);
+          throw error;
+        })
+      );
+  }
+
+  /**
+   * Unassign a technician from a machine (MANAGER/ADMIN/SUPER_ADMIN only).
+   */
+  unassignTechnician(machineId: number | string, technicianId: number): Observable<void> {
+    return this.http
+      .delete<void>(apiEndpoint(`/machines/${machineId}/technicians/${technicianId}`))
+      .pipe(
+        catchError((error) => {
+          const errorMessage = error.error?.message || 'Failed to unassign technician';
+          this.errorSubject.next(errorMessage);
+          throw error;
+        })
+      );
+  }
+
+  /**
    * Returns subcategories for a given category name.
    * Falls back to the static map if the backend does not expose a dedicated endpoint.
    */
@@ -274,6 +342,14 @@ export class EquipmentService {
    */
   getMachineStatus(machineId: string): Observable<any> {
     return of(null);
+  }
+
+  /** Forces every machine request to bypass any browser/proxy HTTP cache. */
+  private noCacheHeaders(): HttpHeaders {
+    return new HttpHeaders({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      Pragma: 'no-cache',
+    });
   }
 
   private buildMachineFormData(request: CreateMachineRequest, photo: File): FormData {

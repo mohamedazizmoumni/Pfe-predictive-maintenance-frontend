@@ -1,0 +1,18 @@
+<div class="export-page">
+  <header class="export-header">
+    <h1>Export Center</h1>
+    <p>Download CSV snapshots of your data. Available exports depend on your role.</p>
+  </header>
+
+  <div class="export-grid">
+    <article class="export-card" *ngFor="let option of options">
+      <h3>{{ option.label }}</h3>
+      <p>{{ option.description }}</p>
+      <button type="button" (click)="option.run()" [disabled]="exportingId === option.id">
+        {{ exportingId === option.id ? 'Exporting…' : '⬇ Download CSV' }}
+      </button>
+    </article>
+  </div>
+
+  <p class="empty" *ngIf="options.length === 0">No exports are available for your role.</p>
+</div>

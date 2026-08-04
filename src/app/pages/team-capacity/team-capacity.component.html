@@ -1,0 +1,81 @@
+<div class="capacity-page">
+  <header class="page-header">
+    <h1>Team Capacity</h1>
+    <p>Technician workload and the next two weeks of scheduled work — check here before assigning a new job.</p>
+  </header>
+
+  <div class="loading" *ngIf="isLoading">Loading capacity data…</div>
+  <div class="alert alert-error" *ngIf="error">{{ error }}</div>
+
+  <section class="capacity-section" *ngIf="!isLoading && !error">
+    <h2>Technician Workload</h2>
+    <div class="capacity-grid">
+      <div class="capacity-card" *ngFor="let tech of technicians">
+        <div class="capacity-card__header">
+          <h3>{{ tech.technicianName }}</h3>
+          <span class="load-chip" [ngClass]="loadClass(tech.openJobCount)">{{ tech.openJobCount }} open</span>
+        </div>
+        <p class="hours">{{ tech.totalEstimatedHours }}h estimated</p>
+      </div>
+      <p class="empty" *ngIf="technicians.length === 0">No technicians found.</p>
+    </div>
+  </section>
+
+  <section class="events-section" *ngIf="!isLoading && !error">
+    <h2>Upcoming Events <span class="hint">(next 14 days)</span></h2>
+    <div class="twrap" *ngIf="upcomingEvents.length; else noEvents">
+      <table>
+        <thead>
+          <tr><th>Title</th><th>Assigned To</th><th>Type</th><th>Start</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let event of upcomingEvents">
+            <td>{{ event.title }}</td>
+            <td>{{ event.assignedTo || '—' }}</td>
+            <td>{{ event.eventType }}</td>
+            <td>{{ event.startTime | date:'medium' }}</td>
+            <td>{{ event.status || '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ng-template #noEvents><p class="empty">No events scheduled in the next two weeks.</p></ng-template>
+  </section>
+
+  <section class="calendar-section" *ngIf="!isLoading && !error">
+    <div class="calendar-header">
+      <h2>Maintenance Calendar</h2>
+      <div class="calendar-nav">
+        <button type="button" (click)="prevMonth()">‹</button>
+        <span class="month-label">{{ monthLabel }}</span>
+        <button type="button" (click)="nextMonth()">›</button>
+      </div>
+    </div>
+
+    <div class="calendar-grid" [class.loading]="isLoadingCalendar">
+      <div class="weekday" *ngFor="let day of weekdayLabels">{{ day }}</div>
+      <button
+        type="button"
+        class="day-cell"
+        *ngFor="let day of calendarDays"
+        [class.out-of-month]="!day.inCurrentMonth"
+        [class.today]="day.isToday"
+        [class.has-events]="day.events.length"
+        (click)="selectDay(day)"
+      >
+        <span class="day-number">{{ day.date.getDate() }}</span>
+        <span class="event-count" *ngIf="day.events.length">{{ day.events.length }}</span>
+      </button>
+    </div>
+
+    <div class="day-detail" *ngIf="selectedDay">
+      <h3>{{ selectedDay.date | date:'fullDate' }}</h3>
+      <ul>
+        <li *ngFor="let event of selectedDay.events">
+          <strong>{{ event.title }}</strong>
+          <span>{{ event.assignedTo || 'Unassigned' }} — {{ event.startTime | date:'shortTime' }}</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+</div>

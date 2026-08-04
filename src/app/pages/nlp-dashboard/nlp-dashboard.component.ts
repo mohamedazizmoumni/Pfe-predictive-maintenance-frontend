@@ -12,7 +12,10 @@ import { RiskBadgeComponent } from '../../shared/nlp/risk-badge.component';
 import { User } from '../../core/models/sentinel.models';
 import {
   AiAssistantMode,
+  AiDiagnosisRequest,
+  AiImageAnalysis,
   AiMaintenanceDiagnosis,
+  MachineContext,
   NlpFeedItem,
   RiskLevel,
   RiskOverviewMetric,
@@ -20,11 +23,18 @@ import {
 import { normalizeRoleName } from '../../core/utils/role.utils';
 
 type AssistantMachine = {
-  id: number;
-  name?: string;
-  serialNumber?: string;
-  model?: string;
-  location?: string;
+  id:               number;
+  name?:            string;
+  serialNumber?:    string;
+  model?:           string;
+  location?:        string;
+  // Fields returned by the equipment API (mapped from Machine interface)
+  status?:          string;   // "Active", "FAULTY", "STOPPED", etc.
+  riskScore?:       number;   // 0–100 (API field name)
+  lastMaintenanceDate?: string; // ISO date string (API field name)
+  operatingHours?:  number;
+  category?:        string;
+  manufacturer?:    string;
 };
 
 @Component({
@@ -43,8 +53,22 @@ export class NlpDashboardComponent implements OnInit, OnDestroy {
   readonly draftText = signal('');
   readonly isSubmitting = signal(false);
   readonly errorMessage = signal('');
-  readonly assistantMessages = signal<Array<{ role: 'user' | 'assistant'; text: string; timestamp: string }>>([]);
+  readonly assistantMessages = signal<Array<{
+    role: 'user' | 'assistant';
+    text: string;
+    timestamp: string;
+    imagePreviewUrl?: string;
+    imageAnalysis?: AiImageAnalysis;
+    /** Set on the placeholder "analyzing..." bubble; matched against
+     *  imageAnalysisComplete$ events to update this exact message in place
+     *  once the background analysis (several minutes on CPU) finishes. */
+    pendingImageAnalysisId?: number;
+  }>>([]);
   readonly lastDiagnosis = signal<AiMaintenanceDiagnosis | null>(null);
+
+  readonly selectedPhoto = signal<File | null>(null);
+  readonly photoPreviewUrl = signal<string | null>(null);
+  readonly isAnalyzingPhoto = signal(false);
 
   readonly quickPrompts = [
     'Machine IMM-X700 is overheating and vibrating abnormally',
@@ -156,11 +180,20 @@ export class NlpDashboardComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.currentUser.set(this.authService.getCurrentUser());
     this.nlp.connect();
-    this.equipmentService.loadMachines(0, 1000);
+    // Always clear any previously loaded list first — a stale value from a prior
+    // session/role must never linger and be mistaken for this user's assigned machines.
+    this.machines.set([]);
+    this.equipmentService.loadMachines(0, 200);
     this.subs.push(this.nlp.feed$.subscribe((feed) => this.feed.set(feed)));
+    this.subs.push(this.nlp.imageAnalysisComplete$.subscribe((payload) => this.handleImageAnalysisComplete(payload)));
     this.subs.push(this.nlp.connected$.subscribe((connected) => this.connected.set(connected)));
     this.subs.push(this.authService.currentUser$.subscribe((user) => this.currentUser.set(user)));
     this.subs.push(this.equipmentService.machines$.subscribe((machines) => this.machines.set((machines ?? []) as AssistantMachine[])));
+    this.subs.push(this.equipmentService.error$.subscribe((error) => {
+      if (error) {
+        this.errorMessage.set(error);
+      }
+    }));
 
     const machine = this.machineContextService.getMachine();
     if (machine) {
@@ -193,7 +226,21 @@ export class NlpDashboardComponent implements OnInit, OnDestroy {
       this.draftText.set('');
     }
 
-    const payload = { machineId, text };
+    // ── Build machine context from the selected machine ──────────────────────
+    const raw = this.selectedMachineContext;
+    const machineContext: MachineContext | undefined = raw
+      ? {
+          machineId:       String(raw.id),
+          machineName:     raw.name ?? raw.serialNumber ?? `Machine ${raw.id}`,
+          zone:            raw.location          ?? undefined,
+          status:          raw.status            ?? 'Active',
+          healthScore:     raw.riskScore         ?? undefined,        // API returns riskScore
+          lastMaintenance: raw.lastMaintenanceDate ?? undefined,      // API field name
+          role:            this.currentUser()?.roles?.[0]?.name?.toUpperCase() ?? 'TECHNICIAN',
+        }
+      : undefined;
+
+    const payload: AiDiagnosisRequest = { machineId, text, machineContext };
 
     this.nlp.analyzeReport(payload).subscribe({
       next: (diagnosis) => {
@@ -209,6 +256,117 @@ export class NlpDashboardComponent implements OnInit, OnDestroy {
   usePrompt(prompt: string): void {
     this.draftText.set(prompt);
     this.submitReport(prompt);
+  }
+
+  onPhotoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = ''; // allow re-selecting the same file later
+
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      this.errorMessage.set('Please select a valid image file.');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      this.errorMessage.set('Image must be smaller than 8MB.');
+      return;
+    }
+
+    this.errorMessage.set('');
+    this.selectedPhoto.set(file);
+    const reader = new FileReader();
+    reader.onload = (e) => this.photoPreviewUrl.set(e.target?.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  clearSelectedPhoto(): void {
+    this.selectedPhoto.set(null);
+    this.photoPreviewUrl.set(null);
+  }
+
+  submitPhoto(): void {
+    const file = this.selectedPhoto();
+    if (!file || this.isAnalyzingPhoto()) {
+      return;
+    }
+
+    const machineId = this.ensureMachineContextSelected();
+    if (!machineId) {
+      this.errorMessage.set('Please select a machine first.');
+      return;
+    }
+
+    const previewUrl = this.photoPreviewUrl() ?? undefined;
+    const timestamp = new Date().toISOString();
+    this.errorMessage.set('');
+    this.assistantMessages.update((messages) => [
+      ...messages,
+      { role: 'user', text: '📷 Photo attached', timestamp, imagePreviewUrl: previewUrl },
+    ]);
+
+    // Only covers the upload+queue request itself (a second or two) — the
+    // actual analysis runs in the background on the server (several minutes
+    // on CPU-only hardware), so the chat and machine picker stay usable
+    // rather than locking up for the whole wait.
+    this.isAnalyzingPhoto.set(true);
+    this.clearSelectedPhoto();
+
+    this.nlp.analyzeImage({ machineId, image: file }).subscribe({
+      next: (analysis) => {
+        this.assistantMessages.update((messages) => [
+          ...messages,
+          {
+            role: 'assistant',
+            text: analysis.message,
+            timestamp: analysis.analyzedAt ?? new Date().toISOString(),
+            pendingImageAnalysisId: analysis.status === 'PENDING' ? analysis.id : undefined,
+            imageAnalysis: analysis.status === 'COMPLETE' ? analysis : undefined,
+          },
+        ]);
+        this.isAnalyzingPhoto.set(false);
+      },
+      error: (err) => {
+        this.errorMessage.set(err?.message || 'Photo analysis failed');
+        this.isAnalyzingPhoto.set(false);
+      },
+    });
+  }
+
+  /** Applies a completed/failed background image analysis to its placeholder chat bubble. */
+  private handleImageAnalysisComplete(payload: Record<string, any>): void {
+    const analysisId = payload['analysisId'] as number | undefined;
+    if (analysisId == null) return;
+
+    const status = (payload['status'] as string | undefined)?.toUpperCase();
+    const description = (payload['description'] as string | undefined) ?? '';
+    const analysis: AiImageAnalysis = {
+      id: analysisId,
+      status: status === 'FAILED' ? 'FAILED' : 'COMPLETE',
+      description,
+      riskLevel: (payload['riskLevel'] as RiskLevel | undefined) ?? 'LOW',
+      keywords: Array.isArray(payload['keywords']) ? payload['keywords'] : [],
+      message: description,
+      attachmentId: payload['attachmentId'] as number | undefined,
+      analyzedAt: (payload['createdAt'] as string | undefined) ?? new Date().toISOString(),
+    };
+
+    this.assistantMessages.update((messages) =>
+      messages.map((m) =>
+        m.pendingImageAnalysisId === analysisId
+          ? {
+              ...m,
+              pendingImageAnalysisId: undefined,
+              imageAnalysis: analysis.status === 'COMPLETE' ? analysis : undefined,
+              text: analysis.status === 'FAILED'
+                ? "I couldn't finish analyzing that photo, but it's saved to the record — you can try again."
+                : analysis.description,
+              timestamp: analysis.analyzedAt ?? m.timestamp,
+            }
+          : m,
+      ),
+    );
   }
 
   requestAction(action: string): void {
@@ -248,6 +406,10 @@ export class NlpDashboardComponent implements OnInit, OnDestroy {
     return i;
   }
 
+  trackByMachineId(_: number, machine: AssistantMachine): number {
+    return machine.id;
+  }
+
   formatIssueType(issueType: string): string {
     return issueType.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
   }
@@ -266,9 +428,14 @@ export class NlpDashboardComponent implements OnInit, OnDestroy {
   }
 
   private composeAssistantSummary(diagnosis: AiMaintenanceDiagnosis): string {
-    const issue = this.formatIssueType(diagnosis.issueType);
-    const severity = diagnosis.severity.toLowerCase();
+    // Use the rich contextual message Python generated.
+    // Fall back to a generic summary only if message is empty.
+    if (diagnosis.message?.trim()) {
+      return diagnosis.message;
+    }
 
+    const issue    = this.formatIssueType(diagnosis.issueType);
+    const severity = diagnosis.severity.toLowerCase();
     return `${issue} detected with ${severity} severity and ${Math.round(diagnosis.confidence * 100)}% confidence.`;
   }
 

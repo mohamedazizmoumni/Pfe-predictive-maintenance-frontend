@@ -1,11 +1,13 @@
-import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
+import { filter, takeUntil } from 'rxjs/operators';
 import {
   AlertResponse,
   AlertStatsResponse,
   AlertSeverity,
   AlertStatus,
+  AlertStreamEvent,
   AcknowledgeAlertPayload,
   CloseAlertPayload,
   CreateAlertPayload,
@@ -16,6 +18,8 @@ import {
 import { AlertApiService } from '../../core/services/alert.service';
 import { EquipmentService } from '../../core/services/equipment.service';
 import { AuthService } from '../../core/services/auth.service';
+import { MachineWebSocketService } from '../../core/services/machine-websocket.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
 import { normalizeRoleName } from '../../core/utils/role.utils';
 import { AlertListComponent } from './components/alert-list/alert-list.component';
 import { AlertDetailComponent } from './components/alert-detail/alert-detail.component';
@@ -37,7 +41,7 @@ import { AlertListFilters, AlertActionMode } from './alert.types';
   styleUrl: './alerts.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AlertsComponent implements OnInit {
+export class AlertsComponent implements OnInit, OnDestroy {
   private readonly alertsSubject = new BehaviorSubject<AlertResponse[] | null>(null);
   private readonly pageSubject = new BehaviorSubject<Page<AlertResponse> | null>(null);
   private readonly statsSubject = new BehaviorSubject<AlertStatsResponse | null>(null);
@@ -66,21 +70,77 @@ export class AlertsComponent implements OnInit {
   private currentUser: User | null = null;
   canCreateAlerts = true;
 
+  private readonly destroy$ = new Subject<void>();
+
   constructor(
     private readonly alertApi: AlertApiService,
     private readonly equipmentService: EquipmentService,
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
+    private readonly wsService: MachineWebSocketService,
+    private readonly confirmDialog: ConfirmDialogService
   ) {}
 
+  private statsInitialized = false;
+
   ngOnInit(): void {
-    this.fetchAlerts();
-    this.fetchStats();
     this.equipmentService.loadMachines(0, 100);
 
+    // Wait for the real current user before the first fetch — otherwise
+    // fetchAlerts()/fetchStats() would run against a null user and skip the
+    // technician-scoping entirely on first load.
     this.authService.currentUser$.subscribe((user) => {
       this.currentUser = user;
       this.canCreateAlerts = !this.isTechnician(user);
+
+      if (!this.statsInitialized) {
+        this.statsInitialized = true;
+        this.fetchAlerts();
+        this.fetchStats();
+      }
     });
+
+    // Live incident feed — the backend now resolves/updates/creates alerts
+    // in real time (machine degrade/recover cycles) and pushes each change
+    // over /topic/alerts instead of only on a manual refresh.
+    this.wsService.connect();
+    this.wsService.alertEvents$
+      .pipe(
+        filter((event): event is AlertStreamEvent => event !== null),
+        takeUntil(this.destroy$)
+      )
+      .subscribe((event) => this.handleAlertEvent(event));
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+    this.wsService.disconnect();
+  }
+
+  private handleAlertEvent(event: AlertStreamEvent): void {
+    // Refetch through the existing REST path so the current filters/
+    // pagination/stats stay authoritative — the socket event is just the
+    // live trigger, not a partial substitute for the full AlertResponse.
+    this.fetchAlerts(this.currentPage);
+    this.fetchStats();
+
+    if (this.selectedAlertSubject.value?.id !== event.alertId) {
+      return;
+    }
+
+    if (event.eventType === 'RESOLVED') {
+      // The REST DTO doesn't expose resolvedDate — stamp it locally from
+      // the live event so the open detail panel reflects it immediately.
+      const resolved: AlertResponse = {
+        ...(this.selectedAlertSubject.value as AlertResponse),
+        status: AlertStatus.RESOLVED,
+        resolvedDate: event.timestamp,
+      };
+      this.selectedAlertSubject.next(resolved);
+      this.patchAlertInList(resolved);
+    } else {
+      this.loadAlertDetail(event.alertId);
+    }
   }
 
   handleFiltersChange(filters: AlertListFilters): void {
@@ -177,7 +237,22 @@ export class AlertsComponent implements OnInit {
     });
   }
 
-  deleteAlert(alertId: number): void {
+  async deleteAlert(alertId: number): Promise<void> {
+    const alert =
+      this.selectedAlertSubject.value?.id === alertId
+        ? this.selectedAlertSubject.value
+        : this.alertsSubject.value?.find((a) => a.id === alertId) ?? null;
+
+    const confirmed = await this.confirmDialog.confirmDanger(
+      'Delete alert',
+      alert
+        ? `Delete "${alert.title}"? This cannot be undone.`
+        : 'Delete this alert? This cannot be undone.'
+    );
+    if (!confirmed) {
+      return;
+    }
+
     this.isActionSubmitting = true;
     this.alertApi.delete(alertId).subscribe({
       next: () => {
@@ -239,10 +314,50 @@ export class AlertsComponent implements OnInit {
   }
 
   private fetchStats(): void {
+    if (this.isTechnician(this.currentUser)) {
+      // The global /alerts/stats endpoint is system-wide (all technicians, all
+      // machines) — showing it here would contradict a technician's own, much
+      // smaller feed. Compute their real numbers from their own assigned alerts.
+      this.fetchTechnicianStats();
+      return;
+    }
+
     this.alertApi.stats().subscribe({
       next: (stats) => this.statsSubject.next(stats),
       error: () => {},
     });
+  }
+
+  private fetchTechnicianStats(): void {
+    const technicianAssignedTo = this.currentUser?.username || this.currentUser?.email;
+
+    if (!technicianAssignedTo) {
+      this.statsSubject.next(this.computeStatsFromAlerts([]));
+      return;
+    }
+
+    this.alertApi.list({ assignedTo: technicianAssignedTo, page: 0, size: 500 }).subscribe({
+      next: (response) => {
+        const ownAlerts = this.filterAssignedAlerts(response.content, this.currentUser);
+        this.statsSubject.next(this.computeStatsFromAlerts(ownAlerts));
+      },
+      error: () => this.statsSubject.next(this.computeStatsFromAlerts([])),
+    });
+  }
+
+  private computeStatsFromAlerts(alerts: AlertResponse[]): AlertStatsResponse {
+    return {
+      totalAlerts: alerts.length,
+      newAlerts: alerts.filter((a) => a.status === AlertStatus.NEW).length,
+      acknowledgedAlerts: alerts.filter((a) => a.status === AlertStatus.ACKNOWLEDGED).length,
+      escalatedAlerts: alerts.filter((a) => a.status === AlertStatus.ESCALATED).length,
+      closedAlerts: alerts.filter((a) => a.status === AlertStatus.CLOSED).length,
+      resolvedAlerts: alerts.filter((a) => a.status === AlertStatus.RESOLVED).length,
+      criticalCount: alerts.filter((a) => a.severity === AlertSeverity.CRITICAL).length,
+      warningCount: alerts.filter((a) => a.severity === AlertSeverity.WARNING).length,
+      infoCount: alerts.filter((a) => a.severity === AlertSeverity.INFO).length,
+      unviewedCount: alerts.filter((a) => !a.viewed).length,
+    };
   }
 
   private patchAlertInList(alert: AlertResponse): void {

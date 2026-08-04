@@ -58,10 +58,32 @@
           </select>
         </div>
 
+        <div class="filter-group">
+          <label>Status</label>
+
+          <select (change)="onFilterStatusChange($event)">
+            <option value="ALL">All</option>
+            <option value="SCHEDULED">Scheduled</option>
+            <option value="IN_PROGRESS">In progress</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="NEW">New</option>
+            <option value="ACKNOWLEDGED">Acknowledged</option>
+          </select>
+        </div>
+
       </div>
 
     </div>
 
+  </div>
+
+  <div class="error-banner" *ngIf="error()" role="alert">
+    <span>{{ error() }}</span>
+    <button type="button" class="btn btn-sm btn-ghost" (click)="loadData()">Retry</button>
+  </div>
+
+  <div class="info-banner" *ngIf="loading() && !error()">
+    Loading your schedule…
   </div>
 
   <!-- MAIN -->
@@ -208,13 +230,21 @@
   </div>
 
   <!-- MODAL -->
-  <div class="modal-overlay" *ngIf="showEventModal()">
+  <div class="modal-overlay" *ngIf="showEventModal()" (click)="closeModal()">
 
-    <div class="modal-box">
+    <div
+      class="modal-box"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="calendar-event-title"
+      cdkTrapFocus
+      cdkTrapFocusAutoCapture
+      (click)="$event.stopPropagation()"
+    >
 
       <div class="modal-header">
 
-        <h3>
+        <h3 id="calendar-event-title">
           {{ selectedEvent()?.title }}
         </h3>
 
@@ -222,6 +252,8 @@
           class="close-btn"
           type="button"
           (click)="closeModal()"
+          aria-label="Close"
+          cdkFocusInitial
         >
           ✕
         </button>

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Observable, catchError, forkJoin, map, of, switchMap, throwError } from 'rxjs';
+import { jsPDF } from 'jspdf';
 import { apiEndpoint } from '../http/api-base';
 import { normalizeApiError } from '../http/api-error';
 import {
@@ -194,28 +195,25 @@ export class PredictiveApiService {
   }
 
   runPredictiveNow(): Observable<PredictiveRunNowResponse> {
-    // Instead of simulating, trigger actual backend prediction refresh
     return this.http
       .post<PredictiveRunNowResponse>(apiEndpoint('/ml/run-predictions'), {})
-      .pipe(
-        catchError(() => {
-          // Fallback: If backend endpoint doesn't exist, just refresh the data
-          return of({
-            success: true,
-            message: 'Refreshed machine data from database',
-            timestamp: new Date().toISOString(),
-            machinesProcessed: 0,
-          } as PredictiveRunNowResponse);
-        })
-      );
+      .pipe(catchError((error) => this.throwNormalized(error, 'Failed to trigger prediction run.')));
   }
 
   downloadFailureReportsPdf(machineId?: number): Observable<Blob> {
     if (machineId === undefined || machineId === null) {
-      return this.throwNormalized(
-        { status: 400, error: { message: 'machineId is required to export reports with the current backend contract.' } },
-        'Failed to export failure reports.'
-      );
+      return this.throwNormalized(this.missingMachineIdError(), 'Failed to export failure reports.');
+    }
+
+    return this.getFailureReports({ machineId, page: 0, size: 100 }).pipe(
+      map((response) => this.buildFailureReportsPdfBlob(response.content)),
+      catchError((error) => this.throwNormalized(error, 'Failed to export failure reports.'))
+    );
+  }
+
+  downloadFailureReportsCsv(machineId?: number): Observable<Blob> {
+    if (machineId === undefined || machineId === null) {
+      return this.throwNormalized(this.missingMachineIdError(), 'Failed to export failure reports.');
     }
 
     return this.getFailureReports({ machineId, page: 0, size: 100 }).pipe(
@@ -244,8 +242,62 @@ export class PredictiveApiService {
     );
   }
 
+  private buildFailureReportsPdfBlob(reports: MachineFailureReport[]): Blob {
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const x = 20;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let y = 40;
+
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Sentinel Predictive Maintenance', x, y);
+    y += 24;
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Failure Reports', x, y);
+    y += 12;
+    doc.line(x, y, 595 - x, y);
+    y += 22;
+
+    if (reports.length === 0) {
+      doc.setFontSize(11);
+      doc.text('No failure reports available for this machine.', x, y);
+      return doc.output('blob');
+    }
+
+    doc.setFontSize(10);
+    for (const report of reports) {
+      if (y > pageHeight - 80) {
+        doc.addPage();
+        y = 40;
+      }
+
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Report #${report.id} — ${report.machineName ?? 'Machine ' + report.machineId}`, x, y);
+      y += 14;
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Risk: ${report.risk}    Predicted failure in: ${report.predictedFailureDays} day(s)`, x, y);
+      y += 14;
+      doc.text(`Recommended action: ${report.recommendedAction ?? 'N/A'}`, x, y);
+      y += 14;
+      doc.text(`Estimated cost: ${report.estimatedCost ?? 'N/A'}    Created: ${report.createdAt ?? 'N/A'}`, x, y);
+      y += 22;
+    }
+
+    return doc.output('blob');
+  }
+
   private throwNormalized(error: unknown, fallback: string): Observable<never> {
     return throwError(() => normalizeApiError(error, fallback));
+  }
+
+  // normalizeApiError only reads .status off a real HttpErrorResponse instance -
+  // a plain {status, error} object literal silently normalizes to statusCode 0.
+  private missingMachineIdError(): HttpErrorResponse {
+    return new HttpErrorResponse({
+      status: 400,
+      error: { message: 'machineId is required to export reports with the current backend contract.' },
+    });
   }
 
   private toPageResponse<T>(response: PaginatedResponse<T> | T[] | unknown): PaginatedResponse<T> {

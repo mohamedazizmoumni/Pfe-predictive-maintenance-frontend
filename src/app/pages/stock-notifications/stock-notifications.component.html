@@ -3,7 +3,7 @@
   <!-- HEADER -->
   <header class="page-header">
     <div class="header-left">
-      <div class="kicker">Warehouse Intelligence</div>
+      <p class="kicker">Warehouse Intelligence</p>
       <h1 class="page-title">Stock Alert Center</h1>
       <p class="page-subtitle">
         Real-time inventory monitoring and critical stock event tracking
@@ -12,10 +12,15 @@
 
     <div class="header-actions">
       <button class="btn ghost" (click)="onRefresh()" [disabled]="isLoading">
-        ⟳ Refresh
+        <lucide-icon name="RotateCw" [size]="15" [class.spin]="isLoading"></lucide-icon> Refresh
       </button>
-      <button class="btn primary" (click)="onMarkAllAsRead()" [disabled]="isLoading">
-        ✓ Mark all as read
+      <button
+        class="btn primary"
+        *ngIf="canMarkAllAsRead$ | async"
+        (click)="onMarkAllAsRead()"
+        [disabled]="isLoading || (unreadCount$ | async) === 0"
+      >
+        <lucide-icon name="CheckCheck" [size]="15"></lucide-icon> Mark all as read
       </button>
     </div>
   </header>
@@ -29,77 +34,82 @@
       (click)="setFilter(filter)"
     >
       {{ filter | titlecase }}
-      <span class="badge" *ngIf="filter === 'unread'">
+      <span class="pill-count" *ngIf="filter === 'unread'">
         {{ (unreadCount$ | async) || 0 }}
       </span>
     </button>
   </div>
 
-  <!-- LOADING -->
-  <div class="loading-state" *ngIf="isLoading">
-    <div class="loader"></div>
-    <p>Syncing warehouse events...</p>
-  </div>
-
   <!-- CONTENT -->
-  <section class="grid-container" *ngIf="!isLoading">
+  <section class="grid-container">
 
     <!-- MAIN LIST -->
     <div class="notifications-panel">
-      <ng-container *ngIf="(filteredNotifications$ | async) as notifications">
 
-        <div class="empty-state" *ngIf="notifications.length === 0">
-          <div class="empty-icon">📦</div>
-          <h3>No active alerts</h3>
-          <p>{{ getEmptyStateMessage() }}</p>
+      <!-- LOADING SKELETON -->
+      <ng-container *ngIf="isLoading">
+        <div class="skeleton-card" *ngFor="let i of [1, 2, 3]">
+          <div class="skeleton-badge shimmer"></div>
+          <div class="skeleton-lines">
+            <div class="skeleton-line shimmer" style="width: 45%"></div>
+            <div class="skeleton-line shimmer" style="width: 80%"></div>
+            <div class="skeleton-line shimmer" style="width: 30%"></div>
+          </div>
         </div>
+      </ng-container>
 
-        <div
-          class="notification-card"
-          *ngFor="let notification of notifications"
-          [class.unread]="!notification.isRead"
-          (click)="onNotificationClick(notification)"
-        >
-          <!-- STATUS STRIP -->
-          <div class="status-strip" [ngClass]="notification.priority.toLowerCase()"></div>
+      <ng-container *ngIf="!isLoading">
+        <ng-container *ngIf="(filteredNotifications$ | async) as notifications">
 
-          <!-- ICON -->
-          <div class="icon">
-            {{ getTypeIcon(notification.type) }}
+          <div class="empty-state" *ngIf="notifications.length === 0">
+            <div class="empty-icon"><lucide-icon name="PackageCheck" [size]="26"></lucide-icon></div>
+            <h3>No active alerts</h3>
+            <p>{{ getEmptyStateMessage() }}</p>
           </div>
 
-          <!-- CONTENT -->
-          <div class="content">
-            <div class="top">
-              <h3 class="title">{{ notification.title }}</h3>
-              <div class="tags">
-                <span class="priority" [ngClass]="notification.priority.toLowerCase()">
-                  {{ notification.priority }}
+          <div
+            class="notification-card"
+            *ngFor="let notification of notifications"
+            [class.unread]="!notification.isRead"
+            (click)="onNotificationClick(notification)"
+          >
+            <!-- ICON BADGE -->
+            <div class="icon-badge" [ngClass]="notification.riskLevel.toLowerCase()">
+              <lucide-icon [name]="getRiskIcon(notification.riskLevel)" [size]="17"></lucide-icon>
+            </div>
+
+            <!-- CONTENT -->
+            <div class="content">
+              <div class="top">
+                <h3 class="title">
+                  {{ notification.title }}
+                  <span class="unread-dot" *ngIf="!notification.isRead"></span>
+                </h3>
+                <span class="risk-badge" [ngClass]="notification.riskLevel.toLowerCase()">
+                  {{ notification.riskLevel }}
                 </span>
+              </div>
+
+              <p class="message">{{ notification.body }}</p>
+
+              <div class="meta">
+                <span class="meta-time"><lucide-icon name="Clock" [size]="12"></lucide-icon> {{ getRelativeTime(notification.createdAt) }}</span>
               </div>
             </div>
 
-            <p class="message">{{ notification.message }}</p>
-
-            <div class="meta">
-              <span>⏱ {{ getRelativeTime(notification.timestamp) }}</span>
-              <span *ngIf="notification.partName">• {{ notification.partName }}</span>
-              <span *ngIf="notification.quantity !== undefined">
-                • Qty: {{ notification.quantity }}
-              </span>
-            </div>
+            <!-- ACTION -->
+            <button
+              class="mark-btn"
+              *ngIf="!notification.isRead"
+              title="Mark as read"
+              aria-label="Mark as read"
+              (click)="onMarkAsRead(notification, $event)"
+            >
+              <lucide-icon name="Check" [size]="15"></lucide-icon>
+            </button>
           </div>
 
-          <!-- ACTION -->
-          <button
-            class="mark-btn"
-            *ngIf="!notification.isRead"
-            (click)="onMarkAsRead(notification, $event)"
-          >
-            ✓
-          </button>
-        </div>
-
+        </ng-container>
       </ng-container>
     </div>
 
@@ -110,26 +120,38 @@
         <h3>System Overview</h3>
 
         <div class="stat">
-          <span>Total Alerts</span>
+          <span class="stat-icon"><lucide-icon name="ClipboardList" [size]="15"></lucide-icon></span>
+          <span class="stat-label">Total Alerts</span>
           <strong>{{ (filteredNotifications$ | async)?.length ?? 0 }}</strong>
         </div>
 
-        <div class="stat danger">
-          <span>Critical</span>
-          <strong>{{ criticalCount }}</strong>
+        <div class="stat">
+          <span class="stat-icon"><lucide-icon name="Bell" [size]="15"></lucide-icon></span>
+          <span class="stat-label">Unread</span>
+          <strong class="stat-accent">{{ (unreadCount$ | async) || 0 }}</strong>
         </div>
 
-        <div class="stat warning">
-          <span>Medium Risk</span>
-          <strong>{{ mediumCount }}</strong>
+        <div class="stat">
+          <span class="stat-icon"><lucide-icon name="Siren" [size]="15"></lucide-icon></span>
+          <span class="stat-label">Critical / High</span>
+          <strong class="stat-danger">{{ criticalCount }}</strong>
+        </div>
+
+        <div class="stat">
+          <span class="stat-icon"><lucide-icon name="TriangleAlert" [size]="15"></lucide-icon></span>
+          <span class="stat-label">Medium Risk</span>
+          <strong class="stat-warning">{{ mediumCount }}</strong>
         </div>
       </div>
 
       <div class="panel-card">
         <h3>Quick Actions</h3>
-        <button class="action-btn">Export Report</button>
-        <button class="action-btn">Inventory Sync</button>
-        <button class="action-btn">Alert Rules</button>
+        <button class="action-btn" (click)="exportReport()">
+          <lucide-icon name="Download" [size]="15"></lucide-icon> Export Report
+        </button>
+        <a class="action-btn" routerLink="/notifications">
+          <lucide-icon name="ArrowUpRight" [size]="15"></lucide-icon> View All Notifications
+        </a>
       </div>
 
     </aside>

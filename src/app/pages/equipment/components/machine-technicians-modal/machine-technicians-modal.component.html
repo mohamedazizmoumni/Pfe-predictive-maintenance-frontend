@@ -1,0 +1,58 @@
+<div class="modal-backdrop" *ngIf="visible" (click)="onClose()">
+  <div class="modal-content" (click)="$event.stopImmediatePropagation()">
+    <div class="modal-header">
+      <h2>Technicians — {{ machine?.serialNumber }}</h2>
+      <button type="button" class="close-btn" (click)="onClose()" aria-label="Close">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="loading-state loading-state--inline" *ngIf="isLoading">
+        <div class="spinner"></div>
+        <p>Loading assignments...</p>
+      </div>
+
+      <ng-container *ngIf="!isLoading">
+        <div class="alert alert-error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+        <section class="assigned-list">
+          <h3>Assigned technicians</h3>
+          <p class="empty-hint" *ngIf="assigned.length === 0">No technician is assigned to this machine yet.</p>
+          <ul>
+            <li *ngFor="let entry of assigned; trackBy: trackByAssignment">
+              <div class="tech-info">
+                <strong>{{ entry.technicianDisplayName }}</strong>
+                <span class="tech-username">{{ entry.technicianUsername }}</span>
+                <span class="tech-meta">Assigned by {{ entry.assignedByUsername }} · {{ entry.assignedAt | date:'medium' }}</span>
+              </div>
+              <button type="button" class="btn btn-danger btn-sm" [disabled]="isSubmitting" (click)="unassign(entry)">
+                Remove
+              </button>
+            </li>
+          </ul>
+        </section>
+
+        <section class="assign-form">
+          <h3>Assign a technician</h3>
+          <div class="assign-row">
+            <select [(ngModel)]="selectedTechnicianId" [disabled]="isSubmitting || availableTechnicians.length === 0">
+              <option value="">— Select technician —</option>
+              <option *ngFor="let tech of availableTechnicians; trackBy: trackByUser" [value]="tech.id">
+                {{ getUserLabel(tech) }}
+              </option>
+            </select>
+            <button type="button" class="btn btn-primary" [disabled]="!selectedTechnicianId || isSubmitting" (click)="assign()">
+              Assign
+            </button>
+          </div>
+          <p class="empty-hint" *ngIf="availableTechnicians.length === 0">
+            All technicians are already assigned, or none are available.
+          </p>
+        </section>
+      </ng-container>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" (click)="onClose()">Close</button>
+    </div>
+  </div>
+</div>

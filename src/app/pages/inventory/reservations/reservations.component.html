@@ -1,0 +1,56 @@
+<div class="reservations-page">
+  <header class="page-header">
+    <h1>Part Reservations</h1>
+    <p>Hold stock against a specific job before it's consumed — reserved quantity doesn't reduce stock until it's actually used.</p>
+  </header>
+
+  <div class="lookup-row">
+    <label>Part ID</label>
+    <input type="number" [(ngModel)]="lookupPartId" name="lookupPartId" />
+    <button type="button" class="btn-secondary" (click)="lookup()" [disabled]="lookupPartId == null">Look up</button>
+  </div>
+
+  <div class="loading" *ngIf="isLoading">Loading reservations…</div>
+
+  <div class="twrap" *ngIf="reservations.length">
+    <table>
+      <thead><tr><th>Part</th><th>Quantity</th><th>For Maintenance</th><th>Reserved By</th><th>Reserved At</th><th></th></tr></thead>
+      <tbody>
+        <tr *ngFor="let r of reservations">
+          <td>{{ r.partName || ('#' + r.partId) }}</td>
+          <td>{{ r.quantityReserved }}</td>
+          <td>{{ r.maintenanceId ? ('#' + r.maintenanceId) : '—' }}</td>
+          <td>{{ r.reservedBy }}</td>
+          <td>{{ r.reservedAt | date:'short' }}</td>
+          <td class="actions">
+            <button type="button" class="btn-link" (click)="consume(r)">Consume</button>
+            <button type="button" class="btn-link danger" (click)="release(r)">Release</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="empty" *ngIf="!isLoading && lookupPartId != null && reservations.length === 0">No active reservations for this part.</p>
+
+  <div class="form-card">
+    <h3>Reserve stock</h3>
+    <div class="alert-error" *ngIf="error">{{ error }}</div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>Part ID</label>
+        <input type="number" [(ngModel)]="form.partId" name="partId" />
+      </div>
+      <div class="form-row">
+        <label>Quantity</label>
+        <input type="number" min="1" [(ngModel)]="form.quantity" name="quantity" />
+      </div>
+      <div class="form-row">
+        <label>Maintenance ID (optional)</label>
+        <input type="number" [(ngModel)]="form.maintenanceId" name="maintenanceId" />
+      </div>
+    </div>
+    <button type="button" class="btn-primary" [disabled]="isSaving" (click)="reserve()">
+      {{ isSaving ? 'Reserving…' : 'Reserve' }}
+    </button>
+  </div>
+</div>

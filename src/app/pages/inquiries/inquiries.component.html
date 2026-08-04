@@ -1,0 +1,85 @@
+<section class="inquiries-shell">
+  <header class="inquiries-header">
+    <div>
+      <p class="eyebrow">Sentinel</p>
+      <h1>Inquiries</h1>
+      <p class="subtitle">Contact and demo requests submitted from the public site.</p>
+    </div>
+    <div class="filter-tabs">
+      <button
+        *ngFor="let f of filterOptions"
+        type="button"
+        class="filter-tab"
+        [class.active]="statusFilter() === f"
+        (click)="onFilterChange(f)"
+      >
+        {{ f === 'all' ? 'All' : (f | titlecase) }}
+      </button>
+    </div>
+  </header>
+
+  <div class="card">
+    <div *ngIf="loading()" class="empty-state">Loading inquiries…</div>
+
+    <div *ngIf="!loading() && inquiries().length === 0" class="empty-state">
+      No inquiries {{ statusFilter() === 'all' ? '' : 'with status ' + (statusFilter() | titlecase) }} yet.
+    </div>
+
+    <table class="inquiries-table" *ngIf="!loading() && inquiries().length > 0">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>From</th>
+          <th>Subject</th>
+          <th>Received</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <ng-container *ngFor="let inquiry of inquiries()">
+          <tr class="inquiry-row" (click)="toggleExpand(inquiry.id)">
+            <td><span class="pill" [class.pill--demo]="inquiry.inquiryType === 'DEMO_REQUEST'">{{ typeLabel(inquiry.inquiryType) }}</span></td>
+            <td>
+              <div class="from-cell">
+                <strong>{{ inquiry.fullName }}</strong>
+                <span>{{ inquiry.email }}</span>
+              </div>
+            </td>
+            <td>{{ inquiry.subject || '—' }}</td>
+            <td>{{ inquiry.createdDate | date:'MMM d, y, HH:mm' }}</td>
+            <td>
+              <span class="status-pill" [class]="'status-pill--' + inquiry.status.toLowerCase()">{{ inquiry.status | titlecase }}</span>
+            </td>
+            <td class="chevron-cell">
+              <lucide-icon [name]="expandedId() === inquiry.id ? 'ChevronUp' : 'ChevronDown'" [size]="16"></lucide-icon>
+            </td>
+          </tr>
+          <tr class="inquiry-detail" *ngIf="expandedId() === inquiry.id">
+            <td colspan="6">
+              <div class="detail-grid">
+                <div *ngIf="inquiry.company"><span class="detail-label">Company</span><span>{{ inquiry.company }}</span></div>
+                <div *ngIf="inquiry.phone"><span class="detail-label">Phone</span><span>{{ inquiry.phone }}</span></div>
+              </div>
+              <p class="detail-message">{{ inquiry.message }}</p>
+              <div class="detail-actions" (click)="$event.stopPropagation()">
+                <a class="btn-link" [href]="'mailto:' + inquiry.email">Reply by Email</a>
+                <button type="button" class="btn-secondary" *ngIf="inquiry.status !== 'REVIEWED'" (click)="markStatus(inquiry, 'REVIEWED')">Mark Reviewed</button>
+                <button type="button" class="btn-secondary" *ngIf="inquiry.status !== 'CLOSED'" (click)="markStatus(inquiry, 'CLOSED')">Close</button>
+              </div>
+            </td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+
+    <div class="pagination" *ngIf="!loading() && totalElements() > 0">
+      <span>{{ totalElements() }} total</span>
+      <div class="pagination-controls">
+        <button type="button" [disabled]="!hasPrevPage()" (click)="prevPage()">Previous</button>
+        <span>Page {{ page() + 1 }} of {{ totalPages() || 1 }}</span>
+        <button type="button" [disabled]="!hasNextPage()" (click)="nextPage()">Next</button>
+      </div>
+    </div>
+  </div>
+</section>

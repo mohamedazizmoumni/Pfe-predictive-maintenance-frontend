@@ -1,0 +1,94 @@
+<div class="portal-page">
+  <a routerLink="/portal" class="back-link">← My Machines</a>
+
+  <div class="loading" *ngIf="isLoading">Loading machine details…</div>
+  <div class="alert alert-error" *ngIf="error">{{ error }}</div>
+
+  <ng-container *ngIf="!isLoading && machine as m">
+    <header class="detail-header">
+      <div>
+        <h1>{{ m.name }}</h1>
+        <p>{{ m.serialNumber }} — {{ m.model || 'Model not specified' }} — {{ m.location || 'Location not set' }}</p>
+      </div>
+      <span class="health-badge" [ngClass]="healthClass(m.healthScore)">{{ m.healthScore }}% healthy</span>
+      <button type="button" class="btn-secondary" (click)="downloadReport()">⬇ Download Report</button>
+    </header>
+
+    <div class="cards">
+      <div class="card">
+        <h4>Status</h4>
+        <p class="big">{{ m.statusLabel }}</p>
+      </div>
+      <div class="card">
+        <h4>Risk Assessment</h4>
+        <p class="big">{{ m.riskSummary }}</p>
+        <p class="recommendation" *ngIf="m.recommendedAction">{{ m.recommendedAction }}</p>
+        <p class="estimate-note" *ngIf="m.predictionEstimated">
+          ⓘ This is a general estimate — a detailed reading wasn't available at the last check.
+        </p>
+      </div>
+      <div class="card">
+        <h4>Maintenance</h4>
+        <p><strong>Last service:</strong> {{ (m.lastMaintenanceDate | date:'mediumDate') || 'No record yet' }}</p>
+        <p><strong>Next service:</strong> {{ (m.nextMaintenanceDate | date:'mediumDate') || 'Not scheduled' }}</p>
+      </div>
+    </div>
+
+    <section class="history-section">
+      <h2>Maintenance History</h2>
+      <div class="twrap" *ngIf="history.length; else noHistory">
+        <table>
+          <thead>
+            <tr><th>Type</th><th>Description</th><th>Status</th><th>Scheduled</th><th>Completed</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let entry of history">
+              <td>{{ entry.type || '—' }}</td>
+              <td>{{ entry.description || '—' }}</td>
+              <td>{{ entry.statusLabel }}</td>
+              <td>{{ (entry.scheduledDate | date:'mediumDate') || '—' }}</td>
+              <td>{{ (entry.completedDate | date:'mediumDate') || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #noHistory><p class="empty">No maintenance history recorded yet.</p></ng-template>
+    </section>
+
+    <section class="warranty-section" *ngIf="warranties.length">
+      <h2>Warranty</h2>
+      <div class="warranty-card" *ngFor="let warranty of warranties">
+        <span class="warranty-badge" [class.warranty-expired]="!warranty.active">{{ warranty.active ? 'Active' : 'Expired' }}</span>
+        <p><strong>{{ warranty.provider }}</strong></p>
+        <p>{{ warranty.startDate | date:'mediumDate' }} — {{ warranty.endDate | date:'mediumDate' }}</p>
+        <p class="terms" *ngIf="warranty.terms">{{ warranty.terms }}</p>
+      </div>
+    </section>
+
+    <section class="support-section">
+      <div class="support-header">
+        <h2>Need help with this machine?</h2>
+        <button type="button" class="btn-primary" (click)="openTicketForm()" *ngIf="!showTicketForm">Create Support Ticket</button>
+      </div>
+
+      <div class="alert alert-success" *ngIf="ticketSuccess">{{ ticketSuccess }}</div>
+
+      <form class="ticket-form" *ngIf="showTicketForm" (ngSubmit)="submitTicket()">
+        <div class="form-row">
+          <label for="subject">Subject *</label>
+          <input id="subject" type="text" [(ngModel)]="ticketSubject" name="subject" placeholder="e.g., Unusual noise during operation" required />
+        </div>
+        <div class="form-row">
+          <label for="description">Description</label>
+          <textarea id="description" [(ngModel)]="ticketDescription" name="description" placeholder="Describe the issue…"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" (click)="cancelTicketForm()">Cancel</button>
+          <button type="submit" class="btn-primary" [disabled]="!ticketSubject.trim() || isSubmittingTicket">
+            {{ isSubmittingTicket ? 'Submitting…' : 'Submit Ticket' }}
+          </button>
+        </div>
+      </form>
+    </section>
+  </ng-container>
+</div>

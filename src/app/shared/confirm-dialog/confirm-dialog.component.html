@@ -1,0 +1,38 @@
+<div class="modal-overlay" *ngIf="current$ | async as request">
+  <div class="modal-backdrop" (click)="dismiss()"></div>
+
+  <div
+    class="modal-card confirm-card"
+    [class.confirm-card--danger]="request.tone === 'danger'"
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="confirm-dialog-title"
+    aria-describedby="confirm-dialog-message"
+    cdkTrapFocus
+    cdkTrapFocusAutoCapture
+  >
+    <header class="modal-header">
+      <h2 class="modal-title" id="confirm-dialog-title">{{ request.title }}</h2>
+      <button type="button" class="modal-close" (click)="dismiss()" aria-label="Close dialog">✕</button>
+    </header>
+
+    <div class="modal-body">
+      <p class="confirm-message" id="confirm-dialog-message">{{ request.message }}</p>
+    </div>
+
+    <footer class="modal-footer">
+      <button type="button" class="btn btn-ghost" (click)="dismiss()" cdkFocusInitial>
+        {{ request.cancelLabel }}
+      </button>
+      <button
+        type="button"
+        class="btn"
+        [class.btn-danger]="request.tone === 'danger'"
+        [class.btn-primary]="request.tone !== 'danger'"
+        (click)="confirm(request)"
+      >
+        {{ request.confirmLabel }}
+      </button>
+    </footer>
+  </div>
+</div>

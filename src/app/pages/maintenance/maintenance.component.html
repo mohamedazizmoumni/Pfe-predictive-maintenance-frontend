@@ -11,8 +11,18 @@
       <h1>Operations Board</h1>
       <span>Coordinate technicians, unblock the pipeline, and keep Sentinel Guardian running.</span>
       <div class="hero-actions">
-        <button type="button" *ngIf="canCreateMaintenance" (click)="openCreateModal()">Schedule Maintenance</button>
-        <button type="button" class="ghost" (click)="handleRefresh()">Sync Data</button>
+        <button type="button" class="btn-primary" *ngIf="canCreateMaintenance" (click)="openCreateModal()">
+          <span class="btn-icon" aria-hidden="true">
+            <lucide-icon name="Plus" [size]="16"></lucide-icon>
+          </span>
+          Create Task
+        </button>
+        <button type="button" class="ghost" (click)="handleRefresh()" [disabled]="isLoading$ | async">
+          <span class="btn-icon" [class.spinning]="isLoading$ | async" aria-hidden="true">
+            <lucide-icon name="RefreshCw" [size]="16"></lucide-icon>
+          </span>
+          Refresh
+        </button>
       </div>
     </div>
 
@@ -61,6 +71,11 @@
     <app-maintenance-detail
       [maintenance]="currentMaintenance$ | async"
       [isLoading]="isLoading$ | async"
+      [technicians]="technicians$ | async"
+      [isPrivilegedRole]="isPrivilegedApprover"
+      [isTechnicianRole]="isTechnicianRole"
+      [currentUserId]="currentUserId"
+      [canDeleteRole]="canDeleteMaintenance"
       (start)="handleStart($event)"
       (complete)="handleComplete($event)"
       (approve)="handleApprove($event)"
@@ -75,8 +90,18 @@
     [machines]="machines$ | async"
     [technicians]="technicians$ | async"
     [isSubmitting]="isCreating"
+    [prefill]="createPrefill"
     (close)="closeCreateModal()"
     (submitRequest)="handleCreate($event)"
   ></app-maintenance-create>
+
+  <!-- Completion Modal — checklist, evidence, parts/labor; submits the
+       rapport that Manager then Finance approve on the Rapport Approvals page -->
+  <app-task-completion-modal
+    *ngIf="showCompletionModal"
+    [task]="completingTask"
+    (completed)="handleTaskCompletion($event)"
+    (cancelled)="closeCompletionModal()"
+  ></app-task-completion-modal>
 
 </div>
