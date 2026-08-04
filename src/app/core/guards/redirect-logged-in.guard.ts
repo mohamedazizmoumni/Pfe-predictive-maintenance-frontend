@@ -1,4 +1,5 @@
-import { inject } from '@angular/core';
+import { inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 
 import {
   Router,
@@ -20,6 +21,7 @@ export const redirectLoggedInGuard: CanActivateFn = () => {
 
   const authService = inject(AuthService);
   const router = inject(Router);
+  const platformId = inject(PLATFORM_ID);
 
   return authService.isAuthenticated$.pipe(
 
@@ -32,13 +34,17 @@ export const redirectLoggedInGuard: CanActivateFn = () => {
         authService.hasToken()
       ) {
 
-        const user =
-          authService.getCurrentUser();
+        // Skip navigation during SSR/prerender: there is no real session
+        // on the server, so this would just redirect every render.
+        if (isPlatformBrowser(platformId)) {
+          const user =
+            authService.getCurrentUser();
 
-        const route =
-          getRoleDashboardRoute(user);
+          const route =
+            getRoleDashboardRoute(user);
 
-        router.navigate([route]);
+          router.navigate([route]);
+        }
 
         return false;
       }

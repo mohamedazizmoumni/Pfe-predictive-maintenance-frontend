@@ -49,7 +49,17 @@
 
             "ssr": {
               "entry": "server.ts"
-            }
+            },
+            "allowedCommonJsDependencies": [
+              "qrcode",
+              "sockjs-client",
+              "canvg",
+              "jspdf",
+              "html2canvas",
+              "core-js",
+              "raf",
+              "rgbcolor"
+            ]
           },
 
           "configurations": {

@@ -1,4 +1,5 @@
-import { inject } from '@angular/core';
+import { inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import {
   CanActivateFn,
   Router
@@ -20,6 +21,8 @@ export const dataRoleGuard: CanActivateFn = (route, state) => {
 
   const authService = inject(AuthService);
   const router = inject(Router);
+  const platformId = inject(PLATFORM_ID);
+  const isBrowser = isPlatformBrowser(platformId);
 
   const requiredRoles =
     route.data['requiredRoles'] as string[] | undefined;
@@ -35,7 +38,11 @@ export const dataRoleGuard: CanActivateFn = (route, state) => {
   // No token
   if (!authService.hasToken()) {
 
-    router.navigate(['/auth/login']);
+    // Skip navigation during SSR/prerender: there is no real session on
+    // the server, so this would just redirect every protected route.
+    if (isBrowser) {
+      router.navigate(['/auth/login']);
+    }
 
     return false;
   }
@@ -51,7 +58,9 @@ export const dataRoleGuard: CanActivateFn = (route, state) => {
 
       if (!user) {
 
-        router.navigate(['/auth/login']);
+        if (isBrowser) {
+          router.navigate(['/auth/login']);
+        }
 
         return false;
       }
@@ -66,7 +75,9 @@ export const dataRoleGuard: CanActivateFn = (route, state) => {
         return true;
       }
 
-      router.navigate(['/access-denied'], { queryParams: { from: state.url } });
+      if (isBrowser) {
+        router.navigate(['/access-denied'], { queryParams: { from: state.url } });
+      }
 
       return false;
 
