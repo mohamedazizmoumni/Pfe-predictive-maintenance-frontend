@@ -20,21 +20,33 @@
             "outputPath": "dist/pfe-front",
             "index": "src/index.html",
             "browser": "src/main.ts",
+
+            "allowedCommonJsDependencies": [
+              "qrcode",
+              "sockjs-client"
+            ],
+
             "polyfills": [
               "zone.js"
             ],
+
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
+
             "assets": [
               "src/favicon.ico",
               "src/assets"
             ],
+
             "styles": [
               "src/styles.scss"
             ],
+
             "scripts": [],
+
             "server": "src/main.server.ts",
             "prerender": true,
+
             "ssr": {
               "entry": "server.ts"
             },
@@ -49,6 +61,7 @@
               "rgbcolor"
             ]
           },
+
           "configurations": {
             "production": {
               "budgets": [
@@ -60,15 +73,18 @@
                 {
                   "type": "anyComponentStyle",
                   "maximumWarning": "20kb",
-                  "maximumError": "50kb"
+                  "maximumError": "30kb"
                 }
               ],
+
               "outputHashing": "all"
             },
+
             "development": {
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true,
+
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",
@@ -77,52 +93,67 @@
               ]
             }
           },
+
           "defaultConfiguration": "production"
         },
+
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
+
           "options": {
             "proxyConfig": "proxy.conf.json"
           },
+
           "configurations": {
             "production": {
               "buildTarget": "pfeFront:build:production"
             },
+
             "development": {
               "buildTarget": "pfeFront:build:development"
             }
           },
+
           "defaultConfiguration": "development"
         },
+
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
+
           "options": {
             "buildTarget": "pfeFront:build"
           }
         },
+
         "test": {
           "builder": "@angular-devkit/build-angular:karma",
+
           "options": {
             "polyfills": [
               "zone.js",
               "zone.js/testing",
               "src/polyfills.ts"
             ],
+
             "tsConfig": "tsconfig.spec.json",
             "inlineStyleLanguage": "scss",
+
             "assets": [
               "src/favicon.ico",
               "src/assets"
             ],
+
             "styles": [
               "src/styles.scss"
             ],
+
             "scripts": []
           }
         }
       }
     }
   },
+
   "cli": {
     "analytics": "a28a1453-e7a4-4ee3-8af5-1e8caaca930b"
   }
