@@ -52,7 +52,6 @@ export class AuthInterceptor implements HttpInterceptor {
    */
   private readonly skipRefreshEndpoints = [
     '/notifications',
-    '/api/v1/notifications',
   ];
 
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {

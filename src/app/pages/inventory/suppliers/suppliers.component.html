@@ -1,0 +1,80 @@
+<div class="suppliers-page">
+  <header class="page-header">
+    <div>
+      <h1>Suppliers</h1>
+      <p>Directory and delivery performance for your supplier base.</p>
+    </div>
+    <button type="button" class="btn-primary" (click)="openCreateForm()">+ Add Supplier</button>
+  </header>
+
+  <div class="loading" *ngIf="isLoading">Loading suppliers…</div>
+  <div class="alert alert-error" *ngIf="error">{{ error }}</div>
+
+  <div class="twrap" *ngIf="!isLoading && !error">
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Contact</th><th>Lead Time</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let supplier of suppliers">
+          <td>{{ supplier.name }}</td>
+          <td>{{ supplier.contactName || '—' }} <span class="dim" *ngIf="supplier.email">· {{ supplier.email }}</span></td>
+          <td>{{ supplier.leadTimeDays != null ? supplier.leadTimeDays + ' days' : '—' }}</td>
+          <td><span class="status" [class.status-inactive]="!supplier.active">{{ supplier.active ? 'Active' : 'Inactive' }}</span></td>
+          <td class="actions">
+            <button type="button" class="btn-link" (click)="viewScorecard(supplier)">Scorecard</button>
+            <button type="button" class="btn-link" (click)="openEditForm(supplier)">Edit</button>
+            <button type="button" class="btn-link btn-danger" (click)="deactivate(supplier)" *ngIf="supplier.active">Deactivate</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="empty" *ngIf="suppliers.length === 0">No suppliers yet — add one to start tracking orders against it.</p>
+  </div>
+
+  <!-- Create/Edit Form -->
+  <div class="modal-overlay" *ngIf="showForm" (click)="cancelForm()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <h3>{{ editingId != null ? 'Edit Supplier' : 'Add Supplier' }}</h3>
+      <div class="form-row">
+        <label>Name *</label>
+        <input type="text" [(ngModel)]="form.name" placeholder="Supplier name" />
+      </div>
+      <div class="form-row-grid">
+        <div class="form-row"><label>Contact Name</label><input type="text" [(ngModel)]="form.contactName" /></div>
+        <div class="form-row"><label>Email</label><input type="email" [(ngModel)]="form.email" /></div>
+      </div>
+      <div class="form-row-grid">
+        <div class="form-row"><label>Phone</label><input type="text" [(ngModel)]="form.phone" /></div>
+        <div class="form-row"><label>Lead Time (days)</label><input type="number" [(ngModel)]="form.leadTimeDays" min="0" /></div>
+      </div>
+      <div class="form-row"><label>Address</label><input type="text" [(ngModel)]="form.address" /></div>
+      <div class="form-row"><label>Notes</label><textarea [(ngModel)]="form.notes"></textarea></div>
+
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" (click)="cancelForm()">Cancel</button>
+        <button type="button" class="btn-primary" [disabled]="!form.name.trim() || isSaving" (click)="save()">
+          {{ isSaving ? 'Saving…' : 'Save' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scorecard -->
+  <div class="modal-overlay" *ngIf="scorecardFor" (click)="closeScorecard()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <h3>{{ scorecardFor.name }} — Scorecard</h3>
+      <div class="loading" *ngIf="isLoadingScorecard">Loading…</div>
+      <div class="scorecard-grid" *ngIf="!isLoadingScorecard && scorecard">
+        <div class="scorecard-item"><span class="label">Total Orders</span><span class="value">{{ scorecard.totalOrders }}</span></div>
+        <div class="scorecard-item"><span class="label">Delivered</span><span class="value">{{ scorecard.deliveredOrders }}</span></div>
+        <div class="scorecard-item"><span class="label">Total Spend</span><span class="value">{{ scorecard.totalSpend | currency:'TND':'symbol' }}</span></div>
+        <div class="scorecard-item"><span class="label">Avg Actual Lead Time</span><span class="value">{{ scorecard.avgActualLeadTimeDays != null ? (scorecard.avgActualLeadTimeDays | number:'1.1-1') + 'd' : '—' }}</span></div>
+        <div class="scorecard-item"><span class="label">On-Time Delivery</span><span class="value">{{ formatPercent(scorecard.onTimeDeliveryRate) }}</span></div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" (click)="closeScorecard()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

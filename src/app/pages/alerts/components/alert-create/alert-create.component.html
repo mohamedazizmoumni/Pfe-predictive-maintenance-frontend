@@ -13,57 +13,86 @@
 
     <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="modal-form">
 
-      <div class="form-group">
-        <label for="machine">Machine</label>
+      <!-- Machine -->
+      <div class="form-group" [class.has-error]="form.get('machineId')?.invalid && form.get('machineId')?.touched">
+        <label for="machine">Machine <span class="required">*</span></label>
         <select id="machine" formControlName="machineId" class="form-control">
           <option value="" disabled>Select machine</option>
           <option *ngFor="let machine of machines || []; trackBy: trackMachine" [value]="machine.id">
             {{ getMachineLabel(machine) }}
           </option>
         </select>
+        <small class="form-error" *ngIf="form.get('machineId')?.invalid && form.get('machineId')?.touched">
+          Machine is required
+        </small>
       </div>
 
-      <div class="form-group">
-        <label for="title">Title</label>
+      <!-- Title -->
+      <div class="form-group" [class.has-error]="form.get('title')?.invalid && form.get('title')?.touched">
+        <label for="title">Title <span class="required">*</span></label>
         <input id="title" type="text" formControlName="title"
           placeholder="Overheating detected on spindle" class="form-control" />
+        <small class="form-error" *ngIf="form.get('title')?.invalid && form.get('title')?.touched">
+          Title must be at least 4 characters
+        </small>
       </div>
 
+      <!-- Message -->
       <div class="form-group">
         <label for="message">Message</label>
         <textarea id="message" rows="3" formControlName="message"
           placeholder="Optional context from operator or AI model" class="form-control"></textarea>
       </div>
 
+      <!-- Severity + Category -->
       <div class="form-row">
         <div class="form-group">
-          <label for="severity">Severity</label>
+          <label for="severity">Severity <span class="required">*</span></label>
           <select id="severity" formControlName="severity" class="form-control">
-            <option *ngFor="let severity of severities" [value]="severity">{{ severity }}</option>
+            <option *ngFor="let s of severities" [value]="s">{{ s }}</option>
           </select>
         </div>
         <div class="form-group">
           <label for="category">Category</label>
           <select id="category" formControlName="category" class="form-control">
-            <option *ngFor="let category of categories" [value]="category">{{ category }}</option>
+            <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
           </select>
         </div>
       </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label for="sourceReference">Source Reference</label>
-          <input id="sourceReference" type="text" formControlName="sourceReference"
-            placeholder="Sensor ID, ticket, or model run" class="form-control" />
+      <!-- Assigned To — user picker -->
+      <div class="form-group" [class.has-error]="form.get('assignedTo')?.invalid && form.get('assignedTo')?.touched">
+        <label for="assignedTo">Assign To <span class="required">*</span></label>
+
+        <div class="select-wrapper" [class.loading]="usersLoading">
+          <select id="assignedTo" formControlName="assignedTo" class="form-control"
+                  [disabled]="usersLoading || assignableUsers.length === 0">
+            <option value="" disabled>
+              {{ usersLoading ? 'Loading users…' : 'Select a person to notify' }}
+            </option>
+            <option *ngFor="let user of assignableUsers; trackBy: trackUser" [value]="user.username">
+              {{ getUserLabel(user) }}
+            </option>
+          </select>
+          <span class="select-spinner" *ngIf="usersLoading">⏳</span>
         </div>
-        <div class="form-group">
-          <label for="assignedTo">Assigned To (username)</label>
-          <input id="assignedTo" type="text" formControlName="assignedTo"
-            placeholder="Technician username (optional)" class="form-control" />
-          <small class="form-hint">The backend sends the email notification automatically after the alert is saved.</small>
-        </div>
+
+        <small class="form-error" *ngIf="form.get('assignedTo')?.invalid && form.get('assignedTo')?.touched">
+          You must assign this alert to someone — they will be notified immediately.
+        </small>
+        <small class="form-hint" *ngIf="!form.get('assignedTo')?.invalid || !form.get('assignedTo')?.touched">
+          The assigned person receives an email notification as soon as the alert is saved.
+        </small>
       </div>
 
+      <!-- Source Reference -->
+      <div class="form-group">
+        <label for="sourceReference">Source Reference</label>
+        <input id="sourceReference" type="text" formControlName="sourceReference"
+          placeholder="Sensor ID, ticket number, or model run ID" class="form-control" />
+      </div>
+
+      <!-- Recommendations -->
       <div class="form-group">
         <label for="recommendations">Recommendations</label>
         <textarea id="recommendations" rows="3" formControlName="recommendations"
@@ -72,7 +101,7 @@
 
       <footer class="modal-footer">
         <button type="button" class="btn-ghost" (click)="onClose()">Cancel</button>
-        <button type="submit" class="btn-primary" [disabled]="isSubmitting">
+        <button type="submit" class="btn-primary" [disabled]="isSubmitting || form.invalid">
           {{ isSubmitting ? 'Publishing…' : 'Create Alert' }}
         </button>
       </footer>

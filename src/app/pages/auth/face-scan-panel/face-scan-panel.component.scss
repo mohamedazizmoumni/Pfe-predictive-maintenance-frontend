@@ -1,0 +1,419 @@
+@import '../auth-tokens';
+
+// This widget keeps the same dark "security portal" look regardless of the
+// app-wide theme toggle or which parent page hosts it.
+:host {
+  @include fl-tokens;
+  display: block;
+  font-family: var(--font-sans, 'Inter', sans-serif);
+  color: var(--fl-text-primary);
+}
+
+.scan {
+  max-width: 380px;
+  margin: 0 auto;
+  padding: 2.5rem 1.75rem 2.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+// ---- Top row: back link + secure badge -------------------------------------
+
+.top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--fl-text-secondary);
+  font-family: inherit;
+
+  &:hover {
+    color: var(--fl-text-primary);
+  }
+}
+
+.secure-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #86efac;
+  background: var(--fl-success-dim);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+}
+
+.secure-badge .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--fl-success);
+  box-shadow: 0 0 6px var(--fl-success);
+  animation: fsp-pulse 2s infinite;
+}
+
+// ---- Brand block -------------------------------------------------------------
+
+.brand-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  text-align: center;
+}
+
+.brand-block .brand-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--fl-accent), var(--fl-accent-hover));
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
+}
+
+.brand-copy h1 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.brand-copy p {
+  margin: 0.1rem 0 0;
+  font-size: 0.74rem;
+  color: var(--fl-text-muted);
+}
+
+// ---- Heading -------------------------------------------------------------------
+
+.heading-block {
+  text-align: center;
+}
+
+.heading-block h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.heading-block p {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--fl-text-secondary);
+}
+
+// ---- Scan frame / circle --------------------------------------------------
+
+.scan-frame {
+  position: relative;
+  width: 216px;
+  height: 216px;
+  margin: 0.25rem auto 0;
+}
+
+.scan-circle {
+  position: absolute;
+  inset: 14px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.4), 0 0 34px rgba(96, 165, 250, 0.35);
+  transition: box-shadow 0.3s ease;
+}
+
+.scan-frame--success .scan-circle {
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.45), 0 0 34px rgba(34, 197, 94, 0.35);
+}
+
+.scan-frame--error .scan-circle {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.45), 0 0 34px rgba(239, 68, 68, 0.3);
+}
+
+.scan-circle video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scaleX(-1);
+}
+
+.scan-ring {
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0%, var(--fl-accent-hover) 12%, transparent 38%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  animation: ring-spin 3.2s linear infinite;
+}
+
+.scan-frame--success .scan-ring {
+  background: conic-gradient(from 0deg, transparent 0%, var(--fl-success) 12%, transparent 38%);
+}
+
+.scan-frame--error .scan-ring {
+  animation-play-state: paused;
+  background: conic-gradient(from 0deg, transparent 0%, var(--fl-danger) 12%, transparent 38%);
+}
+
+.corner {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--fl-accent-hover);
+  opacity: 0.9;
+  z-index: 3;
+  filter: drop-shadow(0 0 4px rgba(96, 165, 250, 0.5));
+}
+
+.corner--tl { top: -4px; left: -4px; border-right: none; border-bottom: none; border-radius: 8px 0 0 0; }
+.corner--tr { top: -4px; right: -4px; border-left: none; border-bottom: none; border-radius: 0 8px 0 0; }
+.corner--bl { bottom: -4px; left: -4px; border-right: none; border-top: none; border-radius: 0 0 0 8px; }
+.corner--br { bottom: -4px; right: -4px; border-left: none; border-top: none; border-radius: 0 0 8px 0; }
+
+.scan-frame--success .corner { border-color: var(--fl-success); filter: drop-shadow(0 0 4px rgba(34, 197, 94, 0.5)); }
+.scan-frame--error .corner { border-color: var(--fl-danger); filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.5)); }
+
+.face-mesh {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.mesh-dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--fl-accent-hover);
+  box-shadow: 0 0 6px var(--fl-accent-hover);
+  animation: fsp-mesh-pulse 2.4s ease-in-out infinite;
+}
+
+.mesh-dot:nth-child(1)  { top: 30%; left: 42%; animation-delay: 0s; }
+.mesh-dot:nth-child(2)  { top: 28%; left: 58%; animation-delay: .1s; }
+.mesh-dot:nth-child(3)  { top: 38%; left: 36%; animation-delay: .2s; }
+.mesh-dot:nth-child(4)  { top: 36%; left: 64%; animation-delay: .3s; }
+.mesh-dot:nth-child(5)  { top: 48%; left: 50%; animation-delay: .4s; }
+.mesh-dot:nth-child(6)  { top: 55%; left: 40%; animation-delay: .5s; }
+.mesh-dot:nth-child(7)  { top: 55%; left: 60%; animation-delay: .6s; }
+.mesh-dot:nth-child(8)  { top: 65%; left: 44%; animation-delay: .7s; }
+.mesh-dot:nth-child(9)  { top: 65%; left: 56%; animation-delay: .8s; }
+.mesh-dot:nth-child(10) { top: 22%; left: 50%; animation-delay: .9s; }
+.mesh-dot:nth-child(11) { top: 44%; left: 30%; animation-delay: 1s; }
+.mesh-dot:nth-child(12) { top: 44%; left: 70%; animation-delay: 1.1s; }
+
+.camera-off {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fl-text-muted);
+  background: #0a0a0c;
+}
+
+.hidden-canvas {
+  display: none;
+}
+
+// ---- Status card ------------------------------------------------------------
+
+.status-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--fl-border);
+  background: var(--fl-elevated);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.status-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fl-accent-dim);
+  color: var(--fl-accent-hover);
+}
+
+.status-card--detected .status-icon,
+.status-card--success .status-icon {
+  background: var(--fl-success-dim);
+  color: #86efac;
+}
+
+.status-card--error .status-icon {
+  background: var(--fl-danger-dim);
+  color: #fca5a5;
+}
+
+.status-card--success {
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.status-card--error {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.status-copy {
+  min-width: 0;
+}
+
+.status-copy strong {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--fl-text-primary);
+}
+
+.status-copy p {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: var(--fl-text-secondary);
+  line-height: 1.4;
+}
+
+// ---- Progress bar -------------------------------------------------------------
+
+.progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--fl-sunken);
+  border: 1px solid var(--fl-border);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--fl-accent), var(--fl-accent-hover));
+  transition: width 0.6s ease, background 0.3s ease;
+}
+
+.progress-fill--success {
+  background: linear-gradient(90deg, var(--fl-success), #16a34a);
+}
+
+.progress-fill--error {
+  background: linear-gradient(90deg, var(--fl-danger), #dc2626);
+}
+
+// ---- Capture button -------------------------------------------------------------
+
+.capture-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, var(--fl-accent), var(--fl-accent-hover));
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.capture-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+
+.capture-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.capture-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+// ---- Footer -------------------------------------------------------------------
+
+.footer-text {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--fl-text-muted);
+}
+
+.footer-text ::ng-deep a,
+.footer-text ::ng-deep .link-btn {
+  color: var(--fl-accent-hover);
+  text-decoration: none;
+  font-weight: 700;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+}
+
+.footer-text ::ng-deep a:hover,
+.footer-text ::ng-deep .link-btn:hover {
+  text-decoration: underline;
+}
+
+// ---- Animations --------------------------------------------------------------
+
+@keyframes ring-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fsp-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes fsp-mesh-pulse {
+  0%, 100% { opacity: 0.25; transform: scale(0.8); }
+  50% { opacity: 0.9; transform: scale(1.15); }
+}
+
+// ---- Responsive ---------------------------------------------------------------
+
+@media (max-width: 420px) {
+  .scan {
+    padding: 2rem 1.25rem 1.75rem;
+  }
+
+  .scan-frame {
+    width: 180px;
+    height: 180px;
+  }
+}

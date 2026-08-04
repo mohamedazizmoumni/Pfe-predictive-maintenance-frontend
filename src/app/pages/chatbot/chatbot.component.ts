@@ -1,6 +1,7 @@
 import { Component, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LucideAngularModule } from 'lucide-angular';
 import { ChatbotService } from '../../core/services/chatbot.service';
 import { ChatbotResponse } from '../../core/models/sentinel.models';
 
@@ -9,12 +10,13 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   authorized?: boolean;
+  timestamp: Date;
 }
 
 @Component({
   selector: 'app-chatbot',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LucideAngularModule],
   templateUrl: './chatbot.component.html',
   styleUrl: './chatbot.component.scss',
 })
@@ -25,6 +27,13 @@ export class ChatbotComponent {
   errorMessage: string | null = null;
   private idCounter = 0;
 
+  readonly suggestedPrompts: string[] = [
+    'How many active machines do we have?',
+    'What is the current inventory stock health?',
+    'Summarize this week’s maintenance alerts',
+    'Which parts are running low?',
+  ];
+
   // Resizable chat height
   chatHeight: number = 620;           // Default height in pixels
   private minHeight = 420;
@@ -34,6 +43,7 @@ export class ChatbotComponent {
   private startHeight = 0;
 
   @ViewChild('chatShell') chatShell!: ElementRef;
+  @ViewChild('chatThread') chatThread?: ElementRef<HTMLElement>;
 
   constructor(private chatbotService: ChatbotService) {}
 
@@ -54,6 +64,7 @@ export class ChatbotComponent {
     this.appendMessage('user', trimmed);
     this.question = '';
     this.isSubmitting = true;
+    this.scrollToBottom();
 
     this.chatbotService
       .ask({ question: trimmed })
@@ -62,12 +73,19 @@ export class ChatbotComponent {
           const authorized = response.authorized !== false && response.answer !== 'NOT AUTHORIZED';
           this.appendMessage('assistant', response.answer, authorized);
           this.isSubmitting = false;
+          this.scrollToBottom();
         },
         error: (err: any) => {
           this.errorMessage = err.message || 'Something went wrong while contacting the assistant.';
           this.isSubmitting = false;
         },
       });
+  }
+
+  sendSuggestion(prompt: string): void {
+    if (this.isSubmitting) return;
+    this.question = prompt;
+    this.onSubmit();
   }
 
   onKeydownEnter(event: Event): void {
@@ -130,7 +148,17 @@ export class ChatbotComponent {
         role,
         content,
         authorized,
+        timestamp: new Date(),
       },
     ];
+  }
+
+  private scrollToBottom(): void {
+    queueMicrotask(() => {
+      const el = this.chatThread?.nativeElement;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    });
   }
 }

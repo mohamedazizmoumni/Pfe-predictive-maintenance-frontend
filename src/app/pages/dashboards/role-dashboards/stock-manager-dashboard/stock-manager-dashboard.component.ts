@@ -65,7 +65,12 @@ interface ShipmentRow {
 
       <ng-container *ngIf="!loading()">
         <section class="kpi-grid">
-          <article class="card kpi-card" *ngFor="let card of kpiCards()">
+          <article
+            class="card kpi-card"
+            *ngFor="let card of kpiCards()"
+            role="group"
+            [attr.aria-label]="card.label + ': ' + card.value + (card.note ? ', ' + card.note : '')"
+          >
             <p class="dashboard-eyebrow">{{ card.label }}</p>
             <p class="kpi-value">{{ card.value }}</p>
             <p class="kpi-note">{{ card.note }}</p>
@@ -83,7 +88,7 @@ interface ShipmentRow {
             </div>
 
             <div class="chart-canvas-wrap">
-              <canvas #movementCanvas></canvas>
+              <canvas #movementCanvas role="img" [attr.aria-label]="'Top categories by stock value chart, ' + totalPartsTracked() + ' parts tracked'"></canvas>
             </div>
           </article>
 
@@ -97,12 +102,12 @@ interface ShipmentRow {
 
             <div class="donut-layout">
               <div class="chart-canvas-wrap chart-canvas-wrap--donut">
-                <canvas #healthCanvas></canvas>
+                <canvas #healthCanvas role="img" aria-label="Stock health distribution chart showing healthy, low stock, and critical parts"></canvas>
               </div>
 
               <div class="mix-legend">
                 <div *ngFor="let item of healthLegend()" class="mix-legend__item">
-                  <span class="mix-legend__swatch" [style.background]="item.color"></span>
+                  <span class="mix-legend__swatch" aria-hidden="true" [style.background]="item.color"></span>
                   <div>
                     <strong>{{ item.label }}</strong>
                     <p>{{ item.value }} · {{ item.percent }}%</p>
@@ -186,19 +191,27 @@ interface ShipmentRow {
         </section>
 
         <section class="summary-grid">
-          <article class="summary-card">
+          <article
+            class="summary-card"
+            role="group"
+            [attr.aria-label]="'Inventory value: ' + (inventoryValue() | currency:'TND':'symbol':'1.0-0')"
+          >
             <span class="dashboard-eyebrow">Inventory value</span>
-            <p class="summary-value">{{ inventoryValue() | currency:'USD':'symbol':'1.0-0' }}</p>
+            <p class="summary-value">{{ inventoryValue() | currency:'TND':'symbol':'1.0-0' }}</p>
             <p class="card-note">Live estimate from tracked part quantities and costs.</p>
           </article>
 
-          <article class="summary-card">
+          <article
+            class="summary-card"
+            role="group"
+            [attr.aria-label]="'Last refresh: ' + (lastRefreshAt() ? (lastRefreshAt() | date:'shortTime') : 'Pending')"
+          >
             <span class="dashboard-eyebrow">Last refresh</span>
             <p class="summary-value">{{ lastRefreshAt() ? (lastRefreshAt() | date:'shortTime') : 'Pending' }}</p>
             <p class="card-note">Updated from inventory service cache.</p>
           </article>
 
-          <article class="summary-card">
+          <article class="summary-card" role="group" aria-label="Quick links">
             <span class="dashboard-eyebrow">Quick links</span>
             <div class="quick-links">
               <a routerLink="/inventory/part-form" class="quick-link">Add part</a>
@@ -643,7 +656,7 @@ export class StockManagerDashboardComponent extends BaseDashboardComponent imple
   private formatCompactCurrency(value: number): string {
     return new Intl.NumberFormat('en', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'TND',
       notation: 'compact',
       maximumFractionDigits: 1,
     }).format(value || 0);

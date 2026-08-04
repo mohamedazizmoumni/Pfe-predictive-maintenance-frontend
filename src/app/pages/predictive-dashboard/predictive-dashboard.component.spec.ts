@@ -7,6 +7,7 @@ import { EquipmentService } from '../../core/services/equipment.service';
 import { ToastService } from '../../core/services/toast.service';
 import { AlertApiService } from '../../core/services/alert.service';
 import { AuthService } from '../../core/services/auth.service';
+import { NotificationsRestService } from '../../core/services/notifications-rest.service';
 
 describe('PredictiveDashboardComponent', () => {
   let component: PredictiveDashboardComponent;
@@ -125,6 +126,9 @@ describe('PredictiveDashboardComponent', () => {
 
     predictiveApi.runPredictiveNow.and.returnValue(of({ status: 'accepted' }));
 
+    const notificationsRestService = jasmine.createSpyObj<NotificationsRestService>('NotificationsRestService', ['loadUnreadCount']);
+    notificationsRestService.loadUnreadCount.and.returnValue(of({ count: 0 } as any));
+
     alertApi.list.and.returnValue(
       of({
         content: [
@@ -162,6 +166,7 @@ describe('PredictiveDashboardComponent', () => {
           },
         },
         { provide: ToastService, useValue: toastService },
+        { provide: NotificationsRestService, useValue: notificationsRestService },
       ],
     }).compileComponents();
 

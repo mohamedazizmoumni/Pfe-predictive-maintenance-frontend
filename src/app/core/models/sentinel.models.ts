@@ -10,10 +10,13 @@ export interface User {
   department?: string;
   phoneNumber?: string;
   status?: string;
+  locked?: boolean;
   mfaEnabled?: boolean;
   roles: Role[];
   lastLoginDate?: string;
   profilePictureUrl?: string;
+  faceEnrolled?: boolean;
+  faceEnrolledAt?: string;
 }
 
 export interface Role {
@@ -33,6 +36,10 @@ export interface LoginResponse {
   department?: string;
   roles?: string[];
   user?: User;
+  /** Whether the user has a face registered — drives post-login flow */
+  hasFace?: boolean;
+  /** Face-match similarity score (0-1), only present on /auth/face-login responses */
+  confidence?: number;
 }
 
 export interface RegisterPayload {
@@ -62,6 +69,17 @@ export interface Machine {
   operatingHours?: number;
   riskScore?: number;
   createdDate?: string;
+}
+
+export interface MachineTechnicianDTO {
+  id: number;
+  machineId: number;
+  technicianId: number;
+  technicianUsername: string;
+  technicianDisplayName: string;
+  assignedById: number;
+  assignedByUsername: string;
+  assignedAt: string;
 }
 
 export interface CreateMachineRequest {
@@ -105,17 +123,18 @@ export interface CreateMaintenanceRequest {
   estimatedDuration: number;
   assignedTechnicianId?: number;
   notes?: string;
+  rootCause?: string;
 }
 
 export interface CreateTaskRequest {
-  title: string;
-  description: string;
   machineId: number;
-  maintenanceId?: number;
+  type?: 'PREVENTIVE' | 'CORRECTIVE' | 'EMERGENCY';
   priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
-  status: 'PENDING';
-  dueDate: string;
+  description: string;
+  scheduledDate: string;
+  estimatedDuration?: number;
   assignedTechnicianId: number;
+  notes?: string;
 }
 
 export interface Maintenance extends CreateMaintenanceRequest {
@@ -148,6 +167,10 @@ export enum AlertStatus {
   ACKNOWLEDGED = 'ACKNOWLEDGED',
   ESCALATED = 'ESCALATED',
   CLOSED = 'CLOSED',
+  /** System-triggered when a machine recovers from an active incident. */
+  RESOLVED = 'RESOLVED',
+  /** Reserved by the backend — not set by anything yet. */
+  IN_PROGRESS = 'IN_PROGRESS',
 }
 
 export enum AlertCategory {
@@ -184,11 +207,39 @@ export interface AlertResponse {
   closedDate?: string;
   closedBy?: string;
   resolutionNotes?: string;
+  /**
+   * When the backend auto-resolved this incident (machine recovered).
+   * Not part of the REST DTO — only ever populated client-side from a
+   * live "RESOLVED" /topic/alerts websocket event, when one is received.
+   */
+  resolvedDate?: string;
   createdDate: string;
   lastUpdatedDate?: string;
 }
 
 export type Alert = AlertResponse;
+
+/**
+ * Live incident event received on the /topic/alerts websocket topic.
+ * One consistent shape for every event — distinguished by `eventType`.
+ */
+export type AlertEventType = 'CREATED' | 'UPDATED' | 'RESOLVED';
+
+export interface AlertStreamEvent {
+  alertId: number;
+  machineId: number;
+  machineName?: string;
+  title: string;
+  description?: string;
+  severity: AlertSeverity;
+  status: AlertStatus;
+  eventType: AlertEventType;
+  timestamp: string;
+  health?: number;
+  anomalyProbability?: number;
+  riskLevel?: string;
+  recommendedAction?: string;
+}
 
 export interface AlertStatsResponse {
   totalAlerts: number;
@@ -196,6 +247,8 @@ export interface AlertStatsResponse {
   acknowledgedAlerts: number;
   escalatedAlerts: number;
   closedAlerts: number;
+  /** Client-computed only (technician view) — not part of the REST DTO. */
+  resolvedAlerts?: number;
   criticalCount: number;
   warningCount: number;
   infoCount: number;
@@ -622,7 +675,7 @@ export enum RapportStatus {
 
 export interface RapportPartRequest {
   partName: string;
-  partCode: string;
+  partCode?: string;
   quantity: number;
   unitCost: number;
   supplier?: string;
@@ -631,34 +684,49 @@ export interface RapportPartRequest {
 export interface RapportPartResponse {
   id: number;
   partName: string;
-  partCode: string;
+  partCode?: string;
   quantity: number;
   unitCost: number;
   totalCost: number;
   supplier?: string;
 }
 
-export interface MaintenanceRapportRequest {
-  taskId: number;
-  machineId: number;
-  title: string;
+export interface ChecklistItemRequest {
   description: string;
+  passed: boolean;
+  notes?: string;
+}
+
+export interface ChecklistItemResponse {
+  id: number;
+  description: string;
+  passed: boolean;
+  notes?: string;
+}
+
+export interface MaintenanceRapportRequest {
+  taskId?: number;
+  machineId: number;
+  machineName?: string;
+  title: string;
+  description?: string;
   workPerformed: string;
   partsReplaced?: string;
   laborHours: number;
   laborCost: number;
   parts: RapportPartRequest[];
+  checklistItems: ChecklistItemRequest[];
 }
 
 export interface MaintenanceRapportResponse {
   id: number;
-  taskId: number;
+  taskId?: number;
   machineId: number;
-  machineName: string;
-  technicianId: number;
-  technicianName: string;
+  machineName?: string;
+  technicianUsername: string;
+  technicianName?: string;
   title: string;
-  description: string;
+  description?: string;
   workPerformed: string;
   partsReplaced?: string;
   laborHours: number;
@@ -667,16 +735,34 @@ export interface MaintenanceRapportResponse {
   totalCost: number;
   status: RapportStatus;
   parts: RapportPartResponse[];
+  checklistItems: ChecklistItemResponse[];
+  hasFailedChecklistItems: boolean;
   createdDate: string;
-  lastModifiedDate: string;
+  lastModifiedDate?: string;
   approvedByManager?: string;
+  managerApprovedDate?: string;
   approvedByFinance?: string;
+  financeApprovedDate?: string;
   rejectionReason?: string;
 }
 
 export interface ApprovalRequest {
   approved: boolean;
   rejectionReason?: string;
+  /** Required when approving a rapport that has hasFailedChecklistItems=true. */
+  reviewNote?: string;
+}
+
+export interface AttachmentResponse {
+  id: number;
+  entityType: string;
+  entityId: number;
+  fileName: string;
+  storedFileName: string;
+  contentType?: string;
+  fileSize?: number;
+  uploadedBy: string;
+  uploadedAt: string;
 }
 
 // ==================== STOCK DTOs ====================
@@ -1071,4 +1157,414 @@ export interface ExpenseSummaryResponse {
   rejectedCount: number;
   totalExpenseCount: number;
   amountByCategory: Record<string, number>;
+}
+
+// ==================== CUSTOMER PORTAL DTOs ====================
+// Everything here is deliberately plain-language on the wire (see
+// PortalMachineService on the backend) — no raw risk scores, no enum names.
+
+export interface PortalMachineSummary {
+  machineId: number;
+  name: string;
+  serialNumber: string;
+  location?: string;
+  statusLabel: string;
+  healthScore: number;
+  lastMaintenanceDate?: string;
+  nextMaintenanceDate?: string;
+}
+
+export interface PortalMachineDetail {
+  machineId: number;
+  name: string;
+  serialNumber: string;
+  location?: string;
+  model?: string;
+  statusLabel: string;
+  healthScore: number;
+  installationDate?: string;
+  lastMaintenanceDate?: string;
+  nextMaintenanceDate?: string;
+  riskSummary: string;
+  recommendedAction?: string;
+  predictionEstimated: boolean;
+  predictionUpdatedAt?: string;
+}
+
+export interface PortalMaintenanceHistoryEntry {
+  id: number;
+  type?: string;
+  description?: string;
+  statusLabel: string;
+  scheduledDate?: string;
+  completedDate?: string;
+}
+
+export type SupportTicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+
+export interface SupportTicketRequest {
+  machineId: number;
+  subject: string;
+  description?: string;
+}
+
+export interface SupportTicketResponse {
+  id: number;
+  machineId: number;
+  machineName?: string;
+  customerName?: string;
+  subject: string;
+  description?: string;
+  status: SupportTicketStatus;
+  assignedTo?: string;
+  resolutionNotes?: string;
+  createdAt: string;
+  updatedAt?: string;
+  resolvedAt?: string;
+}
+
+export interface SupportTicketUpdateRequest {
+  status: SupportTicketStatus;
+  resolutionNotes?: string;
+}
+
+export interface PortalMessageRequest {
+  body: string;
+}
+
+export interface PortalMessageResponse {
+  id: number;
+  ticketId: number;
+  senderUsername: string;
+  fromCustomer: boolean;
+  body: string;
+  createdAt: string;
+}
+
+export interface WarrantyRequest {
+  machineId: number;
+  provider: string;
+  startDate: string;
+  endDate: string;
+  terms?: string;
+}
+
+export interface WarrantyResponse {
+  id: number;
+  machineId: number;
+  machineName?: string;
+  provider: string;
+  startDate: string;
+  endDate: string;
+  terms?: string;
+  active: boolean;
+}
+
+export type InvoiceStatus = 'UNPAID' | 'PAID' | 'OVERDUE';
+
+export interface InvoiceRequest {
+  customerUserId: number;
+  machineId?: number;
+  invoiceNumber: string;
+  amount: number;
+  status?: InvoiceStatus;
+  issueDate: string;
+  dueDate: string;
+  description?: string;
+}
+
+export interface InvoiceResponse {
+  id: number;
+  customerUserId: number;
+  machineId?: number;
+  machineName?: string;
+  invoiceNumber: string;
+  amount: number;
+  status: InvoiceStatus;
+  issueDate: string;
+  dueDate: string;
+  description?: string;
+}
+
+export interface CustomerMachineLink {
+  id: number;
+  userId: number;
+  machineId: number;
+  linkedBy?: string;
+  createdAt: string;
+}
+
+export interface CustomerMachineLinkRequest {
+  userId: number;
+  machineId: number;
+}
+
+// ==================== AUDIT LOG (Super Admin) ====================
+
+export interface AuditEventDto {
+  id: number;
+  actor: string;
+  action: string;
+  entityType?: string;
+  entityId?: number;
+  details?: string;
+  createdAt: string;
+}
+
+// ==================== RELIABILITY (Manager) ====================
+
+export interface MachineReliabilitySummary {
+  machineId: number;
+  machineName: string;
+  mtbfHours: number | null;
+  mttrHours: number | null;
+  failureCount: number;
+  lastFailureAt: string | null;
+}
+
+export interface FailureRecord {
+  maintenanceId: number;
+  machineId: number;
+  machineName: string;
+  type: string;
+  description?: string;
+  rootCause?: string;
+  repairHours: number | null;
+  completedDate?: string;
+}
+
+// ==================== SUPPLIERS & DEMAND FORECAST (Stock Manager) ====================
+
+export interface SupplierRequest {
+  name: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  leadTimeDays?: number;
+  notes?: string;
+  active?: boolean;
+}
+
+export interface SupplierResponse {
+  id: number;
+  name: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  leadTimeDays?: number;
+  notes?: string;
+  active: boolean;
+  createdDate: string;
+}
+
+export interface SupplierScorecard {
+  supplierId: number;
+  supplierName: string;
+  totalOrders: number;
+  deliveredOrders: number;
+  totalSpend: number;
+  avgActualLeadTimeDays: number | null;
+  onTimeDeliveryRate: number | null;
+}
+
+export interface DemandForecastEntry {
+  partId: number;
+  partName: string;
+  currentStock: number;
+  minimumStock: number;
+  avgDailyConsumption: number | null;
+  projectedDaysUntilStockout: number | null;
+  belowMinimum: boolean;
+}
+
+// ==================== SCHEDULING / CAPACITY (Manager) ====================
+
+export interface TechnicianCapacity {
+  technicianId: number;
+  technicianName: string;
+  username: string;
+  openJobCount: number;
+  totalEstimatedHours: number;
+}
+
+export interface CalendarEventDto {
+  id: number;
+  title: string;
+  description?: string;
+  startTime: string;
+  endTime: string;
+  eventType: string;
+  assignedTo?: string;
+  status?: string;
+  priority?: string;
+  location?: string;
+  machineId?: number;
+  taskId?: number;
+}
+
+// ==================== EXECUTIVE SUMMARY (Super Admin / Admin) ====================
+
+export interface ExecutiveSummary {
+  machineCount: number;
+  fleetAverageHealth: number | null;
+  openWorkOrders: number;
+  overdueWorkOrders: number;
+  pendingRapportApprovals: number;
+  pendingExpenseApprovals: number;
+  pendingReorderApprovals: number;
+  openSupportTickets: number;
+  budgetUtilizationPercentage: number | null;
+  topReliabilityRisks: MachineReliabilitySummary[];
+}
+
+// ==================== WORK ORDER TEMPLATES & RECURRING MAINTENANCE ====================
+
+export interface WorkOrderTemplateRequest {
+  name: string;
+  description?: string;
+  type: 'PREVENTIVE' | 'CORRECTIVE' | 'EMERGENCY';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  estimatedDuration?: number;
+  defaultNotes?: string;
+  active?: boolean;
+}
+
+export interface WorkOrderTemplateResponse {
+  id: number;
+  name: string;
+  description?: string;
+  type: 'PREVENTIVE' | 'CORRECTIVE' | 'EMERGENCY';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  estimatedDuration?: number;
+  defaultNotes?: string;
+  active: boolean;
+  createdDate: string;
+}
+
+export interface RecurringMaintenanceRuleRequest {
+  machineId: number;
+  workOrderTemplateId: number;
+  intervalDays: number;
+  assignedTechnicianId?: number;
+  firstRunDate?: string;
+  active?: boolean;
+}
+
+export interface RecurringMaintenanceRuleResponse {
+  id: number;
+  machineId: number;
+  workOrderTemplateId: number;
+  workOrderTemplateName?: string;
+  intervalDays: number;
+  assignedTechnicianId?: number;
+  nextRunDate: string;
+  lastGeneratedMaintenanceId?: number;
+  active: boolean;
+}
+
+// ==================== ACTIVITY TIMELINE ====================
+
+export interface TimelineEntry {
+  timestamp: string;
+  category: 'MAINTENANCE_SCHEDULED' | 'MAINTENANCE_COMPLETED' | 'AUDIT' | 'ALERT' | 'COMMENT';
+  title: string;
+  description?: string;
+  actor?: string;
+}
+
+// ==================== COMMENTS ====================
+
+export interface CommentRequest {
+  entityType: 'MACHINE' | 'MAINTENANCE';
+  entityId: number;
+  body: string;
+}
+
+export interface CommentResponse {
+  id: number;
+  entityType: string;
+  entityId: number;
+  authorUsername: string;
+  body: string;
+  createdAt: string;
+}
+
+// ==================== USER PREFERENCES ====================
+
+export interface NotificationPreferences {
+  inAppEnabled: boolean;
+  mutedRiskLevels: string[];
+}
+
+// ==================== INVENTORY RESERVATION ====================
+
+export interface PartReservationRequest {
+  partId: number;
+  quantity: number;
+  maintenanceId?: number;
+}
+
+export type PartReservationStatus = 'RESERVED' | 'CONSUMED' | 'RELEASED';
+
+export interface PartReservationResponse {
+  id: number;
+  partId: number;
+  partName?: string;
+  quantityReserved: number;
+  maintenanceId?: number;
+  status: PartReservationStatus;
+  reservedBy: string;
+  reservedAt: string;
+  resolvedAt?: string;
+}
+
+// ==================== EXPLAINABLE AI ====================
+
+export interface PredictionFactor {
+  sensorName: string;
+  sensorType: string;
+  currentValue: number;
+  normalMin: number;
+  normalMax: number;
+  unit?: string;
+  deviationPercent: number;
+  contribution: 'high' | 'medium' | 'low';
+}
+
+export interface PredictionExplanation {
+  machineId: number;
+  riskLevel: string;
+  failureProbability?: number;
+  confidenceScore?: number;
+  predictedAt?: string;
+  summary: string;
+  topFactors: PredictionFactor[];
+  hasSensorData: boolean;
+}
+
+// ==================== SAVED AI RECOMMENDATIONS (approval + history) ====================
+
+export type RecommendationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface SavedRecommendationResponse {
+  id: number;
+  machineId: number;
+  machineName?: string;
+  urgencyLevel: string;
+  recommendedAction: string;
+  justification?: string;
+  failureProbability?: number;
+  daysUntilFailure?: number;
+  status: RecommendationStatus;
+  generatedAt: string;
+  decidedBy?: string;
+  decidedAt?: string;
+  decisionNote?: string;
+  resultingMaintenanceId?: number;
+}
+
+export interface RecommendationDecisionRequest {
+  note?: string;
 }

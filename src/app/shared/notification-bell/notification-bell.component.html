@@ -38,15 +38,13 @@
 
     <!-- Notifications List -->
     <div class="notifications-list">
-      <div *ngIf="(unreadCount$ | async) === 0 && (notifications$ | async) as notifications; else loadingState">
+      <ng-container *ngIf="(recentNotifications$ | async) as notifications">
         <div *ngIf="notifications.length === 0" class="empty-state">
           <p>No notifications yet</p>
         </div>
-      </div>
 
-      <ng-template #loadingState>
         <div
-          *ngFor="let notification of (recentNotifications$ | async)"
+          *ngFor="let notification of notifications"
           class="notification-item"
           [class.unread]="!notification.isRead"
           [style.border-left-color]="getRiskConfig(notification.riskLevel).color"
@@ -70,7 +68,7 @@
             <span class="machine-chip">Machine #{{ notification.machineId }}</span>
           </div>
         </div>
-      </ng-template>
+      </ng-container>
     </div>
 
     <!-- Footer -->

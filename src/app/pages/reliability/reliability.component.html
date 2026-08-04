@@ -1,0 +1,71 @@
+<div class="reliability-page">
+  <header class="page-header">
+    <h1>Reliability</h1>
+    <p>MTBF/MTTR by machine, and root-cause tracking for corrective &amp; emergency repairs.</p>
+  </header>
+
+  <div class="loading" *ngIf="isLoading">Loading reliability data…</div>
+  <div class="alert alert-error" *ngIf="error">{{ error }}</div>
+
+  <section class="fleet-section" *ngIf="!isLoading && !error">
+    <h2>Fleet Ranking <span class="hint">(worst MTBF first)</span></h2>
+    <div class="twrap">
+      <table>
+        <thead>
+          <tr><th>Machine</th><th>MTBF</th><th>MTTR</th><th>Failures</th><th>Last Failure</th><th></th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let m of machines" [class.selected]="selectedMachineId === m.machineId">
+            <td>{{ m.machineName }}</td>
+            <td><span class="rel-chip" [ngClass]="reliabilityClass(m.mtbfHours)">{{ formatHours(m.mtbfHours) }}</span></td>
+            <td>{{ formatHours(m.mttrHours) }}</td>
+            <td>{{ m.failureCount }}</td>
+            <td>{{ (m.lastFailureAt | date:'mediumDate') || '—' }}</td>
+            <td>
+              <button type="button" class="btn-link" (click)="filterByMachine(m.machineId)" *ngIf="selectedMachineId !== m.machineId">View failures</button>
+              <button type="button" class="btn-link" (click)="filterByMachine(null)" *ngIf="selectedMachineId === m.machineId">Clear filter</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="empty" *ngIf="machines.length === 0">No corrective or emergency repairs recorded yet.</p>
+    </div>
+  </section>
+
+  <section class="failures-section" *ngIf="!isLoading && !error">
+    <h2>Failure History &amp; Root Cause</h2>
+    <div class="failure-list">
+      <article class="failure-card" *ngFor="let failure of failures">
+        <header>
+          <div>
+            <h3>{{ failure.machineName }}</h3>
+            <span class="type-chip">{{ failure.type }}</span>
+          </div>
+          <span class="repair-time">{{ formatHours(failure.repairHours) }} to repair</span>
+        </header>
+        <p class="description">{{ failure.description || 'No description recorded.' }}</p>
+        <p class="date">Completed {{ failure.completedDate | date:'medium' }}</p>
+
+        <div class="root-cause" *ngIf="editingRootCauseFor !== failure.maintenanceId">
+          <p *ngIf="failure.rootCause"><strong>Root cause:</strong> {{ failure.rootCause }}</p>
+          <p class="no-root-cause" *ngIf="!failure.rootCause">No root cause recorded yet.</p>
+          <button type="button" class="btn-link" (click)="startEditRootCause(failure)">
+            {{ failure.rootCause ? 'Edit' : 'Add root cause' }}
+          </button>
+        </div>
+
+        <div class="root-cause-editor" *ngIf="editingRootCauseFor === failure.maintenanceId">
+          <textarea [(ngModel)]="rootCauseDraft" placeholder="What caused this failure?"></textarea>
+          <div class="editor-actions">
+            <button type="button" class="btn-secondary" (click)="cancelEditRootCause()">Cancel</button>
+            <button type="button" class="btn-primary" [disabled]="isSavingRootCause" (click)="saveRootCause(failure)">
+              {{ isSavingRootCause ? 'Saving…' : 'Save' }}
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <p class="empty" *ngIf="failures.length === 0">No failure records to show.</p>
+    </div>
+  </section>
+</div>

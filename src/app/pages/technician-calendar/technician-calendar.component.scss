@@ -2,11 +2,11 @@
   min-height: 100vh;
   padding: 2rem;
   background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 25%),
+    radial-gradient(circle at top left, rgba(55, 65, 81, 0.10), transparent 25%),
     radial-gradient(circle at bottom right, rgba(168, 85, 247, 0.12), transparent 25%),
-    var(--bg-primary);
+    var(--color-bg-page);
 
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   display: flex;
   flex-direction: column;
   gap: 2rem;
@@ -41,9 +41,9 @@
 
   border-radius: 999px;
 
-  background: rgba(59, 130, 246, 0.15);
+  background: var(--color-bg-elevated);
 
-  color: #60a5fa;
+  color: var(--color-text-secondary);
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: .05em;
@@ -58,7 +58,7 @@
 
 .calendar-subtitle {
   margin-top: .5rem;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: .95rem;
 }
 
@@ -97,7 +97,7 @@
 
 .nav-btn:hover {
   transform: translateY(-2px);
-  background: rgba(59,130,246,.25);
+  background: rgba(107, 114, 128, 0.20);
 }
 
 .today-btn {
@@ -108,15 +108,15 @@
 
   background: linear-gradient(
     135deg,
-    #3b82f6,
-    #2563eb
+    var(--color-accent),
+    var(--color-accent-hover)
   );
 
   color: white;
   font-weight: 700;
 
   box-shadow:
-    0 8px 20px rgba(59,130,246,.35);
+    0 8px 20px var(--color-accent-glow);
 }
 
 .today-btn:hover {
@@ -140,7 +140,7 @@
 
   label {
     font-size: .8rem;
-    color: var(--text-secondary);
+    color: var(--color-text-secondary);
     font-weight: 600;
   }
 
@@ -155,7 +155,7 @@
 
     background: rgba(255,255,255,.05);
 
-    color: var(--text-primary);
+    color: var(--color-text-primary);
 
     outline: none;
 
@@ -164,8 +164,8 @@
 
   select:hover,
   select:focus {
-    border-color: #3b82f6;
-    background: rgba(59,130,246,.08);
+    border-color: var(--color-accent);
+    background: var(--color-accent-dim);
   }
 }
 
@@ -215,7 +215,7 @@
     text-transform: uppercase;
     letter-spacing: .08em;
 
-    color: var(--text-secondary);
+    color: var(--color-text-secondary);
   }
 }
 
@@ -278,9 +278,9 @@
 
   border-radius: 999px;
 
-  background: rgba(59,130,246,.2);
+  background: var(--color-bg-elevated);
 
-  color: #60a5fa;
+  color: var(--color-text-secondary);
 
   font-size: .75rem;
   font-weight: 700;
@@ -321,11 +321,11 @@
 }
 
 .event-card.task {
-  background: rgba(59,130,246,.10);
+  background: rgba(107,114,128,.10);
 }
 
 .event-card.task:hover {
-  border-color: rgba(59,130,246,.35);
+  border-color: rgba(107,114,128,.35);
 }
 
 .event-card.alert-card {
@@ -348,7 +348,7 @@
 }
 
 .task-dot {
-  background: #3b82f6;
+  background: #6b7280;
 }
 
 .alert-dot {
@@ -371,7 +371,7 @@
   font-size: .68rem;
   font-weight: 700;
 
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 
   letter-spacing: .05em;
 }
@@ -410,7 +410,7 @@
   text-transform: uppercase;
   letter-spacing: .08em;
 
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .upcoming-list {
@@ -433,7 +433,7 @@
 
 .upcoming-item:hover {
   transform: translateY(-2px);
-  border-color: rgba(59,130,246,.35);
+  border-color: rgba(107, 114, 128, .35);
 }
 
 .upcoming-top {
@@ -449,9 +449,9 @@
 
   border-radius: 999px;
 
-  background: rgba(59,130,246,.15);
+  background: var(--color-bg-elevated);
 
-  color: #60a5fa;
+  color: var(--color-text-secondary);
 
   font-size: .7rem;
   font-weight: 700;
@@ -459,7 +459,7 @@
 
 .upcoming-meta,
 .upcoming-type {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: .82rem;
 }
 
@@ -494,9 +494,9 @@
 
   overflow: hidden;
 
-  background: #111827;
+  background: var(--color-bg-elevated);
 
-  border: 1px solid rgba(255,255,255,.08);
+  border: 1px solid var(--color-border);
 
   box-shadow:
     0 30px 80px rgba(0,0,0,.4);
@@ -563,7 +563,7 @@
 
     margin-bottom: .5rem;
 
-    color: var(--text-secondary);
+    color: var(--color-text-secondary);
 
     font-size: .8rem;
     font-weight: 700;
@@ -614,14 +614,14 @@
 .primary-btn {
   background: linear-gradient(
     135deg,
-    #3b82f6,
-    #2563eb
+    var(--color-accent),
+    var(--color-accent-hover)
   );
 
   color: white;
 
   box-shadow:
-    0 10px 20px rgba(59,130,246,.35);
+    0 10px 20px var(--color-accent-glow);
 }
 
 .primary-btn:hover {

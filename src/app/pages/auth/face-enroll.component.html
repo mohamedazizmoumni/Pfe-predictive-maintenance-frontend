@@ -1,0 +1,104 @@
+<div class="enroll-shell">
+  <div class="background-glow"></div>
+
+  <div class="enroll-card">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="icon-ring">
+        <div class="pulse-ring"></div>
+        <div class="face-icon">👤</div>
+      </div>
+      <h1>Face Enrollment</h1>
+      <p>Hi <strong>{{ displayName }}</strong>, set up your face for future logins</p>
+    </header>
+
+    <!-- Success state -->
+    <div *ngIf="successMessage" class="success-panel">
+      <div *ngIf="enrolledProfilePicUrl" class="enrolled-avatar-wrap">
+        <img [src]="enrolledProfilePicUrl" alt="Profile picture" class="enrolled-avatar" />
+        <div class="checkmark">✓</div>
+      </div>
+      <p class="success-msg">{{ successMessage }}</p>
+    </div>
+
+    <!-- Already-enrolled state: retrying will always 409, so don't offer capture/retry -->
+    <div *ngIf="alreadyEnrolled && !successMessage" class="error-panel">
+      <div class="face-icon" style="font-size: 2.5rem;">🔒</div>
+      <p class="error-msg">{{ errorMessage }}</p>
+      <button class="btn primary" type="button" (click)="goToDashboard()">Back to Dashboard</button>
+    </div>
+
+    <!-- Capture state -->
+    <ng-container *ngIf="!successMessage && !alreadyEnrolled">
+
+      <!-- Camera viewport -->
+      <div class="camera-wrapper" [class.active]="cameraReady">
+        <div class="scan-overlay">
+          <div class="scan-line"></div>
+        </div>
+        <video #videoEl autoplay playsinline muted></video>
+        <canvas #canvasEl class="hidden-canvas"></canvas>
+        <div *ngIf="!cameraReady" class="camera-placeholder">
+          <div class="cam-icon">📷</div>
+          <p>Starting camera…</p>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div *ngIf="capturedPreviewUrl" class="preview-wrap">
+        <img [src]="capturedPreviewUrl" alt="Captured face" class="preview-img" />
+        <button class="retry-btn" type="button" (click)="retryCapture()">Retake</button>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button
+          class="btn secondary"
+          type="button"
+          (click)="captureFrame()"
+          [disabled]="isLoading || !cameraReady">
+          📸 Capture
+        </button>
+        <button
+          class="btn primary"
+          type="button"
+          (click)="enroll()"
+          [disabled]="isLoading || !capturedFile">
+          <span *ngIf="!isLoading">Save &amp; Continue</span>
+          <span *ngIf="isLoading" class="loading">
+            <span class="spinner"></span>
+            Enrolling…
+          </span>
+        </button>
+      </div>
+
+      <!-- File upload fallback -->
+      <div class="upload-fallback">
+        <label for="enroll-file-input" class="upload-label">
+          Upload photo instead
+        </label>
+        <input
+          id="enroll-file-input"
+          type="file"
+          accept="image/*"
+          (change)="onFileSelected($event)"
+          [disabled]="isLoading"
+          class="hidden-file-input"
+        />
+      </div>
+
+      <!-- Error -->
+      <div *ngIf="errorMessage" class="error-banner">
+        {{ errorMessage }}
+      </div>
+
+    </ng-container>
+
+    <!-- Info note -->
+    <p class="info-note" *ngIf="!successMessage">
+      Your face image is stored securely and will be used as your profile picture.
+    </p>
+
+  </div>
+</div>

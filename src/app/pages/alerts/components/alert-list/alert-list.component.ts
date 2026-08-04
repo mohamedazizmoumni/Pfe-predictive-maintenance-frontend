@@ -49,7 +49,8 @@ export class AlertListComponent implements OnChanges {
     { label: 'New', value: AlertStatus.NEW, hint: 'Unassigned incidents' },
     { label: 'Acknowledged', value: AlertStatus.ACKNOWLEDGED, hint: 'Triaged' },
     { label: 'Escalated', value: AlertStatus.ESCALATED, hint: 'Handed off' },
-    { label: 'Closed', value: AlertStatus.CLOSED, hint: 'Resolved' },
+    { label: 'Resolved', value: AlertStatus.RESOLVED, hint: 'Auto-resolved by system' },
+    { label: 'Closed', value: AlertStatus.CLOSED, hint: 'Manually resolved' },
   ];
 
   assignedSearch = '';

@@ -7,8 +7,18 @@
       <span>Live feed of scheduled and in-progress work orders.</span>
     </div>
     <div class="header-actions">
-      <button type="button" class="ghost" (click)="refreshRequested.emit()">↻ Refresh</button>
-      <button type="button" *ngIf="canCreate" (click)="createRequested.emit()">+ Schedule Task</button>
+      <button type="button" class="ghost" (click)="refreshRequested.emit()">
+        <span class="btn-icon" [class.spinning]="isLoading" aria-hidden="true">
+          <lucide-icon name="RefreshCw" [size]="14"></lucide-icon>
+        </span>
+        Refresh
+      </button>
+      <button type="button" class="btn-primary" *ngIf="canCreate" (click)="createRequested.emit()">
+        <span class="btn-icon" aria-hidden="true">
+          <lucide-icon name="Plus" [size]="14"></lucide-icon>
+        </span>
+        Schedule Task
+      </button>
     </div>
   </header>
 
@@ -75,7 +85,10 @@
   <ng-template #emptyState>
     <div class="empty-state">
       <p>No maintenance tasks for this filter.</p>
-      <button type="button" class="ghost" *ngIf="canCreate" (click)="createRequested.emit()">
+      <button type="button" class="btn-primary" *ngIf="canCreate" (click)="createRequested.emit()">
+        <span class="btn-icon" aria-hidden="true">
+          <lucide-icon name="Plus" [size]="14"></lucide-icon>
+        </span>
         Schedule first task
       </button>
     </div>
@@ -88,16 +101,18 @@
   </ng-template>
 
   <footer class="list-pagination" *ngIf="pagination">
-    <button type="button" class="ghost"
+    <button type="button" class="ghost pagination-btn"
       (click)="onPageChange('prev')"
       [disabled]="pagination.currentPage === 0">
-      ← Previous
+      <lucide-icon name="ChevronLeft" [size]="14"></lucide-icon>
+      Previous
     </button>
     <p>Page {{ (pagination.currentPage || 0) + 1 }} of {{ pagination.totalPages || 1 }} · {{ pagination.totalElements }} tasks</p>
-    <button type="button" class="ghost"
+    <button type="button" class="ghost pagination-btn"
       (click)="onPageChange('next')"
       [disabled]="pagination.totalPages <= 1 || pagination.currentPage >= pagination.totalPages - 1">
-      Next →
+      Next
+      <lucide-icon name="ChevronRight" [size]="14"></lucide-icon>
     </button>
   </footer>
 

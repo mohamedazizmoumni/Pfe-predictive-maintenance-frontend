@@ -3,6 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { InventoryService } from '../../../core/services/inventory.service';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
+import { SupplierService } from '../../../core/services/supplier.service';
+import { SupplierResponse } from '../../../core/models/sentinel.models';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 @Component({
@@ -22,7 +25,12 @@ export class PartFormComponent implements OnInit {
   categories: any[] = [];
   subCategories: string[] = [];
   loadingCategories = false;
+  isAddingNewCategory = false;
   part: any = {};
+
+  suppliers: SupplierResponse[] = [];
+  loadingSuppliers = false;
+  isAddingNewSupplier = false;
 
   // Image upload properties
   selectedImage: File | null = null;
@@ -32,9 +40,11 @@ export class PartFormComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     private inventoryService: InventoryService,
+    private supplierService: SupplierService,
     public router: Router,
     public route: ActivatedRoute,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private confirmDialog: ConfirmDialogService
   ) {
     this.partForm = this.fb.group({
       name: ['', Validators.required],
@@ -54,12 +64,27 @@ export class PartFormComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadCategories();
+    this.loadSuppliers();
 
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.isEdit = true;
       this.loadPart(id);
     }
+  }
+
+  /** Populates the supplier dropdown from the Suppliers directory (active suppliers only). */
+  loadSuppliers(): void {
+    this.loadingSuppliers = true;
+    this.supplierService.getAll(true).subscribe({
+      next: (suppliers) => {
+        this.suppliers = suppliers || [];
+        this.loadingSuppliers = false;
+      },
+      error: () => {
+        this.loadingSuppliers = false;
+      }
+    });
   }
 
   // ✅ Load categories
@@ -87,6 +112,33 @@ export class PartFormComponent implements OnInit {
       this.subCategories = subs;
       this.partForm.patchValue({ subCategory: '' });
     });
+  }
+
+  /**
+   * Parts don't reference a separate Category entity - `category` is a free-text
+   * field on the part itself, so a brand new category is created simply by
+   * saving a part with a name that hasn't been used before.
+   */
+  enableNewCategoryInput(): void {
+    this.isAddingNewCategory = true;
+    this.partForm.patchValue({ category: '' });
+    this.subCategories = [];
+  }
+
+  useExistingCategory(): void {
+    this.isAddingNewCategory = false;
+    this.partForm.patchValue({ category: '' });
+  }
+
+  /** Mirrors enableNewCategoryInput/useExistingCategory — supplier stays free-text on Part (not FK'd to Supplier). */
+  enableNewSupplierInput(): void {
+    this.isAddingNewSupplier = true;
+    this.partForm.patchValue({ supplier: '' });
+  }
+
+  useExistingSupplier(): void {
+    this.isAddingNewSupplier = false;
+    this.partForm.patchValue({ supplier: '' });
   }
 
   /**
@@ -141,12 +193,14 @@ export class PartFormComponent implements OnInit {
   /**
    * Delete existing image from server
    */
-  deleteExistingImage(): void {
+  async deleteExistingImage(): Promise<void> {
     if (!this.part?.id) return;
 
-    if (!confirm('Are you sure you want to delete this image?')) {
-      return;
-    }
+    const confirmed = await this.confirmDialog.confirmDanger(
+      'Delete image',
+      'Delete this part image? This cannot be undone.'
+    );
+    if (!confirmed) return;
 
     this.uploadingImage = true;
     this.inventoryService.deletePartImage(this.part.id).subscribe({

@@ -5,6 +5,7 @@ import { tap, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { Maintenance, CreateMaintenanceRequest, CreateTaskRequest } from '../models/sentinel.models';
 import { apiEndpoint } from '../http/api-base';
+import { AuthService } from './auth.service';
 
 export interface MaintenanceResponse {
   content: Maintenance[];
@@ -51,7 +52,7 @@ export class MaintenanceService {
   currentMaintenance$ = this.currentMaintenanceSubject.asObservable();
   pagination$ = this.paginationSubject.asObservable();
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private authService: AuthService) {
     this.loadFromCache();
   }
 
@@ -209,14 +210,16 @@ export class MaintenanceService {
   }
 
   /**
-   * Create task using backend task contract and trigger assignment email flow
+   * Assign a maintenance task to a technician and trigger the assignment email flow.
+   * Posts to the same /v1/maintenance resource the rest of the app reads from
+   * (type defaults to CORRECTIVE server-side when omitted).
    */
-  createTask(request: CreateTaskRequest): Observable<unknown> {
+  createTask(request: CreateTaskRequest): Observable<Maintenance> {
     this.isLoadingSubject.next(true);
     this.errorSubject.next(null);
 
     return this.http
-      .post<unknown>(apiEndpoint('/api/v1/tasks'), request)
+      .post<Maintenance>(apiEndpoint('/v1/maintenance'), request)
       .pipe(
         tap(() => {
           this.refreshCurrentQuery();
@@ -301,24 +304,68 @@ export class MaintenanceService {
   }
 
   /**
-   * Start maintenance
+   * Start maintenance — hits the dedicated backend action endpoint so
+   * startDate is actually recorded server-side (the generic status PUT
+   * only sets startDate if the caller explicitly supplies one).
    */
   startMaintenance(id: string): Observable<Maintenance> {
-    return this.updateMaintenanceStatus(id, 'IN_PROGRESS');
+    return this.runAction(id, 'start');
   }
 
   /**
-   * Complete maintenance
+   * Complete maintenance — dedicated endpoint records completedDate.
    */
   completeMaintenance(id: string): Observable<Maintenance> {
-    return this.updateMaintenanceStatus(id, 'COMPLETED');
+    return this.runAction(id, 'complete');
   }
 
   /**
-   * Approve maintenance
+   * Approve maintenance — dedicated endpoint records approvedDate AND
+   * approvedBy from the current user, which the generic status PUT never did.
    */
   approveMaintenance(id: string): Observable<Maintenance> {
-    return this.updateMaintenanceStatus(id, 'APPROVED');
+    this.isLoadingSubject.next(true);
+    this.errorSubject.next(null);
+
+    const approvedBy = this.authService.getCurrentUser()?.username || 'unknown';
+    const params = new HttpParams().set('approvedBy', approvedBy);
+
+    return this.http
+      .post<Maintenance>(apiEndpoint(`/v1/maintenance/${id}/approve`), null, { params })
+      .pipe(
+        tap((maintenance) => {
+          this.currentMaintenanceSubject.next(maintenance);
+          this.refreshCurrentQuery();
+          this.isLoadingSubject.next(false);
+        }),
+        catchError((error) => {
+          const errorMessage = error.error?.message || 'Failed to approve maintenance';
+          this.errorSubject.next(errorMessage);
+          this.isLoadingSubject.next(false);
+          throw error;
+        })
+      );
+  }
+
+  private runAction(id: string, action: 'start' | 'complete'): Observable<Maintenance> {
+    this.isLoadingSubject.next(true);
+    this.errorSubject.next(null);
+
+    return this.http
+      .post<Maintenance>(apiEndpoint(`/v1/maintenance/${id}/${action}`), null)
+      .pipe(
+        tap((maintenance) => {
+          this.currentMaintenanceSubject.next(maintenance);
+          this.refreshCurrentQuery();
+          this.isLoadingSubject.next(false);
+        }),
+        catchError((error) => {
+          const errorMessage = error.error?.message || `Failed to ${action} maintenance`;
+          this.errorSubject.next(errorMessage);
+          this.isLoadingSubject.next(false);
+          throw error;
+        })
+      );
   }
 
   /**

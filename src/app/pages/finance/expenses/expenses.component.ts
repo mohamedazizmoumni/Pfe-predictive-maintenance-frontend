@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf';
 import { takeUntil } from 'rxjs/operators';
 import { FinanceService } from '../../../core/services/finance.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 import { rolesCollectionHasAny } from '../../../core/utils/role.utils';
 import {
   ExpenseReportResponse,
@@ -75,6 +76,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   constructor(
     private financeService: FinanceService,
     private authService: AuthService,
+    private confirmDialog: ConfirmDialogService,
     private fb: FormBuilder,
   ) {}
 
@@ -324,7 +326,15 @@ export class ExpensesComponent implements OnInit, OnDestroy {
 
   // ── delete ─────────────────────────────────────────────────────────────────
 
-  handleDelete(expense: ExpenseReportResponse): void {
+  async handleDelete(expense: ExpenseReportResponse): Promise<void> {
+    const confirmed = await this.confirmDialog.confirmDanger(
+      'Delete expense report',
+      `Delete "${expense.title}" (${expense.amount.toFixed(2)} TND)? This financial record cannot be recovered.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
     this.financeService.deleteExpense(expense.id)
       .pipe(takeUntil(this.destroy$))
       .subscribe({

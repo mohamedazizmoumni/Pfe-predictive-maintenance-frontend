@@ -118,6 +118,11 @@ export function getRoleDashboardRoute(
     return '/equipment';
   }
 
+  // CUSTOMER (portal)
+  if (normalizedRoles.includes('CUSTOMER')) {
+    return '/portal';
+  }
+
   // fallback
   return '/access-denied';
 
@@ -164,6 +169,10 @@ export function getDashboardRouteForNormalizedRoles(
 
   if (normalizedRoles.includes('VIEWER')) {
     return '/equipment';
+  }
+
+  if (normalizedRoles.includes('CUSTOMER')) {
+    return '/portal';
   }
 
   return '/access-denied';

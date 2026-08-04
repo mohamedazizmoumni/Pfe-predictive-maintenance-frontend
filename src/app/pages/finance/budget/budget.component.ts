@@ -1,9 +1,11 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LucideAngularModule } from 'lucide-angular';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil, timeout } from 'rxjs/operators';
 import { FinanceService } from '../../../core/services/finance.service';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 import { FinanceBudgetResponse, FinanceBudgetRequest } from '../../../core/models/sentinel.models';
 
 type BudgetHealth = 'Healthy' | 'Warning' | 'Critical' | 'Over Budget';
@@ -11,7 +13,7 @@ type BudgetHealth = 'Healthy' | 'Warning' | 'Critical' | 'Over Budget';
 @Component({
   selector: 'app-budget',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, LucideAngularModule],
   templateUrl: './budget.component.html',
   styleUrl: './budget.component.scss',
 })
@@ -28,11 +30,16 @@ export class BudgetComponent implements OnInit, OnDestroy {
   error: string | null = null;
   successMessage: string | null = null;
 
+  showHistory = false;
+  isLoadingHistory = false;
+  history: FinanceBudgetResponse[] = [];
+
   form!: FormGroup;
   readonly currentYear = new Date().getFullYear();
 
   constructor(
     private financeService: FinanceService,
+    private confirmDialog: ConfirmDialogService,
     private fb: FormBuilder,
   ) {}
 
@@ -184,4 +191,60 @@ export class BudgetComponent implements OnInit, OnDestroy {
 
   dismissError(): void   { this.error = null; }
   dismissSuccess(): void { this.successMessage = null; }
+
+  // ── history ──────────────────────────────────────────────────────
+
+  toggleHistory(): void {
+    this.showHistory = !this.showHistory;
+    if (this.showHistory && this.history.length === 0) {
+      this.loadHistory();
+    }
+  }
+
+  loadHistory(): void {
+    this.isLoadingHistory = true;
+    this.financeService.getAllBudgets()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (list) => {
+          this.history = [...list].sort((a, b) => b.year - a.year);
+          this.isLoadingHistory = false;
+        },
+        error: () => { this.isLoadingHistory = false; },
+      });
+  }
+
+  viewHistoryYear(entry: FinanceBudgetResponse): void {
+    this.budget = entry;
+    this.isEditMode = true;
+    this.showForm = false;
+    this.showHistory = false;
+  }
+
+  async deleteHistoryYear(entry: FinanceBudgetResponse): Promise<void> {
+    const confirmed = await this.confirmDialog.confirmDanger(
+      'Delete budget',
+      `Delete the ${entry.year} budget? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    this.financeService.deleteBudget(entry.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.history = this.history.filter(b => b.id !== entry.id);
+          this.successMessage = `${entry.year} budget deleted.`;
+          if (this.budget?.id === entry.id) {
+            this.budget = null;
+            this.isEditMode = false;
+            this.showForm = true;
+            this.form.reset({ year: this.currentYear, totalBudget: null, notes: '' });
+            this.form.get('year')!.enable();
+          }
+        },
+        error: (err) => {
+          this.error = err?.error?.message ?? 'Failed to delete budget.';
+        },
+      });
+  }
 }

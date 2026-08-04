@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { UserService } from '../../core/services/user.service';
@@ -7,11 +8,12 @@ import { User } from '../../core/models/sentinel.models';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Subject } from 'rxjs';
 import { takeUntil, debounceTime, filter, take } from 'rxjs/operators';
+import { NotificationPreferencesComponent } from './notification-preferences/notification-preferences.component';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatSnackBarModule],
+  imports: [CommonModule, RouterLink, ReactiveFormsModule, MatSnackBarModule, NotificationPreferencesComponent],
   templateUrl: './profile.component.html',
   styleUrl: './profile.component.scss',
 })
@@ -32,6 +34,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   profilePictureUrl: string | null = null;
   cameraReady = false;
   isStartingCamera = false;
+  isCapturingPhoto = false;
   showCameraModal = false;
 
   departments: string[] = [
@@ -49,6 +52,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   ];
 
   private cameraStream: MediaStream | null = null;
+  private pictureObjectUrl: string | null = null;
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -210,13 +214,34 @@ export class ProfileComponent implements OnInit, OnDestroy {
   private loadProfilePicture(user: User): void {
     if (!user || !user.username) return;
 
-    // Try to load the profile picture from the user object first
-    if (user.profilePictureUrl) {
-      this.profilePictureUrl = user.profilePictureUrl;
-    } else {
-      // If no profilePictureUrl in user object, generate it from username
-      // This handles cases where picture was uploaded during registration
-      this.profilePictureUrl = this.userService.getProfilePictureUrl(user.username);
+    // Fetched via HttpClient (so the auth interceptor attaches the bearer
+    // token) rather than bound directly as an <img src>. A plain <img src>
+    // pointed at this endpoint can't carry the Authorization header, so it
+    // 401s whenever the backend requires auth to view the picture.
+    this.userService
+      .getProfilePictureBlob(user.username)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (blob) => this.setPictureObjectUrl(blob),
+        error: () => {
+          // No picture uploaded yet (404), or it couldn't be loaded — fall
+          // back to the initials avatar rather than a broken <img>.
+          this.revokePictureObjectUrl();
+          this.profilePictureUrl = null;
+        },
+      });
+  }
+
+  private setPictureObjectUrl(blob: Blob): void {
+    this.revokePictureObjectUrl();
+    this.pictureObjectUrl = URL.createObjectURL(blob);
+    this.profilePictureUrl = this.pictureObjectUrl;
+  }
+
+  private revokePictureObjectUrl(): void {
+    if (this.pictureObjectUrl) {
+      URL.revokeObjectURL(this.pictureObjectUrl);
+      this.pictureObjectUrl = null;
     }
   }
 
@@ -378,33 +403,50 @@ export class ProfileComponent implements OnInit, OnDestroy {
   }
 
   capturePhoto(): void {
-    if (!this.cameraVideo || !this.faceCanvas) {
+    // Guards against a fast double-click re-entering this method while the
+    // first capture's async toBlob()/upload is still in flight — a second
+    // call would draw from a stream that's already being torn down by the
+    // first call's closeCameraModal(), producing a black frame that then
+    // overwrites the good capture.
+    if (this.isCapturingPhoto || !this.cameraVideo || !this.faceCanvas) {
       return;
     }
 
     const video = this.cameraVideo.nativeElement;
     const canvas = this.faceCanvas.nativeElement;
-    const context = canvas.getContext('2d');
 
-    if (context) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      context.drawImage(video, 0, 0);
-
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const file = new File([blob], 'profile-photo.jpg', { type: 'image/jpeg' });
-          if (this.processFile(file)) {
-            this.uploadProfilePicture(file);
-          }
-          this.closeCameraModal();
-        }
-      }, 'image/jpeg');
+    if (!video.videoWidth || !video.videoHeight) {
+      this.errorMessage = 'Camera is still starting up. Please wait a moment and try again.';
+      return;
     }
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return;
+    }
+
+    this.isCapturingPhoto = true;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    context.drawImage(video, 0, 0);
+
+    canvas.toBlob((blob) => {
+      this.isCapturingPhoto = false;
+
+      if (blob) {
+        const file = new File([blob], 'profile-photo.jpg', { type: 'image/jpeg' });
+        if (this.processFile(file)) {
+          this.uploadProfilePicture(file);
+        }
+      }
+      this.closeCameraModal();
+    }, 'image/jpeg');
   }
 
   closeCameraModal(): void {
     this.showCameraModal = false;
+    this.isCapturingPhoto = false;
     this.stopCamera();
   }
 
@@ -465,6 +507,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.stopCamera();
     this.clearPreviewUrl();
+    this.revokePictureObjectUrl();
     this.destroy$.next();
     this.destroy$.complete();
   }

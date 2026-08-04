@@ -1,0 +1,24 @@
+// Layout/visuals reuse the global .modal-* system from src/styles/industrial-theme.scss.
+// Only the confirm-specific sizing and danger-tone accent live here.
+
+.confirm-card {
+  width: min(440px, 92vw);
+}
+
+.confirm-message {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.confirm-card--danger {
+  .modal-header {
+    background: var(--color-danger-bg);
+    border-bottom-color: var(--color-danger-border);
+  }
+
+  .modal-title {
+    color: var(--color-danger-text);
+  }
+}

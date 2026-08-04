@@ -1,17 +1,18 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { Machine } from '../../models/machine.model';
-import { Recommendation } from '../../models/recommendation.model';
-import { MachineService } from '../../services/machine.service';
-import { RecommendationService } from '../../services/recommendation.service';
-import { NotificationService } from '../../services/notification.service';
+import { Machine } from '../../core/models/machine.model';
+import { MaintenanceRecommendationDTO } from '../../core/models/recommendation.model';
+import { MachineService } from '../../core/services/machine.service';
+import { RecommendationService } from '../../core/services/recommendation.service';
+import { NotificationService } from '../../core/services/notification.service';
 import { RecommendationCardComponent } from '../../components/recommendation-card/recommendation-card.component';
 import { CostComparisonComponent } from '../../components/cost-comparison/cost-comparison.component';
+import { MaintenanceCreatePrefill } from '../maintenance/components/maintenance-create/maintenance-create.component';
 
 @Component({
   selector: 'app-recommendation-page',
@@ -29,17 +30,36 @@ import { CostComparisonComponent } from '../../components/cost-comparison/cost-c
 })
 export class RecommendationPageComponent implements OnInit {
   machine: Machine | null = null;
-  recommendation: Recommendation | null = null;
+  recommendation: MaintenanceRecommendationDTO | null = null;
   isLoading = true;
   selectedMachineId: number | null = null;
 
   constructor(
     private route: ActivatedRoute,
+    private router: Router,
     private machineService: MachineService,
     private recommendationService: RecommendationService,
     private notificationService: NotificationService,
     private cdr: ChangeDetectorRef
   ) {}
+
+  onScheduleMaintenance(recommendation: MaintenanceRecommendationDTO): void {
+    const priorityByUrgency: Record<MaintenanceRecommendationDTO['urgencyLevel'], MaintenanceCreatePrefill['priority']> = {
+      CRITICAL: 'CRITICAL',
+      HIGH: 'HIGH',
+      MEDIUM: 'MEDIUM',
+      LOW: 'LOW',
+    };
+
+    const prefill: MaintenanceCreatePrefill = {
+      machineId: recommendation.machineId,
+      title: `${recommendation.recommendedAction} maintenance — ${recommendation.machineName}`,
+      description: recommendation.justification,
+      priority: priorityByUrgency[recommendation.urgencyLevel],
+    };
+
+    this.router.navigate(['/maintenance'], { state: { prefill } });
+  }
 
   ngOnInit(): void {
     const paramValue = this.route.snapshot.paramMap.get('machineId');
@@ -51,12 +71,12 @@ export class RecommendationPageComponent implements OnInit {
       return;
     }
 
-    this.machineService.getAllMachines().subscribe({
+    this.machineService.getAll().subscribe({
       next: (machines) => {
         const firstMachine = machines[0];
         if (!firstMachine) {
           this.isLoading = false;
-          this.notificationService.info('No machines available for recommendations yet.');
+          this.notificationService.warn('No machines available for recommendations yet.');
           this.cdr.markForCheck();
           return;
         }
@@ -74,7 +94,7 @@ export class RecommendationPageComponent implements OnInit {
 
   private loadRecommendationData(machineId: number): void {
     forkJoin({
-      machine: this.machineService.getMachineById(machineId),
+      machine: this.machineService.getById(machineId),
       recommendation: this.recommendationService
         .getLatestRecommendation(machineId)
         .pipe(catchError(() => of(null))),

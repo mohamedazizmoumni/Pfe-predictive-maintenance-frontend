@@ -1,101 +1,132 @@
 <div class="login-shell">
-  <div class="login-container">
+  <div class="background-glow"></div>
 
-    <!-- Left Branding Side -->
-    <div class="login-branding">
-      <div class="branding-content">
-        <div class="logo">
-          <span class="logo-dot"></span>
-          <strong>SENTINEL</strong>
+  <div class="login-card">
+
+    <!-- ════════════════════════════════════
+         STEP 1 — Face Recognition
+         ════════════════════════════════════ -->
+    <app-face-scan-panel
+      *ngIf="currentStep === 'face'"
+      [isLoading]="isLoading"
+      [apiError]="errorMessage"
+      [recognizedResponse]="faceRecognizedResponse"
+      (authenticate)="onFaceAuthenticate($event)"
+      (continueClicked)="onFaceContinue()"
+      (backClicked)="useCredentialsInstead()"
+    >
+      <span footer>
+        Having trouble?
+        <button type="button" class="link-btn" (click)="useCredentialsInstead()">Use password login</button>
+      </span>
+    </app-face-scan-panel>
+
+    <!-- ════════════════════════════════════
+         STEP 2 — Credentials (fallback)
+         ════════════════════════════════════ -->
+    <div class="credentials-step" *ngIf="currentStep === 'credentials'">
+      <header class="credentials-header">
+        <span class="brand-icon"><lucide-icon name="ShieldCheck" [size]="26"></lucide-icon></span>
+        <div class="brand-copy">
+          <h1>Sentinel OS</h1>
+          <p>Predictive Maintenance Platform</p>
         </div>
-        <h1>Predictive Maintenance</h1>
-        <p class="tagline">Protecting your critical assets with intelligence</p>
-        
-        <div class="trust-badges">
-          <div class="badge">AI-Powered</div>
-          <div class="badge">Real-time Monitoring</div>
-          <div class="badge">Enterprise Grade</div>
-        </div>
+      </header>
+
+      <div class="welcome-copy">
+        <h2>Welcome Back</h2>
+        <p>Sign in to continue to your dashboard</p>
       </div>
-    </div>
 
-    <!-- Login Form -->
-    <div class="login-form-container">
-      <div class="login-card">
-        <header class="login-header">
-          <h2>Welcome Back</h2>
-          <p class="subtitle">Sign in to access your operations cockpit</p>
-        </header>
+      <form class="credentials-form" [formGroup]="loginForm" (ngSubmit)="onSubmit()">
 
-        <form class="login-form" [formGroup]="loginForm" (ngSubmit)="onSubmit()">
-          
-          <div class="input-group">
-            <label for="username">Username or Email</label>
+        <div class="input-group">
+          <div class="input-wrapper">
+            <lucide-icon name="User" [size]="16" class="input-icon"></lucide-icon>
             <input
               id="username"
               type="text"
               formControlName="username"
               class="ui-input"
-              placeholder="Enter your username"
+              placeholder="Email or Username"
               autocomplete="username"
             />
-            <div *ngIf="loginForm.get('username')?.invalid && loginForm.get('username')?.touched" 
-                 class="field-error">
-              Username is required
-            </div>
           </div>
-
-          <div class="input-group">
-            <label for="password">Password</label>
-            <div class="input-wrapper">
-              <input
-                id="password"
-                [type]="getPasswordType()"
-                formControlName="password"
-                class="ui-input"
-                placeholder="Enter your password"
-                autocomplete="current-password"
-              />
-              <button type="button" class="toggle-password" (click)="togglePasswordVisibility()">
-                {{ hidePassword ? '👁️' : '🙈' }}
-              </button>
-            </div>
-            <div *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched" 
-                 class="field-error">
-              Password is required
-            </div>
+          <div
+            *ngIf="loginForm.get('username')?.invalid && loginForm.get('username')?.touched"
+            class="field-error">
+            Username is required
           </div>
-
-          <div *ngIf="errorMessage" class="error-banner">
-            {{ errorMessage }}
-          </div>
-
-          <button type="submit" class="login-btn" [disabled]="loginForm.invalid || isLoading">
-            <span *ngIf="!isLoading">Sign In</span>
-            <span *ngIf="isLoading" class="loading">
-              <span class="spinner"></span>
-              Authenticating...
-            </span>
-          </button>
-
-          <div class="forgot-password">
-            <a href="#" routerLink="/auth/forgot-password">Forgot Password?</a>
-          </div>
-        </form>
-
-        <div class="divider">
-          <span>or</span>
         </div>
 
-        <button class="face-login-btn" routerLink="/auth/face-login">
-          <span>👤</span>
-          Login with Face Recognition
+        <div class="input-group">
+          <div class="input-wrapper">
+            <lucide-icon name="Lock" [size]="16" class="input-icon"></lucide-icon>
+            <input
+              id="password"
+              [type]="passwordType"
+              formControlName="password"
+              class="ui-input"
+              placeholder="Password"
+              autocomplete="current-password"
+            />
+            <button type="button" class="toggle-password" (click)="togglePassword()">
+              <lucide-icon [name]="hidePassword ? 'Eye' : 'EyeOff'" [size]="16"></lucide-icon>
+            </button>
+          </div>
+          <div
+            *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched"
+            class="field-error">
+            Password must be at least 4 characters
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label class="remember-me">
+            <input type="checkbox" formControlName="rememberMe" />
+            <span>Remember me</span>
+          </label>
+          <button type="button" class="link-btn forgot-link" (click)="toggleForgotPasswordHint()">Forgot password?</button>
+        </div>
+
+        <div *ngIf="showForgotPasswordHint" class="forgot-password-hint">
+          <lucide-icon name="Info" [size]="14"></lucide-icon>
+          <span>Passwords are reset by an administrator, not by you. <a [href]="contactUrl">Contact your administrator</a> and they'll set a new one for you.</span>
+        </div>
+
+        <div *ngIf="errorMessage" class="error-banner">
+          <lucide-icon name="TriangleAlert" [size]="15"></lucide-icon>{{ errorMessage }}
+        </div>
+
+        <button
+          type="submit"
+          class="login-btn"
+          [disabled]="loginForm.invalid || isLoading">
+          <span *ngIf="!isLoading">Sign In</span>
+          <span *ngIf="isLoading" class="loading">
+            <lucide-icon name="LoaderCircle" [size]="15" class="spin"></lucide-icon>
+            Authenticating...
+          </span>
         </button>
 
-        <div class="footer-links">
-          <p>New to Sentinel? <a routerLink="/auth/register">Request Access</a></p>
-        </div>
-      </div>
+      </form>
+
+      <div class="divider"><span>OR</span></div>
+
+      <button type="button" class="face-btn" (click)="backToFace()">
+        <lucide-icon name="ScanFace" [size]="17"></lucide-icon>
+        Sign in with Facial Recognition
+      </button>
+
+      <p class="secure-footer">
+        <lucide-icon name="ShieldCheck" [size]="13"></lucide-icon>
+        Secured by enterprise-grade encryption
+      </p>
     </div>
+
+    <p class="no-signup-text">
+      Don't have an account? <a [href]="contactUrl">Contact your administrator</a>
+    </p>
+
   </div>
 </div>

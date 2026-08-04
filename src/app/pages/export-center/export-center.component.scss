@@ -1,0 +1,46 @@
+.export-page {
+  padding: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.export-header {
+  margin-bottom: 1.5rem;
+  h1 { margin: 0 0 0.35rem; font-size: 1.6rem; color: var(--color-text-primary); }
+  p { margin: 0; color: var(--color-text-secondary); }
+}
+
+.export-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.export-card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 14px);
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+
+  h3 { margin: 0; font-size: 1rem; color: var(--color-text-primary); }
+  p { margin: 0; font-size: 0.85rem; color: var(--color-text-secondary); flex: 1; }
+
+  button {
+    align-self: flex-start;
+    padding: 0.55rem 1.1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: var(--color-accent);
+    color: var(--color-text-on-accent);
+    font-size: 0.85rem;
+
+    &:disabled { opacity: 0.6; cursor: not-allowed; }
+  }
+}
+
+.empty { color: var(--color-text-muted); }

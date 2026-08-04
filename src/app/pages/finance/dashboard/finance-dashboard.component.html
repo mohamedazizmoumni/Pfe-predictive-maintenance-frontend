@@ -15,15 +15,24 @@
     </div>
 
     <div class="hero-right">
-      <button class="btn btn-secondary" (click)="load()" [disabled]="isLoading">
-        {{ isLoading ? 'Refreshing…' : '↻ Refresh Data' }}
+      <button class="btn btn-secondary" (click)="refresh()" [disabled]="isLoading">
+        <span class="btn-icon" [class.spinning]="isLoading" aria-hidden="true">
+          <lucide-icon name="RefreshCw" [size]="14"></lucide-icon>
+        </span>
+        {{ isLoading ? 'Refreshing…' : 'Refresh Data' }}
       </button>
 
       <button class="btn btn-primary" (click)="exportSummaryCSV()" [disabled]="!summary">
+        <span class="btn-icon" aria-hidden="true">
+          <lucide-icon name="Download" [size]="14"></lucide-icon>
+        </span>
         Export Summary
       </button>
 
       <button class="btn btn-ghost" (click)="goToBudget()">
+        <span class="btn-icon" aria-hidden="true">
+          <lucide-icon name="Settings2" [size]="14"></lucide-icon>
+        </span>
         Manage Budget
       </button>
     </div>
@@ -56,13 +65,16 @@
   </div>
 
   <div class="error-strip" *ngIf="showAlert">
-    <span>⚠ {{ budgetAlertMessage }}</span>
+    <span><lucide-icon name="TriangleAlert" [size]="16"></lucide-icon> {{ budgetAlertMessage }}</span>
     <button (click)="goToBudget()">Manage Budget</button>
   </div>
 
   <div class="message-strip error" *ngIf="error">
     <span>{{ error }}</span>
-    <button (click)="dismissError()">Dismiss</button>
+    <button (click)="dismissError()">
+      <lucide-icon name="X" [size]="14"></lucide-icon>
+      Dismiss
+    </button>
   </div>
 
   <div class="message-strip error" *ngIf="summaryError">
@@ -76,27 +88,34 @@
   <ng-container *ngIf="dashboard as d">
     <div class="kpi-grid">
       <article class="kpi-card primary">
+        <div class="kpi-icon"><lucide-icon name="Wallet" [size]="20"></lucide-icon></div>
         <h3>Monthly Budget</h3>
         <p>{{ totalBudget | currency:'TND' }}</p>
         <span class="trend up">{{ d.currentYear }}</span>
       </article>
 
       <article class="kpi-card danger">
+        <div class="kpi-icon"><lucide-icon name="CreditCard" [size]="20"></lucide-icon></div>
         <h3>Spent MTD</h3>
         <p>{{ spentAmount | currency:'TND' }}</p>
-        <span class="trend">{{ utilizationPercentage | number:'1.0-0' }}% used</span>
+        <span class="trend" [class]="'tone-' + utilizationTone">{{ utilizationPercentage | number:'1.0-0' }}% used</span>
       </article>
 
       <article class="kpi-card warning">
+        <div class="kpi-icon"><lucide-icon name="Clock" [size]="20"></lucide-icon></div>
         <h3>Pending Approval</h3>
         <p>{{ pendingApprovalsAmount | currency:'TND' }}</p>
         <span class="trend">{{ pendingApprovalsTotal }} requests</span>
       </article>
 
       <article class="kpi-card info">
+        <div class="kpi-icon"><lucide-icon name="Gauge" [size]="20"></lucide-icon></div>
         <h3>Forecast Variance</h3>
         <p [class.negative-value]="forecastVariance < 0">{{ forecastVariance | number:'1.1-1' }}%</p>
-        <span class="trend">{{ forecastVariance >= 0 ? 'Reserve above plan' : 'Below plan' }}</span>
+        <span class="trend" [class.up]="forecastVariance >= 0" [class.down]="forecastVariance < 0">
+          <lucide-icon [name]="forecastTrendIcon" [size]="12"></lucide-icon>
+          {{ forecastVariance >= 0 ? 'Reserve above plan' : 'Below plan' }}
+        </span>
       </article>
     </div>
 
@@ -123,25 +142,54 @@
         </div>
 
         <div class="line-chart" *ngIf="!trendLoading && trendPoints.length">
-          <svg viewBox="0 0 720 260" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="rgba(56, 189, 248, 0.35)" />
-                <stop offset="100%" stop-color="rgba(56, 189, 248, 0.02)" />
-              </linearGradient>
-            </defs>
+          <div class="chart-surface" (mousemove)="onChartHover($event)" (mouseleave)="onChartLeave()">
+            <svg viewBox="0 0 720 220" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="approvedFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="var(--color-success)" stop-opacity="0.30" />
+                  <stop offset="100%" stop-color="var(--color-success)" stop-opacity="0.02" />
+                </linearGradient>
+              </defs>
 
-            <path class="chart-area" [attr.d]="trendAreaPath"></path>
-            <path class="chart-line" [attr.d]="trendPath"></path>
+              <line *ngFor="let g of chartGridLines" class="grid-line"
+                    x1="0" x2="720" [attr.y1]="g * 220" [attr.y2]="g * 220"></line>
 
-            <circle
-              *ngFor="let point of trendPoints"
-              class="chart-point"
-              [attr.cx]="point.x"
-              [attr.cy]="point.y"
-              r="4"
-            ></circle>
-          </svg>
+              <path class="chart-area" [attr.d]="approvedAreaPath"></path>
+
+              <path class="chart-line rejected-line" [attr.d]="rejectedPath"></path>
+              <path class="chart-line pending-line" [attr.d]="pendingPath"></path>
+              <path class="chart-line approved-line" [attr.d]="approvedPath"></path>
+
+              <line *ngIf="hoveredPoint" class="crosshair"
+                    [attr.x1]="hoveredCrosshairX" [attr.x2]="hoveredCrosshairX" y1="0" y2="220"></line>
+
+              <circle *ngFor="let point of rejectedPoints; let i = index" class="chart-point rejected-point"
+                      [class.is-hovered]="hoveredIndex === i"
+                      [attr.cx]="point.x" [attr.cy]="point.y" r="3.5"></circle>
+              <circle *ngFor="let point of pendingPoints; let i = index" class="chart-point pending-point"
+                      [class.is-hovered]="hoveredIndex === i"
+                      [attr.cx]="point.x" [attr.cy]="point.y" r="3.5"></circle>
+              <circle *ngFor="let point of approvedPoints; let i = index" class="chart-point approved-point"
+                      [class.is-hovered]="hoveredIndex === i"
+                      [attr.cx]="point.x" [attr.cy]="point.y" r="4"></circle>
+            </svg>
+
+            <div class="chart-tooltip" *ngIf="hoveredPoint" [style.left.%]="tooltipLeftPct">
+              <strong>{{ hoveredPoint.label }}</strong>
+              <div class="tooltip-row">
+                <span class="key approved"></span>Approved
+                <b>{{ hoveredPoint.approvedAmount | currency:'TND' }}</b>
+              </div>
+              <div class="tooltip-row">
+                <span class="key pending"></span>Pending
+                <b>{{ hoveredPoint.pendingAmount | currency:'TND' }}</b>
+              </div>
+              <div class="tooltip-row">
+                <span class="key rejected"></span>Rejected
+                <b>{{ hoveredPoint.rejectedAmount | currency:'TND' }}</b>
+              </div>
+            </div>
+          </div>
 
           <div class="line-axis">
             <span *ngFor="let point of trendPoints">{{ point.label }}</span>
@@ -203,7 +251,9 @@
         <div class="category-grid">
           <div class="cat" *ngFor="let row of categoryRows">
             <div class="cat-top">
-              <span class="cat-icon">{{ row.icon }}</span>
+              <span class="cat-icon" [style.color]="row.color" [style.background]="row.color + '1f'">
+                <lucide-icon [name]="row.icon" [size]="15"></lucide-icon>
+              </span>
               <b>{{ row.label }}</b>
               <span>{{ row.amount | currency:'TND' }}</span>
             </div>

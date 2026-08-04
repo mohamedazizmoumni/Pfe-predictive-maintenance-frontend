@@ -1,14 +1,47 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { AfterViewInit, Component, ElementRef, Inject, NgZone, OnInit, OnDestroy, PLATFORM_ID, ViewChild, ChangeDetectorRef, effect } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { RouterLink, ActivatedRoute } from '@angular/router';
+import { LucideAngularModule } from 'lucide-angular';
 import { jsPDF } from 'jspdf';
+import { Chart } from 'chart.js/auto';
+import type { ChartConfiguration } from 'chart.js';
 import { EquipmentService } from '../../core/services/equipment.service';
 import { FinanceService } from '../../core/services/finance.service';
 import { ExpenseReportResponse, Machine, Maintenance } from '../../core/models/sentinel.models';
-import { MachineWebSocketService, MachineTelemetry } from '../../core/services/machine-websocket.service';
+import { MachineWebSocketService, MachineTelemetry, EnvironmentReading } from '../../core/services/machine-websocket.service';
 import { MaintenanceService, MaintenanceResponse } from '../../core/services/maintenance.service';
+import { ThemeService } from '../../core/services/theme.service';
+import { xScale, yScale, legendColor, tooltipTheme } from '../../shared/charts/chart-theme';
 import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, finalize, filter, map, takeUntil } from 'rxjs/operators';
+import { DigitalTwinIntelligenceService } from './digital-twin/digital-twin-intelligence.service';
+import {
+  AiPrediction,
+  AnatomyMode,
+  CameraViewMode,
+  ComponentTone,
+  MachineArchetype,
+  MachineHealthRing,
+  MaintenanceOverlayItem,
+  SensorPoint,
+  TelemetryOrbitCard,
+  TwinComponentDetail,
+  TwinComponentKey,
+  TwinTimelineEvent,
+} from './digital-twin/digital-twin.types';
+import { MachineIllustrationComponent } from './digital-twin/components/machine-illustration/machine-illustration.component';
+import { SensorOverlayComponent } from './digital-twin/components/sensor-overlay.component';
+import { HealthRingComponent } from './digital-twin/components/health-ring.component';
+import { TelemetryOrbitCardsComponent } from './digital-twin/components/telemetry-orbit-cards.component';
+import { ComponentDetailPanelComponent } from './digital-twin/components/component-detail-panel.component';
+import { TwinControlsComponent } from './digital-twin/components/twin-controls.component';
+import { AiPredictionsPanelComponent } from './digital-twin/components/ai-predictions-panel.component';
+import { TwinEventTimelineComponent } from './digital-twin/components/twin-event-timeline.component';
+import { CollapsibleSectionComponent } from './digital-twin/components/collapsible-section.component';
+import { MachineCommentsComponent } from './digital-twin/components/machine-comments.component';
+import { MachineTimelineComponent } from './digital-twin/components/machine-timeline.component';
+import { MachineQrCodeComponent } from './digital-twin/components/machine-qr-code.component';
+import { PredictionExplanationComponent } from './digital-twin/components/prediction-explanation.component';
 
 interface TelemetrySnapshot {
   timestamp: string;
@@ -47,15 +80,43 @@ interface HealthComponentItem {
 @Component({
   selector: 'app-machine-visualization',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [
+    CommonModule,
+    RouterLink,
+    LucideAngularModule,
+    MachineIllustrationComponent,
+    SensorOverlayComponent,
+    HealthRingComponent,
+    TelemetryOrbitCardsComponent,
+    ComponentDetailPanelComponent,
+    TwinControlsComponent,
+    AiPredictionsPanelComponent,
+    TwinEventTimelineComponent,
+    CollapsibleSectionComponent,
+    MachineCommentsComponent,
+    MachineTimelineComponent,
+    MachineQrCodeComponent,
+    PredictionExplanationComponent,
+  ],
   templateUrl: './machine-visualization.component.html',
   styleUrl: './machine-visualization.component.scss',
 })
-export class MachineVisualizationComponent implements OnInit, OnDestroy {
+export class MachineVisualizationComponent implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('temperatureCanvas') private temperatureCanvasRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('vibrationCanvas') private vibrationCanvasRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('efficiencyCanvas') private efficiencyCanvasRef?: ElementRef<HTMLCanvasElement>;
+
+  private temperatureChart?: Chart;
+  private vibrationChart?: Chart;
+  private efficiencyChart?: Chart;
+  private readonly isBrowser: boolean;
+
   machine: Machine | null = null;
   isLoading = true;
   errorMessage: string | null = null;
-  
+  /** True when the backend returned 403 — the technician isn't assigned to this machine. */
+  accessDenied = false;
+
   // Real-time metrics - ONLY updated from backend WebSocket
   temperature = 0;
   vibration = 0;
@@ -70,9 +131,31 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
   loadFactor = 0;
   operatingHoursLive = 0;
   lastUpdated: Date = new Date();
+
+  // Real environmental sensor readings (e.g. ESP32 + DHT11), independent of
+  // the simulated telemetry stream above — null until a reading exists.
+  envTemperature: number | null = null;
+  envHumidity: number | null = null;
+  envRiskLevel: EnvironmentReading['riskLevel'] | null = null;
+  envRecommendations: string[] = [];
+  envLastUpdated: Date | null = null;
+
   telemetryHistory: TelemetrySnapshot[] = [];
   private readonly sparklineWidth = 260;
   private readonly sparklineHeight = 72;
+  private readonly telemetryHistoryCap = 60;
+
+  /** How many recent live samples to chart — this session's real buffer, not a fabricated historical range. */
+  readonly telemetryWindowOptions: { label: string; value: number }[] = [
+    { label: '10', value: 10 },
+    { label: '25', value: 25 },
+    { label: '50', value: 50 },
+    { label: 'All', value: 0 },
+  ];
+  selectedTelemetryWindow = 10;
+
+  /** First-seen timestamp (ms) per active alert condition, so "Xm ago" reflects real elapsed time instead of hardcoded strings. */
+  private alertFirstSeenAt: Record<string, number> = {};
   
   // WebSocket connection status
   isConnected = false;
@@ -87,6 +170,16 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
   machineExpensesError: string | null = null;
   financeTabLoaded = false;
 
+  // ── Digital twin state ───────────────────────────────────
+  /** Full raw telemetry payload — the many derived fields above only keep a
+   *  handful of flattened numbers, but the twin service needs the complete
+   *  backend shape (current, voltage, bearingWear, remainingUsefulLife...). */
+  latestTelemetry: MachineTelemetry | null = null;
+  anatomyMode: AnatomyMode = 'physical';
+  cameraMode: CameraViewMode = 'digitalTwin';
+  heatmapOn = false;
+  highlightedComponent: TwinComponentKey | null = null;
+
   constructor(
     private route: ActivatedRoute,
     private equipmentService: EquipmentService,
@@ -94,16 +187,36 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef
     , private financeService: FinanceService
     , private maintenanceService: MaintenanceService
-  ) {}
+    , private twinService: DigitalTwinIntelligenceService
+    , private themeService: ThemeService
+    , private ngZone: NgZone
+    , @Inject(PLATFORM_ID) platformId: object
+  ) {
+    this.isBrowser = isPlatformBrowser(platformId);
+
+    // Chart.js configs bake colors into plain JS objects, not CSS — they need to
+    // be rebuilt (not just re-painted via stylesheet) whenever the app theme
+    // toggles, so axis/grid/legend text and line colors stay legible in both modes.
+    effect(() => {
+      this.themeService.theme();
+      if (this.isBrowser && (this.temperatureChart || this.vibrationChart || this.efficiencyChart)) {
+        this.destroyTrendCharts();
+        this.initTrendCharts();
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
       this.machineId = params.get('id');
       if (this.machineId) {
         this.loadMachine(this.machineId);
-        this.connectToWebSocket();
       }
     });
+  }
+
+  ngAfterViewInit(): void {
+    this.initTrendCharts();
   }
 
   selectTab(tab: 'overview' | 'finance'): void {
@@ -116,12 +229,24 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    this.wsService.unsubscribeFromEnvironment();
     this.wsService.disconnect();
+    this.destroyTrendCharts();
+  }
+
+  private destroyTrendCharts(): void {
+    this.temperatureChart?.destroy();
+    this.vibrationChart?.destroy();
+    this.efficiencyChart?.destroy();
+    this.temperatureChart = undefined;
+    this.vibrationChart = undefined;
+    this.efficiencyChart = undefined;
   }
 
   private loadMachine(machineId: string): void {
     this.isLoading = true;
     this.errorMessage = null;
+    this.accessDenied = false;
 
     this.equipmentService
       .getMachine(machineId)
@@ -130,12 +255,18 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
         next: (machine) => {
           this.machine = machine;
           this.isLoading = false;
-          console.log('✅ Machine loaded:', machine);
+          this.connectToWebSocket();
         },
         error: (error) => {
-          console.error('❌ Error loading machine:', error);
-          this.errorMessage = 'Failed to load machine details';
           this.isLoading = false;
+
+          if (error?.status === 403) {
+            this.accessDenied = true;
+            this.errorMessage =
+              error?.error?.message || 'You are not assigned to this machine.';
+          } else {
+            this.errorMessage = 'Failed to load machine details';
+          }
         },
       });
   }
@@ -145,8 +276,6 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
    * NO fake data generation - all values come from backend.
    */
   private connectToWebSocket(): void {
-    console.log('🔌 Connecting to WebSocket for machine:', this.machineId);
-    
     // Connect to WebSocket server
     this.wsService.connect();
     
@@ -155,7 +284,7 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(connected => {
         this.isConnected = connected;
-        console.log('🔌 WebSocket connection status:', connected ? 'CONNECTED' : 'DISCONNECTED');
+        this.updateAlertTracking();
       });
     
     // Subscribe to telemetry updates from backend
@@ -166,21 +295,8 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
         filter(telemetry => telemetry.machineId === Number(this.machineId))
       )
       .subscribe(telemetry => {
-        console.log('📊 Received telemetry for machine', this.machineId, ':', telemetry);
-        console.log('📊 Backend field mapping:', {
-          'efficiency (backend)': telemetry.efficiency,
-          'efficiencyScore (backend)': telemetry.efficiencyScore,
-          'rotationSpeed (backend)': telemetry.rotationSpeed,
-        });
-        
-        // Store previous values for comparison
-        const prevTemp = this.temperature;
-        const prevVibration = this.vibration;
-        const prevHealth = this.health;
-        const prevUtil = this.utilization;
-        const prevOee = this.oee;
-        const prevPerf = this.performance;
-        
+        this.latestTelemetry = telemetry;
+
         // Update metrics directly from backend data
         // NO modification, NO simulation, NO fake data
         this.temperature = telemetry.temperature;
@@ -192,51 +308,74 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
         this.ambientTemperature = telemetry.ambientTemperature ?? this.ambientTemperature;
         this.loadFactor = telemetry.loadFactor ?? this.loadFactor;
         this.operatingHoursLive = telemetry.operatingHours ?? this.operatingHoursLive;
-        
-        // Map backend fields to UI properties
-        // Backend uses different field names than expected
-        
+
+        // Map backend fields to UI properties — backend uses different field names.
         // Utilization: Backend sends "efficiency" (0-100 scale)
         if (telemetry.efficiency !== undefined) {
           this.utilization = telemetry.efficiency;
-          console.log('✅ Utilization updated from efficiency:', telemetry.efficiency);
-        } else {
-          console.warn('⚠️ Efficiency is undefined in telemetry');
         }
-        
+
         // OEE: Backend sends "efficiencyScore" (0-100 scale)
         if (telemetry.efficiencyScore !== undefined) {
           this.oee = telemetry.efficiencyScore;
-          console.log('✅ OEE updated from efficiencyScore:', telemetry.efficiencyScore);
-        } else {
-          console.warn('⚠️ EfficiencyScore is undefined in telemetry');
         }
-        
-        // Performance: Backend sends "rotationSpeed" (RPM)
-        // Convert RPM to a 0-100 scale for display (assuming max 1000 RPM)
+
+        // Performance: Backend sends "rotationSpeed" (RPM), converted to a 0-100 scale (max 1000 RPM)
         if (telemetry.rotationSpeed !== undefined) {
           this.performance = Math.min((telemetry.rotationSpeed / 1000) * 100, 100);
-          console.log('✅ Performance updated from rotationSpeed:', telemetry.rotationSpeed, '→', this.performance);
-        } else {
-          console.warn('⚠️ RotationSpeed is undefined in telemetry');
         }
-        
+
         this.lastUpdated = new Date(telemetry.timestamp);
-        
-        console.log('✅ Metrics updated from backend:', {
-          temperature: `${prevTemp.toFixed(1)} → ${this.temperature.toFixed(1)}`,
-          vibration: `${prevVibration.toFixed(1)} → ${this.vibration.toFixed(1)}`,
-          health: `${prevHealth.toFixed(1)} → ${this.health.toFixed(1)}`,
-          utilization: `${prevUtil.toFixed(1)} → ${this.utilization.toFixed(1)}`,
-          oee: `${prevOee.toFixed(1)} → ${this.oee.toFixed(1)}`,
-          performance: `${prevPerf.toFixed(1)} → ${this.performance.toFixed(1)}`,
-          lastUpdated: this.lastUpdated.toLocaleTimeString(),
-        });
-        
+
+        this.updateAlertTracking();
         // Manually trigger change detection to ensure UI updates
         this.recordTelemetrySnapshot(telemetry);
+        this.refreshTrendCharts();
         this.cdr.detectChanges();
       });
+
+    this.connectToEnvironmentStream();
+  }
+
+  /**
+   * Real environmental sensor readings (e.g. ESP32 + DHT11), fetched once via
+   * REST for the current value, then kept live over the per-machine
+   * /topic/machines/{id}/environment WebSocket topic. Fully independent of
+   * the simulated telemetry stream above.
+   */
+  private connectToEnvironmentStream(): void {
+    if (!this.machineId) {
+      return;
+    }
+
+    this.equipmentService
+      .getLatestEnvironment(this.machineId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((reading) => {
+        if (reading) {
+          this.applyEnvironmentReading(reading);
+        }
+      });
+
+    this.wsService.subscribeToEnvironment(Number(this.machineId));
+    this.wsService.environment$
+      .pipe(
+        takeUntil(this.destroy$),
+        filter((reading): reading is EnvironmentReading => reading !== null),
+        filter((reading) => reading.machineId === Number(this.machineId))
+      )
+      .subscribe((reading) => {
+        this.applyEnvironmentReading(reading);
+        this.cdr.detectChanges();
+      });
+  }
+
+  private applyEnvironmentReading(reading: EnvironmentReading): void {
+    this.envTemperature = reading.temperature;
+    this.envHumidity = reading.humidity;
+    this.envRiskLevel = reading.riskLevel;
+    this.envRecommendations = reading.recommendations ?? [];
+    this.envLastUpdated = new Date(reading.timestamp);
   }
 
   get machineTotalApprovedSpend(): number {
@@ -355,7 +494,7 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
         severity: 'critical',
         title: 'Telemetry Stream Interrupted',
         description: 'No real-time packets are currently arriving from the machine.',
-        ageLabel: 'now',
+        ageLabel: this.formatAgeLabel('disconnected'),
       });
     }
 
@@ -364,14 +503,14 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
         severity: 'critical',
         title: 'High Temperature Detected',
         description: 'Thermal readings are above the recommended safe envelope.',
-        ageLabel: '2m ago',
+        ageLabel: this.formatAgeLabel('highTemp'),
       });
     } else if (this.temperature >= 68) {
       alerts.push({
         severity: 'warning',
         title: 'Temperature Drift',
         description: 'Thermal baseline is trending upward and should be observed.',
-        ageLabel: '6m ago',
+        ageLabel: this.formatAgeLabel('tempDrift'),
       });
     }
 
@@ -380,7 +519,7 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
         severity: 'warning',
         title: 'Abnormal Vibration',
         description: 'Mechanical imbalance is likely and bearing inspection is advised.',
-        ageLabel: '14m ago',
+        ageLabel: this.formatAgeLabel('vibration'),
       });
     }
 
@@ -389,7 +528,7 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
         severity: 'info',
         title: 'Maintenance Planned',
         description: 'A preventive intervention should be scheduled in the next cycle.',
-        ageLabel: '1h ago',
+        ageLabel: this.formatAgeLabel('maintenancePlanned'),
       });
     }
 
@@ -398,11 +537,227 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
         severity: 'info',
         title: 'System Stable',
         description: 'All major telemetry indicators are inside normal operating range.',
-        ageLabel: 'just now',
+        ageLabel: 'now',
       });
     }
 
     return alerts.slice(0, 4);
+  }
+
+  /**
+   * Called once per telemetry tick (and on connect/disconnect) to record when each
+   * alert condition first became true this session. activeAlerts() only reads from
+   * this map — it never mutates state itself, since it's evaluated as a getter.
+   */
+  private updateAlertTracking(): void {
+    const now = Date.now();
+    const conditions: Record<string, boolean> = {
+      disconnected: !this.isConnected,
+      highTemp: this.temperature >= 80,
+      tempDrift: this.temperature < 80 && this.temperature >= 68,
+      vibration: this.vibration >= 5,
+      maintenancePlanned: this.maintenanceRiskLevel !== 'LOW',
+    };
+
+    for (const [key, active] of Object.entries(conditions)) {
+      if (active) {
+        if (!this.alertFirstSeenAt[key]) {
+          this.alertFirstSeenAt[key] = now;
+        }
+      } else {
+        delete this.alertFirstSeenAt[key];
+      }
+    }
+  }
+
+  private formatAgeLabel(conditionKey: string): string {
+    const since = this.alertFirstSeenAt[conditionKey];
+    if (!since) {
+      return 'now';
+    }
+
+    const diffMin = Math.floor((Date.now() - since) / 60000);
+    if (diffMin < 1) {
+      return 'just now';
+    }
+    if (diffMin < 60) {
+      return `${diffMin}m ago`;
+    }
+    return `${Math.floor(diffMin / 60)}h ago`;
+  }
+
+  /** Location/zone shown in the command header — real machine data, not a placeholder. */
+  get zoneLabel(): string {
+    if (!this.machine) {
+      return 'Location unassigned';
+    }
+    return [this.machine.location, this.machine.category].filter(Boolean).join(' · ') || 'Location unassigned';
+  }
+
+  setTelemetryWindow(value: number): void {
+    this.selectedTelemetryWindow = value;
+    this.refreshTrendCharts();
+  }
+
+  /** The slice of telemetryHistory actually being charted — keeps the axis labels honest with the selected window. */
+  get visibleTelemetryHistory(): TelemetrySnapshot[] {
+    return this.selectedTelemetryWindow > 0
+      ? this.telemetryHistory.slice(0, this.selectedTelemetryWindow)
+      : this.telemetryHistory;
+  }
+
+  // ════════════════════════════════════════════════════════
+  // TELEMETRY TREND CHARTS
+  // Three live Chart.js small-multiples instead of one chart
+  // overlaying four differently-scaled metrics on a single axis
+  // (temperature °C, vibration mm/s, and two 0–100 percentages
+  // were previously all independently re-normalized onto one
+  // 0–180 viewBox, which made a 1°C wobble look as dramatic as
+  // a 50-point OEE swing). Utilization and OEE share one chart
+  // because they're both 0–100% — a legitimate same-axis pairing.
+  // ════════════════════════════════════════════════════════
+
+  private get chronologicalHistory(): TelemetrySnapshot[] {
+    return [...this.visibleTelemetryHistory].reverse();
+  }
+
+  private formatChartTime(iso: string): string {
+    const date = new Date(iso);
+    return Number.isNaN(date.getTime())
+      ? ''
+      : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  private getChartPalette(isDark: boolean): { danger: string; amber: string; cyan: string; blue: string } {
+    return isDark
+      ? { danger: '#ef4444', amber: '#f59e0b', cyan: '#199e70', blue: '#3987e5' }
+      : { danger: '#dc2626', amber: '#d97706', cyan: '#1baf7a', blue: '#2a78d6' };
+  }
+
+  private hexToRgba(hex: string, alpha: number): string {
+    const value = hex.replace('#', '');
+    const r = parseInt(value.substring(0, 2), 16);
+    const g = parseInt(value.substring(2, 4), 16);
+    const b = parseInt(value.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  private buildLineDataset(color: string, data: number[], label?: string) {
+    return {
+      label,
+      data,
+      borderColor: color,
+      backgroundColor: this.hexToRgba(color, 0.14),
+      fill: true,
+      tension: 0.35,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      pointHoverBackgroundColor: color,
+      borderWidth: 2,
+    };
+  }
+
+  private buildTrendOptions(isDark: boolean, withLegend: boolean, yBounds?: { min: number; max: number }): ChartConfiguration<any>['options'] {
+    const x = xScale(isDark);
+    const y = yScale(isDark);
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 350 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: withLegend
+          ? { display: true, position: 'top', align: 'end', labels: { color: legendColor(isDark), boxWidth: 10, font: { size: 11 } } }
+          : { display: false },
+        tooltip: tooltipTheme(isDark),
+      },
+      scales: {
+        x: { ...x, ticks: { ...x.ticks, maxTicksLimit: 6 } },
+        y: yBounds ? { ...y, min: yBounds.min, max: yBounds.max } : y,
+      },
+    };
+  }
+
+  // Chart.js runs its own animation loop on requestAnimationFrame. If that loop
+  // runs inside Angular's zone, zone.js treats every single animation frame (of
+  // three simultaneous chart animations) as an async task that must be followed
+  // by a full change-detection pass over this whole (getter-heavy) template —
+  // which is what was freezing the page on live telemetry. Everything chart-
+  // related is created/updated/destroyed outside the zone so Chart.js can paint
+  // on its own without kicking off Angular change detection at 60fps.
+
+  private initTrendCharts(): void {
+    if (!this.isBrowser) {
+      return;
+    }
+
+    this.ngZone.runOutsideAngular(() => {
+      const isDark = this.themeService.theme() === 'dark';
+      const palette = this.getChartPalette(isDark);
+      const points = this.chronologicalHistory;
+      const labels = points.map((p) => this.formatChartTime(p.timestamp));
+
+      if (this.temperatureCanvasRef) {
+        this.temperatureChart = new Chart(this.temperatureCanvasRef.nativeElement, {
+          type: 'line',
+          data: { labels, datasets: [this.buildLineDataset(palette.danger, points.map((p) => p.temperature))] },
+          options: this.buildTrendOptions(isDark, false),
+        });
+      }
+
+      if (this.vibrationCanvasRef) {
+        this.vibrationChart = new Chart(this.vibrationCanvasRef.nativeElement, {
+          type: 'line',
+          data: { labels, datasets: [this.buildLineDataset(palette.amber, points.map((p) => p.vibration))] },
+          options: this.buildTrendOptions(isDark, false),
+        });
+      }
+
+      if (this.efficiencyCanvasRef) {
+        this.efficiencyChart = new Chart(this.efficiencyCanvasRef.nativeElement, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              this.buildLineDataset(palette.cyan, points.map((p) => p.utilization), 'Utilization %'),
+              this.buildLineDataset(palette.blue, points.map((p) => p.oee), 'OEE %'),
+            ],
+          },
+          options: this.buildTrendOptions(isDark, true, { min: 0, max: 100 }),
+        });
+      }
+    });
+  }
+
+  /** Called on every telemetry tick and whenever the sample window changes — pushes new data with a smooth animated transition instead of re-creating the charts. */
+  private refreshTrendCharts(): void {
+    if (!this.isBrowser) {
+      return;
+    }
+
+    this.ngZone.runOutsideAngular(() => {
+      const points = this.chronologicalHistory;
+      const labels = points.map((p) => this.formatChartTime(p.timestamp));
+
+      if (this.temperatureChart) {
+        this.temperatureChart.data.labels = labels;
+        this.temperatureChart.data.datasets[0].data = points.map((p) => p.temperature);
+        this.temperatureChart.update();
+      }
+
+      if (this.vibrationChart) {
+        this.vibrationChart.data.labels = labels;
+        this.vibrationChart.data.datasets[0].data = points.map((p) => p.vibration);
+        this.vibrationChart.update();
+      }
+
+      if (this.efficiencyChart) {
+        this.efficiencyChart.data.labels = labels;
+        this.efficiencyChart.data.datasets[0].data = points.map((p) => p.utilization);
+        this.efficiencyChart.data.datasets[1].data = points.map((p) => p.oee);
+        this.efficiencyChart.update();
+      }
+    });
   }
 
   get maintenanceQueue(): MaintenanceQueueItem[] {
@@ -495,20 +850,11 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
       .join(' ');
   }
 
-  getAlertIcon(severity: AlertInsight['severity']): string {
-    if (severity === 'critical') {
-      return '⚠';
-    }
-
-    if (severity === 'warning') {
-      return '▲';
-    }
-
-    return 'i';
-  }
-
   private getMetricSeries(metric: TelemetryMetricKey): number[] {
-    const history = [...this.telemetryHistory].reverse().map((snapshot) => snapshot[metric]);
+    const windowed = this.selectedTelemetryWindow > 0
+      ? this.telemetryHistory.slice(0, this.selectedTelemetryWindow)
+      : this.telemetryHistory;
+    const history = [...windowed].reverse().map((snapshot) => snapshot[metric]);
 
     if (!history.length) {
       return [this.getLiveMetricValue(metric)];
@@ -572,6 +918,11 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
 
     return circumference - (percentage * circumference);
   }
+
+  needleRotation(value: number, max: number): number {
+    const clamped = Math.min(Math.max(value, 0), max);
+    return (clamped / max) * 360;
+  }
   // ============================================================
   // REMOVED: ALL FAKE DATA GENERATION LOGIC
   // ============================================================
@@ -607,9 +958,8 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
 
   refreshNow(): void {
     if (this.machineId) {
+      // WebSocket connection is persistent, no need to reconnect — this only re-fetches the machine record.
       this.loadMachine(this.machineId);
-      // WebSocket connection is persistent, no need to reconnect
-      console.log('🔄 Machine data refreshed. WebSocket continues streaming live data.');
     }
   }
 
@@ -629,17 +979,11 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
 
     const maintenanceTasks$ = this.maintenanceService.getMachineMaintenanceTasks(this.machineId, 0, 100).pipe(
       map((response: MaintenanceResponse) => response.content ?? []),
-      catchError((error) => {
-        console.warn('⚠️ Failed to load maintenance history for rapport:', error);
-        return of([] as Maintenance[]);
-      })
+      catchError(() => of([] as Maintenance[]))
     );
 
     const expenses$ = this.financeService.getExpensesByMachine(numericMachineId).pipe(
-      catchError((error) => {
-        console.warn('⚠️ Failed to load expense history for rapport:', error);
-        return of([] as ExpenseReportResponse[]);
-      })
+      catchError(() => of([] as ExpenseReportResponse[]))
     );
 
     forkJoin({
@@ -678,7 +1022,7 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
       rotationSpeed: this.rotationSpeed,
     });
 
-    this.telemetryHistory = this.telemetryHistory.slice(0, 10);
+    this.telemetryHistory = this.telemetryHistory.slice(0, this.telemetryHistoryCap);
   }
 
   private generateRapportPdf(maintenanceTasks: Maintenance[], expenses: ExpenseReportResponse[]): void {
@@ -916,6 +1260,139 @@ export class MachineVisualizationComponent implements OnInit, OnDestroy {
 
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? value : date.toLocaleTimeString();
+  }
+
+  // ════════════════════════════════════════════════════════
+  // DIGITAL TWIN — Machine Visualization
+  // Real telemetry (temperature, vibration, pressure, power, current,
+  // voltage, rpm, bearingWear, remainingUsefulLife when the backend sends
+  // them) flows straight through DigitalTwinIntelligenceService. Only
+  // fields with no backend equivalent at all (humidity, flow rate, etc.)
+  // are deterministically derived — see that service's header comment.
+  // ════════════════════════════════════════════════════════
+
+  get archetype(): MachineArchetype {
+    return this.twinService.archetypeFor(this.machine);
+  }
+
+  get archetypeLabel(): string {
+    return this.twinService.archetypeLabel(this.archetype);
+  }
+
+  get sensors(): SensorPoint[] {
+    return this.twinService.buildSensors(this.machine, this.latestTelemetry, this.telemetryHistory);
+  }
+
+  /** Anatomy tabs narrow which sensors are overlaid on the illustration — "Current Sensors" in the side panel always lists all of them. */
+  get filteredSensors(): SensorPoint[] {
+    const all = this.sensors;
+    switch (this.anatomyMode) {
+      case 'electrical':
+        return all.filter((s) => ['current', 'voltage', 'power', 'rpm'].includes(s.kind));
+      case 'hydraulic':
+        return all.filter((s) => ['hydraulicPressure', 'pressure', 'oilLevel', 'airPressure', 'flowRate'].includes(s.kind));
+      case 'thermal':
+        return all.filter((s) => ['temperature', 'bearingTemperature', 'humidity'].includes(s.kind));
+      case 'maintenance':
+        return [];
+      default:
+        return all;
+    }
+  }
+
+  get healthRing(): MachineHealthRing {
+    const hc = this.healthComponents;
+    return this.twinService.buildHealthRing({
+      mechanical: hc[0]?.value ?? this.health,
+      electrical: hc[1]?.value ?? 0,
+      hydraulic: hc[2]?.value ?? 0,
+      thermal: this.thermalConfidence,
+      software: hc[3]?.value ?? 0,
+    });
+  }
+
+  get telemetryCards(): TelemetryOrbitCard[] {
+    return this.twinService.buildTelemetryCards({
+      temperature: this.temperature,
+      rpm: this.rpmSpeed,
+      power: this.energyConsumption,
+      load: this.loadFactor,
+      pressure: this.hydraulicPressure,
+      efficiency: this.utilization,
+      oee: this.oee,
+      runtimeHours: this.operatingHoursValue,
+    });
+  }
+
+  get componentDetails(): TwinComponentDetail[] {
+    return this.twinService.buildComponentDetails(this.machine, this.latestTelemetry, {
+      health: this.health,
+      failureProbability: this.failureProbability,
+      bearingConfidence: this.bearingConfidence,
+      rpm: this.rpmSpeed,
+      power: this.energyConsumption,
+    });
+  }
+
+  get maintenanceOverlay(): MaintenanceOverlayItem[] {
+    return this.twinService.buildMaintenanceOverlay(this.componentDetails);
+  }
+
+  get aiPrediction(): AiPrediction {
+    return this.twinService.buildAiPrediction(this.machine, this.latestTelemetry, {
+      failureProbability: this.failureProbability,
+    });
+  }
+
+  get timelineEvents(): TwinTimelineEvent[] {
+    return this.twinService.buildTimeline(this.latestTelemetry, this.activeAlerts, this.aiPrediction);
+  }
+
+  get selectedComponentDetail(): TwinComponentDetail | null {
+    if (!this.highlightedComponent) {
+      return null;
+    }
+    return this.componentDetails.find((c) => c.key === this.highlightedComponent) ?? null;
+  }
+
+  get componentTonesMap(): Partial<Record<TwinComponentKey, ComponentTone>> {
+    const map: Partial<Record<TwinComponentKey, ComponentTone>> = {};
+    this.componentDetails.forEach((c) => (map[c.key] = c.tone));
+    return map;
+  }
+
+  get componentTempsMap(): Partial<Record<TwinComponentKey, number>> {
+    const map: Partial<Record<TwinComponentKey, number>> = {};
+    this.componentDetails.forEach((c) => (map[c.key] = c.currentTemp));
+    return map;
+  }
+
+  get effectiveHeatmap(): boolean {
+    return this.heatmapOn || this.cameraMode === 'thermal';
+  }
+
+  get isMachineRunning(): boolean {
+    return this.isConnected && this.operationState === 'RUNNING';
+  }
+
+  onComponentClick(key: TwinComponentKey): void {
+    this.highlightedComponent = this.highlightedComponent === key ? null : key;
+  }
+
+  closeComponentDetail(): void {
+    this.highlightedComponent = null;
+  }
+
+  onAnatomyModeChange(mode: AnatomyMode): void {
+    this.anatomyMode = mode;
+  }
+
+  onCameraModeChange(mode: CameraViewMode): void {
+    this.cameraMode = mode;
+  }
+
+  onHeatmapToggle(value: boolean): void {
+    this.heatmapOn = value;
   }
 }
 

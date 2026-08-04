@@ -6,6 +6,8 @@ import { EquipmentService, MACHINE_CATEGORIES } from '../../core/services/equipm
 import { Machine, CreateMachineRequest, User } from '../../core/models/sentinel.models';
 import { PredictiveApiService } from '../../core/services/predictive-api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ConfirmDialogService } from '../../core/services/confirm-dialog.service';
+import { ToastService } from '../../core/services/toast.service';
 import { DashboardRoutingService } from '../dashboards/dashboard-routing.service';
 import {
   MachineFailureReport,
@@ -14,6 +16,7 @@ import {
 } from '../../core/models/predictive.models';
 import { forkJoin } from 'rxjs';
 import { normalizeRoleName } from '../../core/utils/role.utils';
+import { MachineTechniciansModalComponent } from './components/machine-technicians-modal/machine-technicians-modal.component';
 
 interface StatusFilter {
   label: string;
@@ -30,7 +33,7 @@ interface MachinePredictiveSummary {
 @Component({
   selector: 'app-equipment',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, MachineTechniciansModalComponent],
   templateUrl: './equipment.component.html',
   styleUrls: ['./equipment.component.scss']
 })
@@ -45,12 +48,15 @@ export class EquipmentComponent implements OnInit {
   currentUser: User | null = null;
   isTechnician = false;
   canCreateMachine = false;
+  canManageTechnicians = false;
+
+  showTechnicianModal = false;
+  technicianModalMachine: Machine | null = null;
 
   formMode: 'create' | 'edit' | null = null;
   machineForm!: FormGroup;
   activeMachineId: number | null = null;
   showForm = false;
-  deleteConfirmId: number | null = null;
   expandedPredictiveMachineId: number | null = null;
   predictiveSummaryByMachine: Record<string, MachinePredictiveSummary> = {};
   selectedPhoto: File | null = null;
@@ -74,7 +80,9 @@ export class EquipmentComponent implements OnInit {
     private readonly predictiveApi: PredictiveApiService,
     private readonly authService: AuthService,
     private readonly dashboardRoutingService: DashboardRoutingService,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly confirmDialog: ConfirmDialogService,
+    private readonly toastService: ToastService
   ) {}
 
   ngOnInit(): void {
@@ -97,6 +105,9 @@ export class EquipmentComponent implements OnInit {
       if (user && user.roles) {
         this.isTechnician = user.roles.some(role => normalizeRoleName(role.name) === 'TECHNICIAN');
         this.canCreateMachine = !this.isTechnician; // Technicians cannot create machines
+        this.canManageTechnicians = user.roles.some(role =>
+          ['MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(normalizeRoleName(role.name))
+        );
       }
     });
 
@@ -132,7 +143,7 @@ export class EquipmentComponent implements OnInit {
 
   openCreate(): void {
     if (this.isTechnician) {
-      alert('❌ Technicians cannot create machines. Please contact an administrator.');
+      this.toastService.error('Technicians cannot create machines. Please contact an administrator.');
       return;
     }
     
@@ -211,19 +222,16 @@ export class EquipmentComponent implements OnInit {
     this.selectedPhoto = input.files && input.files.length ? input.files[0] : null;
   }
 
-  requestDelete(machine: Machine): void {
-    this.deleteConfirmId = machine.id;
-  }
-
-  cancelDelete(): void {
-    this.deleteConfirmId = null;
-  }
-
-  confirmDelete(): void {
-    if (!this.deleteConfirmId) {
+  async requestDelete(machine: Machine): Promise<void> {
+    const confirmed = await this.confirmDialog.confirmDanger(
+      'Delete machine',
+      `Delete "${machine.name}"? This action cannot be undone — the machine and all its history will be permanently deleted.`
+    );
+    if (!confirmed) {
       return;
     }
-    const id = this.deleteConfirmId;
+
+    const id = machine.id;
     this.equipmentService.deleteMachine(id).subscribe(() => {
       if (this.page > 0) {
         this.loadMachines(this.page);
@@ -231,7 +239,6 @@ export class EquipmentComponent implements OnInit {
       if (this.expandedPredictiveMachineId === id) {
         this.expandedPredictiveMachineId = null;
       }
-      this.deleteConfirmId = null;
     });
   }
 
@@ -263,18 +270,25 @@ export class EquipmentComponent implements OnInit {
     });
   }
 
+  openTechnicianModal(machine: Machine): void {
+    this.technicianModalMachine = machine;
+    this.showTechnicianModal = true;
+  }
+
+  closeTechnicianModal(): void {
+    this.showTechnicianModal = false;
+    this.technicianModalMachine = null;
+  }
+
   openMachineVisual(machine: Machine): void {
-    console.log('🔍 Navigating to machine visualization:', machine.id);
     this.router.navigate(['/equipment', machine.id, 'visual']).then(
       success => {
-        if (success) {
-          console.log('✅ Navigation successful');
-        } else {
-          console.error('❌ Navigation failed');
+        if (!success) {
+          this.toastService.error('Could not open machine visualization.');
         }
       },
-      error => {
-        console.error('❌ Navigation error:', error);
+      () => {
+        this.toastService.error('Could not open machine visualization.');
       }
     );
   }

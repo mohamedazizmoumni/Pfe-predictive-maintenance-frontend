@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { LucideAngularModule } from 'lucide-angular';
 import {
   NavigationEnd,
   Router,
@@ -16,6 +17,7 @@ import {
 
 import { InventoryService } from '../../../core/services/inventory.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { ConfirmDialogService } from '../../../core/services/confirm-dialog.service';
 
 import { rolesCollectionHasAny } from '../../../core/utils/role.utils';
 
@@ -31,7 +33,7 @@ interface PaginatedResponse<T> {
 @Component({
   selector: 'app-parts-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, LucideAngularModule],
   templateUrl: './parts-list.component.html',
   styleUrls: ['./parts-list.component.scss']
 })
@@ -68,12 +70,21 @@ export class PartsListComponent implements OnInit, OnDestroy {
 
   isExporting = false;
 
+  deletingPartId: number | null = null;
+
+  // Quick-reorder modal state (replaces the old window.prompt() chain)
+  reorderModalPart: Part | null = null;
+  reorderQty: number | null = null;
+  reorderReason = '';
+  isSubmittingReorder = false;
+
   private routerSubscription?: Subscription;
 
   constructor(
     private readonly inventoryService: InventoryService,
     private readonly router: Router,
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
+    private readonly confirmDialog: ConfirmDialogService
   ) {}
 
   ngOnInit(): void {
@@ -154,54 +165,89 @@ getTotalInventoryValue(): number {
     );
   }
 
-  requestReorderQuick(part: Part): void {
+  canDelete(): boolean {
+    // Deleting parts is stricter than create/update — only ADMIN/SUPER_ADMIN.
+    return rolesCollectionHasAny(
+      this.authService.getCurrentUser()?.roles,
+      ['SUPER_ADMIN', 'ADMIN']
+    );
+  }
 
+  async deletePart(part: Part): Promise<void> {
+    if (!this.canDelete() || this.deletingPartId) {
+      return;
+    }
+
+    const confirmed = await this.confirmDialog.confirmDanger(
+      'Delete part',
+      `Delete "${part.name}" (#${part.partNumber})? This cannot be undone.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    this.deletingPartId = part.id;
+
+    this.inventoryService.deletePart(part.id).subscribe({
+      next: () => {
+        this.deletingPartId = null;
+        this.loadParts(this.page);
+      },
+      error: (err) => {
+        this.deletingPartId = null;
+        this.error =
+          err?.error?.message ??
+          'Failed to delete part. It may still be referenced by a reorder or stock order.';
+      }
+    });
+  }
+
+  // ── Quick reorder modal (replaces the old two-prompt() chain) ──────────────
+
+  openReorderModal(part: Part): void {
     if (!this.canRequest()) {
       this.error = 'Not authorized to request reorders.';
       return;
     }
+    this.reorderModalPart = part;
+    this.reorderQty = part.reorderQuantity || Math.max(1, part.minimumStock || 1);
+    this.reorderReason = 'Replenishment';
+  }
 
-    const defaultQty =
-      part.reorderQuantity ||
-      Math.max(1, (part.minimumStock || 1));
+  closeReorderModal(): void {
+    this.reorderModalPart = null;
+    this.reorderQty = null;
+    this.reorderReason = '';
+    this.isSubmittingReorder = false;
+  }
 
-    const qtyStr = window.prompt(
-      `Enter quantity to reorder for ${part.name}:`,
-      String(defaultQty)
-    );
-
-    if (!qtyStr) {
+  submitReorderModal(): void {
+    const part = this.reorderModalPart;
+    if (!part || !this.reorderQty || this.reorderQty <= 0) {
+      this.error = 'Enter a valid quantity.';
       return;
     }
 
-    const qty = parseInt(qtyStr, 10);
-
-    if (isNaN(qty) || qty <= 0) {
-      this.error = 'Invalid quantity.';
-      return;
-    }
-
-    const reason =
-      window.prompt('Reason (optional):', 'Replenishment') || '';
-
+    this.isSubmittingReorder = true;
     const payload: ReorderRequestRequest = {
       partId: part.id,
-      quantity: qty,
-      reason,
+      quantity: this.reorderQty,
+      reason: this.reorderReason || 'Replenishment',
       notes: ''
     };
 
     this.inventoryService.requestReorder(payload).subscribe({
       next: () => {
+        this.closeReorderModal();
         this.loadParts(this.page);
       },
       error: (err) => {
+        this.isSubmittingReorder = false;
         this.error =
           err?.error?.message ??
           'Failed to request reorder.';
       }
     });
-
   }
 
   loadParts(page: number = 0): void {

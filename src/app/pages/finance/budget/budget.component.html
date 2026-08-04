@@ -8,25 +8,80 @@
       <p class="hero-subtitle">Define and track the annual operating budget with full visibility.</p>
     </div>
 
-    <button
-      class="btn btn-primary"
-      type="button"
-      *ngIf="budget && !showForm"
-      (click)="switchToEdit()"
-    >
-      ✏️ Edit Budget
-    </button>
+    <div class="hero-actions">
+      <button class="btn btn-ghost" type="button" (click)="toggleHistory()">
+        <lucide-icon [name]="showHistory ? 'X' : 'History'" [size]="15"></lucide-icon>
+        {{ showHistory ? 'Close History' : 'Budget History' }}
+      </button>
+      <button
+        class="btn btn-primary"
+        type="button"
+        *ngIf="budget && !showForm"
+        (click)="switchToEdit()"
+      >
+        <lucide-icon name="SquarePen" [size]="15"></lucide-icon> Edit Budget
+      </button>
+    </div>
   </header>
+
+  <!-- Budget History -->
+  <div class="section-card" *ngIf="showHistory">
+    <div class="section-header">
+      <h2 class="section-title"><lucide-icon name="History" [size]="18"></lucide-icon> Budget History</h2>
+      <p class="section-subtitle">All annual budgets on record</p>
+    </div>
+
+    <div class="checking-bar" *ngIf="isLoadingHistory">
+      <div class="checking-dot"></div>
+      <span>Loading history…</span>
+    </div>
+
+    <table class="history-table" *ngIf="!isLoadingHistory && history.length">
+      <thead>
+        <tr>
+          <th>Year</th>
+          <th>Total Budget</th>
+          <th>Spent</th>
+          <th>Utilization</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let entry of history">
+          <td>{{ entry.year }}</td>
+          <td>{{ entry.totalBudget | currency:'TND':'symbol':'1.2-2' }}</td>
+          <td>{{ entry.spentAmount | currency:'TND':'symbol':'1.2-2' }}</td>
+          <td>
+            <span class="health-badge" [class]="healthClass(entry.utilizationPercentage)">
+              {{ entry.utilizationPercentage | number:'1.1-1' }}%
+            </span>
+          </td>
+          <td class="history-actions">
+            <button type="button" class="btn btn-ghost" (click)="viewHistoryYear(entry)">
+              <lucide-icon name="Eye" [size]="14"></lucide-icon> View
+            </button>
+            <button type="button" class="btn btn-danger" (click)="deleteHistoryYear(entry)">
+              <lucide-icon name="Trash2" [size]="14"></lucide-icon> Delete
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="empty-state" *ngIf="!isLoadingHistory && history.length === 0">
+      <p class="empty-text">No budgets recorded yet.</p>
+    </div>
+  </div>
 
   <!-- Alerts -->
   <div class="alert alert-success" *ngIf="successMessage">
-    <span>✅ {{ successMessage }}</span>
-    <button type="button" class="alert-close" (click)="dismissSuccess()">✕</button>
+    <span><lucide-icon name="CircleCheck" [size]="15"></lucide-icon> {{ successMessage }}</span>
+    <button type="button" class="alert-close" (click)="dismissSuccess()"><lucide-icon name="X" [size]="14"></lucide-icon></button>
   </div>
 
   <div class="alert alert-error" *ngIf="error">
-    <span>⚠️ {{ error }}</span>
-    <button type="button" class="alert-close" (click)="dismissError()">✕</button>
+    <span><lucide-icon name="TriangleAlert" [size]="15"></lucide-icon> {{ error }}</span>
+    <button type="button" class="alert-close" (click)="dismissError()"><lucide-icon name="X" [size]="14"></lucide-icon></button>
   </div>
 
   <!-- Checking Status -->
@@ -39,7 +94,7 @@
   <div class="section-card" *ngIf="budget && !showForm">
     <div class="section-header">
       <div>
-        <h2 class="section-title">📅 {{ budget.year }} Annual Budget</h2>
+        <h2 class="section-title"><lucide-icon name="CalendarDays" [size]="18"></lucide-icon> {{ budget.year }} Annual Budget</h2>
         <p class="section-subtitle">Financial overview for the year</p>
       </div>
       <span class="health-badge" [class]="healthClass(budget.utilizationPercentage)">
@@ -99,12 +154,13 @@
   <div class="section-card" *ngIf="showForm">
     <div class="section-header">
       <h2 class="section-title">
-        {{ isEditMode ? '✏️ Update Budget' : '➕ Create ' + currentYear + ' Budget' }}
+        <lucide-icon [name]="isEditMode ? 'SquarePen' : 'Plus'" [size]="18"></lucide-icon>
+        {{ isEditMode ? 'Update Budget' : 'Create ' + currentYear + ' Budget' }}
       </h2>
     </div>
 
     <div class="info-banner" *ngIf="!isEditMode">
-      <span class="info-icon">ℹ️</span>
+      <lucide-icon name="Info" [size]="15" class="info-icon"></lucide-icon>
       <p>No budget defined for <strong>{{ currentYear }}</strong> yet. Create one below.</p>
     </div>
 

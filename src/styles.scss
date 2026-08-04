@@ -5,11 +5,11 @@
 @use '@angular/material' as mat;
 @include mat.core();
 
-// Minimal Material theme — components use custom CSS variables, not Material
+// Neutral dark theme — no blue, grey-based accent
 $custom-theme: mat.define-dark-theme((
   color: (
-    primary: mat.define-palette(mat.$blue-palette, 600),
-    accent:  mat.define-palette(mat.$cyan-palette, A200),
+    primary: mat.define-palette(mat.$grey-palette, 700),
+    accent:  mat.define-palette(mat.$grey-palette, 400),
     warn:    mat.define-palette(mat.$red-palette),
   )
 ));
@@ -117,14 +117,14 @@ $custom-theme: mat.define-dark-theme((
   --color-border:        rgba(15, 23, 42, 0.10);
   --color-border-soft:   rgba(15, 23, 42, 0.06);
   --color-border-strong: rgba(15, 23, 42, 0.18);
-  --color-border-focus:  rgba(37, 99, 235, 0.45);
+  --color-border-focus:  rgba(55, 65, 81, 0.40);
 
   // Brand / Accent
-  --color-accent:        #2563eb;
-  --color-accent-hover:  #1d4ed8;
-  --color-accent-dim:    rgba(37, 99, 235, 0.10);
-  --color-accent-glow:   rgba(37, 99, 235, 0.22);
-  --color-accent-text:   #2563eb;
+  --color-accent:        #374151;
+  --color-accent-hover:  #1f2937;
+  --color-accent-dim:    rgba(55, 65, 81, 0.10);
+  --color-accent-glow:   rgba(55, 65, 81, 0.18);
+  --color-accent-text:   #1f2937;
 
   // Semantic status
   --color-success:       #16a34a;
@@ -142,10 +142,10 @@ $custom-theme: mat.define-dark-theme((
   --color-danger-border: rgba(220, 38, 38, 0.25);
   --color-danger-text:   #b91c1c;
 
-  --color-info:          #0284c7;
-  --color-info-bg:       rgba(2, 132, 199, 0.10);
-  --color-info-border:   rgba(2, 132, 199, 0.25);
-  --color-info-text:     #0369a1;
+  --color-info:          #4b5563;
+  --color-info-bg:       rgba(75, 85, 99, 0.10);
+  --color-info-border:   rgba(75, 85, 99, 0.25);
+  --color-info-text:     #374151;
 
   --color-critical:      #9f1239;
   --color-critical-bg:   rgba(159, 18, 57, 0.10);
@@ -158,19 +158,19 @@ $custom-theme: mat.define-dark-theme((
   --shadow-md:  0 8px 24px rgba(15, 23, 42, 0.08);
   --shadow-lg:  0 16px 40px rgba(15, 23, 42, 0.10);
   --shadow-xl:  0 24px 60px rgba(15, 23, 42, 0.12);
-  --shadow-accent: 0 12px 28px rgba(37, 99, 235, 0.20);
+  --shadow-accent: 0 12px 28px rgba(55, 65, 81, 0.15);
 
   // App background
   --app-bg:
-    radial-gradient(circle at 80% 0%, rgba(37, 99, 235, 0.06), transparent 35%),
-    radial-gradient(circle at 10% 90%, rgba(16, 185, 129, 0.05), transparent 30%),
+    radial-gradient(circle at 80% 0%, rgba(55, 65, 81, 0.05), transparent 35%),
+    radial-gradient(circle at 10% 90%, rgba(107, 114, 128, 0.04), transparent 30%),
     linear-gradient(180deg, #f0f4f8 0%, #e8edf3 100%);
 
   // Hero gradients (per-page accent colors)
-  --hero-alerts-bg:      linear-gradient(135deg, rgba(185, 28, 28, 0.82) 0%, rgba(37, 99, 235, 0.82) 100%);
-  --hero-maintenance-bg: linear-gradient(135deg, rgba(109, 40, 217, 0.88) 0%, rgba(37, 99, 235, 0.85) 100%);
-  --hero-finance-bg:     linear-gradient(135deg, rgba(2, 132, 199, 0.88) 0%, rgba(16, 185, 129, 0.82) 100%);
-  --hero-equipment-bg:   linear-gradient(135deg, rgba(15, 118, 110, 0.88) 0%, rgba(37, 99, 235, 0.82) 100%);
+  --hero-alerts-bg:      linear-gradient(135deg, rgba(185, 28, 28, 0.85) 0%, rgba(31, 41, 55, 0.90) 100%);
+  --hero-maintenance-bg: linear-gradient(135deg, rgba(55, 48, 80, 0.90) 0%, rgba(31, 41, 55, 0.90) 100%);
+  --hero-finance-bg:     linear-gradient(135deg, rgba(31, 41, 55, 0.90) 0%, rgba(17, 24, 39, 0.92) 100%);
+  --hero-equipment-bg:   linear-gradient(135deg, rgba(15, 118, 110, 0.88) 0%, rgba(31, 41, 55, 0.90) 100%);
 }
 
 // ============================================================================
@@ -180,16 +180,16 @@ $custom-theme: mat.define-dark-theme((
 [data-theme='dark'] {
   color-scheme: dark;
 
-  // Page & surface backgrounds
-  --color-bg-page:      #060b14;
-  --color-bg-surface:   rgba(13, 20, 35, 0.98);
-  --color-bg-elevated:  rgba(18, 27, 46, 0.96);
-  --color-bg-sunken:    rgba(8, 13, 24, 0.95);
-  --color-bg-overlay:   rgba(13, 20, 35, 0.94);
+  // Page & surface backgrounds — dark navy/blue, not flat black-grey
+  --color-bg-page:      #0b1220;
+  --color-bg-surface:   rgba(18, 24, 38, 0.98);
+  --color-bg-elevated:  rgba(26, 34, 51, 0.96);
+  --color-bg-sunken:    rgba(9, 13, 24, 0.95);
+  --color-bg-overlay:   rgba(18, 24, 38, 0.94);
 
   // Glass / frosted surfaces
-  --color-glass-bg:     rgba(18, 27, 46, 0.72);
-  --color-glass-border: rgba(148, 163, 184, 0.12);
+  --color-glass-bg:     rgba(26, 34, 51, 0.72);
+  --color-glass-border: rgba(148, 163, 184, 0.14);
 
   // Text
   --color-text-primary:   #e2e8f0;
@@ -199,18 +199,18 @@ $custom-theme: mat.define-dark-theme((
   --color-text-inverse:   #0d1117;
   --color-text-on-accent: #ffffff;
 
-  // Borders
+  // Borders — slate/blue-grey, matching the navy surfaces
   --color-border:        rgba(148, 163, 184, 0.14);
   --color-border-soft:   rgba(148, 163, 184, 0.08);
   --color-border-strong: rgba(148, 163, 184, 0.24);
-  --color-border-focus:  rgba(96, 165, 250, 0.50);
+  --color-border-focus:  rgba(156, 163, 175, 0.45);
 
-  // Brand / Accent
-  --color-accent:        #3b82f6;
-  --color-accent-hover:  #60a5fa;
-  --color-accent-dim:    rgba(59, 130, 246, 0.12);
-  --color-accent-glow:   rgba(59, 130, 246, 0.25);
-  --color-accent-text:   #93c5fd;
+  // Brand / Accent — dark grey, no blue
+  --color-accent:        #6b7280;
+  --color-accent-hover:  #9ca3af;
+  --color-accent-dim:    rgba(107, 114, 128, 0.14);
+  --color-accent-glow:   rgba(107, 114, 128, 0.22);
+  --color-accent-text:   #d1d5db;
 
   // Semantic status
   --color-success:       #22c55e;
@@ -228,10 +228,10 @@ $custom-theme: mat.define-dark-theme((
   --color-danger-border: rgba(239, 68, 68, 0.22);
   --color-danger-text:   #fca5a5;
 
-  --color-info:          #38bdf8;
-  --color-info-bg:       rgba(56, 189, 248, 0.10);
-  --color-info-border:   rgba(56, 189, 248, 0.22);
-  --color-info-text:     #7dd3fc;
+  --color-info:          #9ca3af;
+  --color-info-bg:       rgba(156, 163, 175, 0.10);
+  --color-info-border:   rgba(156, 163, 175, 0.22);
+  --color-info-text:     #d1d5db;
 
   --color-critical:      #fb7185;
   --color-critical-bg:   rgba(251, 113, 133, 0.10);
@@ -244,19 +244,19 @@ $custom-theme: mat.define-dark-theme((
   --shadow-md:  0 8px 24px rgba(0, 0, 0, 0.38);
   --shadow-lg:  0 16px 40px rgba(0, 0, 0, 0.45);
   --shadow-xl:  0 24px 60px rgba(0, 0, 0, 0.55);
-  --shadow-accent: 0 12px 28px rgba(59, 130, 246, 0.28);
+  --shadow-accent: 0 12px 28px rgba(0, 0, 0, 0.40);
 
-  // App background
+  // App background — dark navy/blue
   --app-bg:
-    radial-gradient(circle at 75% 0%, rgba(59, 130, 246, 0.10), transparent 35%),
-    radial-gradient(circle at 15% 85%, rgba(124, 58, 237, 0.08), transparent 30%),
-    linear-gradient(180deg, #060b14 0%, #0a1020 100%);
+    radial-gradient(circle at 75% 0%, rgba(59, 84, 143, 0.14), transparent 35%),
+    radial-gradient(circle at 15% 85%, rgba(30, 41, 68, 0.18), transparent 30%),
+    linear-gradient(180deg, #0f172a 0%, #0b1220 100%);
 
-  // Hero gradients
-  --hero-alerts-bg:      linear-gradient(135deg, rgba(185, 28, 28, 0.80) 0%, rgba(37, 99, 235, 0.80) 100%);
-  --hero-maintenance-bg: linear-gradient(135deg, rgba(109, 40, 217, 0.88) 0%, rgba(37, 99, 235, 0.85) 100%);
-  --hero-finance-bg:     linear-gradient(135deg, rgba(2, 132, 199, 0.85) 0%, rgba(16, 185, 129, 0.80) 100%);
-  --hero-equipment-bg:   linear-gradient(135deg, rgba(15, 118, 110, 0.88) 0%, rgba(37, 99, 235, 0.82) 100%);
+  // Hero gradients — dark grey tones
+  --hero-alerts-bg:      linear-gradient(135deg, rgba(185, 28, 28, 0.82) 0%, rgba(17, 24, 39, 0.95) 100%);
+  --hero-maintenance-bg: linear-gradient(135deg, rgba(55, 48, 80, 0.90) 0%, rgba(17, 24, 39, 0.95) 100%);
+  --hero-finance-bg:     linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(31, 41, 55, 0.95) 100%);
+  --hero-equipment-bg:   linear-gradient(135deg, rgba(15, 118, 110, 0.80) 0%, rgba(17, 24, 39, 0.95) 100%);
 }
 
 // ============================================================================
@@ -303,7 +303,7 @@ $custom-theme: mat.define-dark-theme((
   --accent-strong: var(--color-accent-hover);
   --accent-blue:   var(--color-accent);
   --accent-blue-dim: var(--color-accent-dim);
-  --accent: linear-gradient(135deg, var(--color-accent) 0%, var(--color-info) 100%);
+  --accent: linear-gradient(135deg, var(--color-accent) 0%, var(--color-text-muted) 100%);
 
   // Old status aliases
   --success: var(--color-success);
@@ -314,10 +314,12 @@ $custom-theme: mat.define-dark-theme((
   --shadow-soft:  var(--shadow-lg);
   --shadow-hover: var(--shadow-xl);
 
-  // Old radius aliases
-  --radius-lg: var(--radius-xl);
-  --radius-md: var(--radius-lg);
-  --radius-sm: var(--radius-md);
+  // NOTE: --radius-xs/-sm/-md/-lg/-xl/-2xl are already defined once, canonically,
+  // in the design-token block above. Do NOT redeclare them here — doing so
+  // previously created a self-referential chain (--radius-lg: var(--radius-xl);
+  // --radius-md: var(--radius-lg); --radius-sm: var(--radius-md)) that collapsed
+  // all three down to the same 22px value as --radius-xl, silently flattening
+  // the corner-radius scale used by .btn-sm, .form-control, .modal-close, etc.
 
   // Font alias
   --font-display: var(--font-sans);

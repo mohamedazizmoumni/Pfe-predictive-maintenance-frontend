@@ -69,6 +69,11 @@ export class AlertDetailComponent {
         actor: this.alert.closedBy,
         note: this.alert.resolutionNotes,
       },
+      {
+        label: 'Resolved',
+        date: this.alert.resolvedDate,
+        note: 'Machine recovered — automatically resolved by the system.',
+      },
     ].filter((step) => step.date);
   }
 

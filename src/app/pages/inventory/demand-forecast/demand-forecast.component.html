@@ -1,0 +1,27 @@
+<div class="forecast-page">
+  <header class="page-header">
+    <h1>Demand Forecast</h1>
+    <p>Projected days until stockout, based on real consumption over the last 90 days — soonest first.</p>
+  </header>
+
+  <div class="loading" *ngIf="isLoading">Loading forecast…</div>
+  <div class="alert alert-error" *ngIf="error">{{ error }}</div>
+
+  <div class="twrap" *ngIf="!isLoading && !error">
+    <table>
+      <thead>
+        <tr><th>Part</th><th>Current Stock</th><th>Minimum</th><th>Avg Daily Use</th><th>Projected Stockout</th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let entry of entries" [class.below-minimum]="entry.belowMinimum">
+          <td>{{ entry.partName }}</td>
+          <td>{{ entry.currentStock }}</td>
+          <td>{{ entry.minimumStock }}</td>
+          <td>{{ entry.avgDailyConsumption != null ? (entry.avgDailyConsumption | number:'1.1-2') : '—' }}</td>
+          <td><span class="urgency-chip" [ngClass]="urgencyClass(entry.projectedDaysUntilStockout)">{{ formatDays(entry.projectedDaysUntilStockout) }}</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="empty" *ngIf="entries.length === 0">No parts to forecast.</p>
+  </div>
+</div>

@@ -61,13 +61,15 @@
             </td>
             <td>{{ getInstallationYear(machine) || '—' }}</td>
             <td class="cell-actions">
-              <button type="button" class="btn btn-ghost-sm"
-                (click)="$event.stopPropagation(); togglePredictivePanel(machine)">
-                {{ expandedPredictiveMachineId === machine.id ? 'Hide' : 'Predictive' }}
-              </button>
+              
               <button type="button" class="btn btn-secondary"
                 (click)="$event.stopPropagation(); openMachineVisual(machine)">
                 Live View
+              </button>
+              <button type="button" class="btn btn-ghost-sm"
+                (click)="$event.stopPropagation(); openTechnicianModal(machine)"
+                *ngIf="canManageTechnicians">
+                👷 Technicians
               </button>
               <button type="button" class="btn btn-ghost-sm"
                 (click)="$event.stopPropagation(); openEdit(machine)"
@@ -233,22 +235,17 @@
     </div>
   </div>
 
-  <!-- ─── Delete Confirmation ───────────────────────────────────────────────── -->
-  <div class="modal-backdrop" *ngIf="deleteConfirmId" (click)="cancelDelete()">
-    <div class="delete-modal" (click)="$event.stopImmediatePropagation()">
-      <h3>🗑 Delete Machine?</h3>
-      <p>This action cannot be undone. The machine and all its history will be permanently deleted.</p>
-      <div class="modal-footer" style="border:none; justify-content:center;">
-        <button type="button" class="btn btn-ghost" (click)="cancelDelete()">Cancel</button>
-        <button type="button" class="btn btn-danger" (click)="confirmDelete()">Yes, Delete</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ─── Loading State ─────────────────────────────────────────────────────── -->
   <div class="loading-state" *ngIf="(isLoading$ | async)">
     <div class="spinner"></div>
     <p>Loading machines...</p>
   </div>
+
+  <!-- ─── Technician Assignment Modal ───────────────────────────────────────── -->
+  <app-machine-technicians-modal
+    [visible]="showTechnicianModal"
+    [machine]="technicianModalMachine"
+    (close)="closeTechnicianModal()">
+  </app-machine-technicians-modal>
 
 </section>

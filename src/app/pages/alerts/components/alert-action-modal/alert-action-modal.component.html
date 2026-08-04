@@ -14,28 +14,76 @@
     <form [formGroup]="form" (ngSubmit)="onSubmit()" class="modal-form">
       <ng-container [ngSwitch]="mode">
 
-        <!-- Acknowledge -->
+        <!-- ── Acknowledge ── -->
         <div *ngSwitchCase="'acknowledge'" class="form-group">
           <label for="acknowledgedDate">Acknowledged Date (optional)</label>
-          <input id="acknowledgedDate" type="datetime-local" formControlName="acknowledgedDate" class="form-control" />
+          <input
+            id="acknowledgedDate"
+            type="datetime-local"
+            formControlName="acknowledgedDate"
+            class="form-control"
+          />
         </div>
 
-        <!-- Escalate -->
-        <div *ngSwitchCase="'escalate'">
+        <!-- ── Escalate ── -->
+        <ng-container *ngSwitchCase="'escalate'">
           <div class="form-group">
             <label for="escalationNotes">Escalation Notes</label>
-            <textarea id="escalationNotes" rows="3" formControlName="escalationNotes" placeholder="What changed?" class="form-control"></textarea>
+            <textarea
+              id="escalationNotes"
+              rows="3"
+              formControlName="escalationNotes"
+              placeholder="Describe what changed or why this is being escalated"
+              class="form-control"
+            ></textarea>
           </div>
-          <div class="form-group" style="margin-top: 0.75rem;">
-            <label for="reassignTo">Reassign To (optional)</label>
-            <input id="reassignTo" type="text" formControlName="reassignTo" placeholder="username" class="form-control" />
-          </div>
-        </div>
 
-        <!-- Close -->
+          <div class="form-group">
+            <label for="reassignTo">Reassign To</label>
+
+            <div class="select-wrapper" [class.loading]="usersLoading">
+              <select
+                id="reassignTo"
+                formControlName="reassignTo"
+                class="form-control"
+                [attr.disabled]="usersLoading || technicians.length === 0 ? true : null"
+              >
+                <option value="">
+                  {{ usersLoading ? 'Loading…' : '— Keep current assignee —' }}
+                </option>
+                <option
+                  *ngFor="let user of technicians; trackBy: trackUser"
+                  [value]="user.username"
+                >
+                  {{ getUserLabel(user) }}
+                </option>
+              </select>
+              <span class="select-spinner" *ngIf="usersLoading">⏳</span>
+            </div>
+
+            <small class="form-hint">
+              Leave blank to keep the current assignee. The selected person will be notified.
+            </small>
+          </div>
+        </ng-container>
+
+        <!-- ── Close ── -->
         <div *ngSwitchCase="'close'" class="form-group">
-          <label for="resolutionNotes">Resolution Notes</label>
-          <textarea id="resolutionNotes" rows="4" formControlName="resolutionNotes" placeholder="Explain remediation" class="form-control"></textarea>
+          <label for="resolutionNotes">Resolution Notes <span class="required">*</span></label>
+          <textarea
+            id="resolutionNotes"
+            rows="4"
+            formControlName="resolutionNotes"
+            placeholder="Explain what was done to resolve the incident"
+            class="form-control"
+            [class.input-error]="form.get('resolutionNotes')?.invalid && form.get('resolutionNotes')?.touched"
+          ></textarea>
+          <small
+            class="form-error"
+            *ngIf="form.get('resolutionNotes')?.invalid && form.get('resolutionNotes')?.touched"
+          >
+            Resolution notes are required (min. 4 characters)
+          </small>
         </div>
 
       </ng-container>

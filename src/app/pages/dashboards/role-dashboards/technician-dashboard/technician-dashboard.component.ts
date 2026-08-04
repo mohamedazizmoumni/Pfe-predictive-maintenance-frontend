@@ -55,7 +55,7 @@ import { BaseDashboardComponent } from '../../base-dashboard/base-dashboard.comp
     </div>
 
     <button class="refresh-btn" (click)="refresh()">
-      ↻ Refresh
+      <span aria-hidden="true">↻</span> Refresh
     </button>
 
   </header>
@@ -65,7 +65,9 @@ import { BaseDashboardComponent } from '../../base-dashboard/base-dashboard.comp
 
     <div
       class="kpi-card"
-      *ngFor="let kpi of kpiCards()">
+      *ngFor="let kpi of kpiCards()"
+      role="group"
+      [attr.aria-label]="kpi.label + ': ' + kpi.value">
 
       <p class="kpi-label">
         {{ kpi.label }}
@@ -110,6 +112,7 @@ import { BaseDashboardComponent } from '../../base-dashboard/base-dashboard.comp
 
               <div
                 class="task-dot"
+                aria-hidden="true"
                 [ngClass]="{
                   critical: t.priority === 'CRITICAL',
                   high: t.priority === 'HIGH',
@@ -136,6 +139,10 @@ import { BaseDashboardComponent } from '../../base-dashboard/base-dashboard.comp
 
           </div>
 
+          <p class="empty-state" *ngIf="taskList().length === 0">
+            No tasks scheduled for today.
+          </p>
+
         </div>
 
       </div>
@@ -160,7 +167,7 @@ import { BaseDashboardComponent } from '../../base-dashboard/base-dashboard.comp
 
               <div class="alert-left">
 
-                <span class="alert-dot"></span>
+                <span class="alert-dot" aria-hidden="true"></span>
 
                 <div>
                   <strong class="alert-title">
@@ -211,7 +218,9 @@ import { BaseDashboardComponent } from '../../base-dashboard/base-dashboard.comp
 
               <span
                 class="machine-status"
-                [ngClass]="m.status">
+                [ngClass]="m.status"
+                role="status"
+                [attr.aria-label]="'Status: ' + m.status">
               </span>
 
             </div>
@@ -260,7 +269,7 @@ import { BaseDashboardComponent } from '../../base-dashboard/base-dashboard.comp
           </h3>
         </div>
 
-        <canvas #taskChart></canvas>
+        <canvas #taskChart role="img" aria-label="Tasks status chart showing the breakdown of maintenance tasks by status"></canvas>
 
       </div>
 
@@ -273,7 +282,7 @@ import { BaseDashboardComponent } from '../../base-dashboard/base-dashboard.comp
           </h3>
         </div>
 
-        <canvas #alertChart></canvas>
+        <canvas #alertChart role="img" aria-label="Alerts severity chart showing the breakdown of alerts by severity level"></canvas>
 
       </div>
 
@@ -286,7 +295,7 @@ import { BaseDashboardComponent } from '../../base-dashboard/base-dashboard.comp
           </h3>
         </div>
 
-        <canvas #machineChart></canvas>
+        <canvas #machineChart role="img" aria-label="Machines chart showing the breakdown of machine fleet status"></canvas>
 
       </div>
 
@@ -523,6 +532,14 @@ import { BaseDashboardComponent } from '../../base-dashboard/base-dashboard.comp
   display:flex;
   flex-direction:column;
   gap:14px;
+}
+
+.empty-state{
+  margin:0;
+  padding:24px 4px;
+  text-align:center;
+  font-size:13px;
+  color:var(--text-muted);
 }
 
 .task-card{
@@ -862,22 +879,8 @@ export class TechnicianDashboardComponent
 
   private observer?: MutationObserver;
 
-  calendarDays = [
-    { label: '1' },
-    { label: '2' },
-    { label: '3', active: true },
-    { label: '4' },
-    { label: '5' },
-    { label: '6' },
-    { label: '7' },
-    { label: '8' },
-    { label: '9' },
-    { label: '10' },
-    { label: '11' },
-    { label: '12' },
-    { label: '13' },
-    { label: '14' },
-  ];
+  /** The real current week (Sun–Sat), with today's actual date highlighted. */
+  calendarDays: { label: string; active: boolean }[] = [];
 
   constructor(
     private auth: AuthService,
@@ -887,6 +890,30 @@ export class TechnicianDashboardComponent
     private notifier: NotificationService
   ) {
     super();
+    this.calendarDays = this.buildCalendarWeek();
+  }
+
+  private buildCalendarWeek(): { label: string; active: boolean }[] {
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(startOfWeek);
+      day.setDate(startOfWeek.getDate() + i);
+      return {
+        label: day.getDate().toString(),
+        active: this.isSameDay(day, today),
+      };
+    });
+  }
+
+  private isSameDay(a: Date, b: Date): boolean {
+    return (
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate()
+    );
   }
 
   loadDashboardData(): void {
@@ -1033,15 +1060,20 @@ export class TechnicianDashboardComponent
 
   });
 
-  readonly taskList = computed(() =>
-    this.tasks().slice(0, 6).map(t => ({
-      task: t.description,
-      schedule: new Date(
-        t.scheduledDate
-      ).toLocaleString(),
-      priority: t.priority
-    }))
-  );
+  readonly taskList = computed(() => {
+    const today = new Date();
+
+    return this.tasks()
+      .filter(t => t.scheduledDate && this.isSameDay(new Date(t.scheduledDate), today))
+      .slice(0, 6)
+      .map(t => ({
+        task: t.description,
+        schedule: new Date(
+          t.scheduledDate
+        ).toLocaleString(),
+        priority: t.priority
+      }));
+  });
 
   readonly alertRows = computed(() =>
     this.alerts().slice(0, 5).map(a => ({

@@ -1,42 +1,57 @@
 <section class="chatbot-page" aria-label="AI assistant conversation">
   <header class="chatbot-header">
-    <div>
-      <p class="eyebrow">AI assistant</p>
-      <h1>Sentinel Copilot</h1>
+    <div class="chatbot-header__titles">
+      <p class="eyebrow"><lucide-icon name="Sparkles" [size]="12"></lucide-icon> AI assistant</p>
+      <h1>
+        Sentinel Copilot
+        <span class="status-pill"><span class="dot"></span>Online</span>
+      </h1>
       <p class="subtitle">Ask questions about maintenance, inventory, and operations.</p>
     </div>
     <div class="header-actions">
-      <button type="button" class="btn btn-ghost" (click)="resetChatSize()" title="Reset conversation size">
-        Reset size
+      <button type="button" class="icon-btn" (click)="resetChatSize()" title="Reset conversation size" aria-label="Reset conversation size">
+        <lucide-icon name="Maximize2" [size]="15"></lucide-icon>
       </button>
-      <button type="button" class="btn btn-ghost" (click)="clearChat()" [disabled]="!messages.length">
-        Clear chat
+      <button type="button" class="icon-btn" (click)="clearChat()" [disabled]="!messages.length" title="Clear chat" aria-label="Clear chat">
+        <lucide-icon name="Trash2" [size]="15"></lucide-icon>
       </button>
     </div>
   </header>
 
   <div class="chat-container">
-    <div class="chat-shell surface-card"
-         [style.height.px]="chatHeight"
-         #chatShell>
+    <div class="chat-shell" [style.height.px]="chatHeight" #chatShell>
+
+      <!-- Empty state -->
+      <div class="chat-empty" *ngIf="!messages.length">
+        <div class="chat-empty__icon"><lucide-icon name="Bot" [size]="30"></lucide-icon></div>
+        <h3>How can I help you today?</h3>
+        <p>Ask about machine health, inventory levels, alerts, or maintenance history.</p>
+        <div class="chat-suggestions">
+          <button type="button" class="chat-suggestion" *ngFor="let prompt of suggestedPrompts" (click)="sendSuggestion(prompt)">
+            <lucide-icon name="MessageCircle" [size]="13"></lucide-icon>
+            {{ prompt }}
+          </button>
+        </div>
+      </div>
 
       <!-- Chat Messages -->
-      <ol class="chat-thread" aria-live="polite">
+      <ol class="chat-thread" aria-live="polite" #chatThread *ngIf="messages.length">
         <li
           *ngFor="let message of messages; trackBy: trackById"
           class="chat-row"
           [class.chat-row--assistant]="message.role === 'assistant'"
           [class.chat-row--user]="message.role === 'user'"
         >
+          <span class="chat-avatar" [class.chat-avatar--user]="message.role === 'user'" aria-hidden="true">
+            <lucide-icon [name]="message.role === 'user' ? 'User' : 'Bot'" [size]="15"></lucide-icon>
+          </span>
+
           <div
             class="chat-bubble"
             [class.chat-bubble--assistant]="message.role === 'assistant' && message.authorized !== false && message.content !== 'NOT AUTHORIZED'"
             [class.chat-bubble--user]="message.role === 'user'"
             [class.chat-bubble--warning]="message.role === 'assistant' && (message.authorized === false || message.content === 'NOT AUTHORIZED')"
           >
-            <span class="chat-avatar" aria-hidden="true">
-              {{ message.role === 'user' ? 'You' : 'AI' }}
-            </span>
             <div class="chat-content">
               <p class="chat-meta">
                 <span class="chat-role">{{ message.role === 'user' ? 'You' : 'Sentinel Copilot' }}</span>
@@ -46,6 +61,7 @@
                 >
                   Policy restriction
                 </span>
+                <span class="chat-time">{{ message.timestamp | date:'HH:mm' }}</span>
               </p>
               <p class="chat-text">{{ message.content }}</p>
             </div>
@@ -54,8 +70,8 @@
 
         <!-- Loading indicator -->
         <li *ngIf="isSubmitting" class="chat-row chat-row--assistant">
+          <span class="chat-avatar" aria-hidden="true"><lucide-icon name="Bot" [size]="15"></lucide-icon></span>
           <div class="chat-bubble chat-bubble--assistant">
-            <span class="chat-avatar" aria-hidden="true">AI</span>
             <div class="chat-content">
               <p class="chat-meta">
                 <span class="chat-role">Sentinel Copilot</span>
@@ -72,29 +88,32 @@
 
       <!-- Input Form -->
       <form class="chat-input" (ngSubmit)="onSubmit()" novalidate>
-        <label class="visually-hidden" for="chat-input">Ask a question</label>
-        <textarea
-          id="chat-input"
-          [(ngModel)]="question"
-          name="question"
-          required
-          [attr.maxLength]="1000"
-          rows="2"
-          placeholder="Ask Sentinel Copilot a question about your fleet, maintenance, or inventory..."
-          (keydown.enter)="onKeydownEnter($event)"
-        ></textarea>
+        <p class="input-error" *ngIf="errorMessage" role="alert">
+          <lucide-icon name="Sparkles" [size]="12"></lucide-icon>{{ errorMessage }}
+        </p>
+        <div class="chat-input__row">
+          <label class="visually-hidden" for="chat-input">Ask a question</label>
+          <textarea
+            id="chat-input"
+            [(ngModel)]="question"
+            name="question"
+            required
+            [attr.maxLength]="1000"
+            rows="1"
+            placeholder="Ask Sentinel Copilot a question about your fleet, maintenance, or inventory..."
+            (keydown.enter)="onKeydownEnter($event)"
+          ></textarea>
 
-        <div class="chat-actions">
-          <p class="input-help" *ngIf="!errorMessage">Press Enter to send • Shift+Enter for new line</p>
-          <p class="input-error" *ngIf="errorMessage" role="alert">{{ errorMessage }}</p>
           <button
             type="submit"
-            class="btn btn-primary"
+            class="send-btn"
             [disabled]="isSubmitting || !question.trim()"
+            aria-label="Send message"
           >
-            {{ isSubmitting ? 'Sending…' : 'Send' }}
+            <lucide-icon name="Send" [size]="16"></lucide-icon>
           </button>
         </div>
+        <p class="input-help">Press Enter to send • Shift+Enter for new line</p>
       </form>
 
       <!-- Resize Handle -->

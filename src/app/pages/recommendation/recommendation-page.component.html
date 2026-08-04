@@ -13,6 +13,7 @@
     <app-recommendation-card
       *ngIf="recommendation as recommendationData"
       [recommendation]="recommendationData"
+      (schedule)="onScheduleMaintenance($event)"
     ></app-recommendation-card>
 
     <app-cost-comparison [preselectedMachineId]="selectedMachineId"></app-cost-comparison>

@@ -3,75 +3,129 @@
 
   <div class="modal-card" role="dialog" aria-modal="true">
 
-    <header>
-      <div>
-        <p>Task Assignment</p>
-        <h3>Assign Maintenance Task</h3>
-        <span>Select machine and technician, then send a due-date assignment.</span>
+    <header class="modal-header">
+      <div class="modal-header-icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9 2h6a1 1 0 0 1 1 1v1.28a2 2 0 0 1-1.02 1.74L14 6H10l-.98-.98A2 2 0 0 1 8 3.28V3a1 1 0 0 1 1-1Z" fill="currentColor" opacity="0.55"/>
+          <rect x="5" y="5" width="14" height="17" rx="2.5" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M8.5 11.5h7M8.5 15h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
       </div>
-      <button type="button" class="ghost" (click)="onClose()">✕ Close</button>
+      <div class="modal-header-text">
+        <p class="modal-subtitle">Task Assignment</p>
+        <h3 class="modal-title">Assign Maintenance Task</h3>
+        <span class="modal-description">Select machine and technician, then send a due-date assignment.</span>
+      </div>
+      <button type="button" class="modal-close" (click)="onClose()" aria-label="Close">✕</button>
     </header>
 
-    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="modal-form">
 
-      <label>
-        Task Title
-        <input type="text" formControlName="title" placeholder="Motor Inspection" />
-      </label>
-
-      <label>
-        Machine
-        <select formControlName="machineId">
-          <option value="" disabled>Select machine</option>
-          <option *ngFor="let machine of machines || []" [value]="machine.id">
-            {{ getMachineLabel(machine) }}
-          </option>
-        </select>
-      </label>
-
-      <label>
-        Priority
-        <select formControlName="priority">
-          <option *ngFor="let priority of priorities; trackBy: trackByValue" [value]="priority.value">
-            {{ priority.label }}
-          </option>
-        </select>
-      </label>
-
-      <div class="split">
-        <label>
-          Due Date & Time
-          <input type="datetime-local" formControlName="dueDate" />
-        </label>
+      <!-- Title -->
+      <div class="form-group" [class.has-error]="form.get('title')?.invalid && form.get('title')?.touched">
+        <label for="title">Task Title <span class="required">*</span></label>
+        <input id="title" type="text" formControlName="title" placeholder="Motor Inspection" class="form-control" />
+        <small class="form-error" *ngIf="form.get('title')?.invalid && form.get('title')?.touched">
+          Title is required (min. 3 characters)
+        </small>
       </div>
 
-      <label>
-        Assign Technician
-        <ng-container *ngIf="(technicians?.length || 0) > 0; else noTechnicians">
-          <select formControlName="assignedTechnicianId">
-            <option value="" disabled>Select technician</option>
-            <!-- [value]="technician.id" sends the numeric ID the backend expects -->
-            <option
-              *ngFor="let technician of technicians || []; trackBy: trackTechnicianById"
-              [value]="technician.id">
-              {{ getTechnicianLabel(technician) }}
+      <!-- Machine + Priority -->
+      <div class="form-row">
+        <div class="form-group" [class.has-error]="form.get('machineId')?.invalid && form.get('machineId')?.touched">
+          <label for="machine">Machine <span class="required">*</span></label>
+          <select id="machine" formControlName="machineId" class="form-control">
+            <option value="" disabled>Select machine</option>
+            <option *ngFor="let machine of machines || []" [value]="machine.id">
+              {{ getMachineLabel(machine) }}
             </option>
           </select>
-        </ng-container>
-        <ng-template #noTechnicians>
-          <p class="form-hint">No technicians available. A technician must be selected to assign a task.</p>
-        </ng-template>
-      </label>
+          <small class="form-error" *ngIf="form.get('machineId')?.invalid && form.get('machineId')?.touched">
+            Machine is required
+          </small>
+        </div>
 
-      <label>
-        Description
-        <textarea rows="3" formControlName="description"
-          placeholder="Inspect motor vibration anomaly"></textarea>
-      </label>
+        <div class="form-group">
+          <label for="priority">Priority</label>
+          <div class="select-wrapper priority-select" [attr.data-priority]="form.get('priority')?.value">
+            <span class="priority-dot" aria-hidden="true"></span>
+            <select id="priority" formControlName="priority" class="form-control">
+              <option *ngFor="let priority of priorities; trackBy: trackByValue" [value]="priority.value">
+                {{ priority.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
 
-      <footer>
-        <button type="button" class="ghost" (click)="onClose()">Cancel</button>
-        <button type="submit" [disabled]="isSubmitting">
+      <!-- Type + Duration -->
+      <div class="form-row">
+        <div class="form-group">
+          <label for="type">Maintenance Type <span class="required">*</span></label>
+          <select id="type" formControlName="type" class="form-control">
+            <option *ngFor="let t of types" [value]="t.value">{{ t.label }}</option>
+          </select>
+        </div>
+
+        <div class="form-group" [class.has-error]="form.get('estimatedDuration')?.invalid && form.get('estimatedDuration')?.touched">
+          <label for="estimatedDuration">Estimated Duration (minutes) <span class="required">*</span></label>
+          <input id="estimatedDuration" type="number" min="1" formControlName="estimatedDuration" placeholder="60" class="form-control" />
+          <small class="form-error" *ngIf="form.get('estimatedDuration')?.invalid && form.get('estimatedDuration')?.touched">
+            Enter an estimated duration in minutes
+          </small>
+        </div>
+      </div>
+
+      <!-- Due Date + Technician -->
+      <div class="form-row">
+        <div class="form-group" [class.has-error]="form.get('dueDate')?.invalid && form.get('dueDate')?.touched">
+          <label for="dueDate">Due Date &amp; Time <span class="required">*</span></label>
+          <input id="dueDate" type="datetime-local" formControlName="dueDate" class="form-control" />
+          <small class="form-error" *ngIf="form.get('dueDate')?.invalid && form.get('dueDate')?.touched">
+            A due date is required
+          </small>
+        </div>
+
+        <div class="form-group"
+          [class.has-error]="form.get('assignedTechnicianId')?.invalid && form.get('assignedTechnicianId')?.touched">
+          <label for="technician">Assign Technician <span class="required">*</span></label>
+          <ng-container *ngIf="(technicians?.length || 0) > 0; else noTechnicians">
+            <select id="technician" formControlName="assignedTechnicianId" class="form-control">
+              <option value="" disabled>Select technician</option>
+              <!-- [value]="technician.id" sends the numeric ID the backend expects -->
+              <option
+                *ngFor="let technician of technicians || []; trackBy: trackTechnicianById"
+                [value]="technician.id">
+                {{ getTechnicianLabel(technician) }}
+              </option>
+            </select>
+            <small class="form-error"
+              *ngIf="form.get('assignedTechnicianId')?.invalid && form.get('assignedTechnicianId')?.touched">
+              A technician must be selected
+            </small>
+          </ng-container>
+          <ng-template #noTechnicians>
+            <p class="form-hint">No technicians available. A technician must be selected to assign a task.</p>
+          </ng-template>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="form-group" [class.has-error]="form.get('description')?.invalid && form.get('description')?.touched">
+        <label for="description">Description <span class="required">*</span></label>
+        <textarea id="description" rows="3" formControlName="description"
+          placeholder="Inspect motor vibration anomaly" class="form-control"></textarea>
+        <small class="form-error" *ngIf="form.get('description')?.invalid && form.get('description')?.touched">
+          Description is required (min. 5 characters)
+        </small>
+      </div>
+
+      <footer class="modal-footer">
+        <button type="button" class="btn-ghost" (click)="onClose()">Cancel</button>
+        <button type="submit" class="btn-primary" [disabled]="isSubmitting">
+          <svg *ngIf="!isSubmitting" width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
           {{ isSubmitting ? 'Assigning…' : 'Assign Task' }}
         </button>
       </footer>

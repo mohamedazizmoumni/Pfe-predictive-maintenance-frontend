@@ -1,6 +1,7 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, HostListener, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { A11yModule } from '@angular/cdk/a11y';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { MaintenanceService } from '../../core/services/maintenance.service';
@@ -30,7 +31,7 @@ interface CalendarEvent {
 @Component({
   selector: 'app-technician-calendar',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, A11yModule],
   templateUrl: './technician-calendar.component.html',
   styleUrls: ['./technician-calendar.component.scss']
 })
@@ -47,7 +48,6 @@ export class TechnicianCalendarComponent implements OnInit {
   // UI State
   readonly selectedEvent = signal<CalendarEvent | null>(null);
   readonly showEventModal = signal(false);
-  readonly viewMode = signal<'month' | 'week' | 'day'>('month');
 
   // Filters
   readonly filterType = signal<'ALL' | 'TASK' | 'ALERT' | 'MEETING'>('ALL');
@@ -155,42 +155,20 @@ export class TechnicianCalendarComponent implements OnInit {
       this.currentUser.set(user);
       
       if (user) {
-        console.log('👤 Loading calendar tasks for technician:', {
-          id: user.id,
-          username: user.username,
-          roles: user.roles?.map(r => r.name),
-        });
-
-        // Load assigned tasks using the new getTechnicianTasks method
-        this.maintenanceService.getTechnicianTasks(user.id || user.username, 0, 100).subscribe({
+        // assignedTechnicianId on the backend is a numeric column — user.id
+        // (the real database id, resolved from the login response) is the
+        // only value that's ever valid here. There used to be a
+        // username-retry fallback for when user.id was accidentally the
+        // username (a bug in AuthService.buildUserFromToken, now fixed);
+        // retrying with a username against a numeric column just 500s
+        // again, so it's been removed rather than left as dead weight.
+        this.maintenanceService.getTechnicianTasks(user.id, 0, 100).subscribe({
           next: (response) => {
-            console.log('📦 Calendar API Response:', response);
-            const tasks = response.content || [];
-            console.log(`📊 Tasks loaded for calendar: ${tasks.length}`);
-            
-            if (tasks.length === 0 && user.id !== user.username) {
-              console.warn('⚠️ No tasks with ID, trying with username...');
-              this.maintenanceService.getTechnicianTasks(user.username, 0, 100).subscribe({
-                next: (fallbackResponse) => {
-                  const fallbackTasks = fallbackResponse.content || [];
-                  console.log(`📊 Fallback tasks: ${fallbackTasks.length}`);
-                  this.tasks.set(fallbackTasks);
-                  this.loading.set(false);
-                },
-                error: (err) => {
-                  console.error('❌ Fallback error:', err);
-                  this.error.set('Failed to load tasks');
-                  this.loading.set(false);
-                }
-              });
-            } else {
-              this.tasks.set(tasks);
-              this.loading.set(false);
-            }
+            this.tasks.set(response.content || []);
+            this.loading.set(false);
           },
-          error: (err) => {
-            console.error('❌ Failed to load tasks:', err);
-            this.error.set('Failed to load tasks');
+          error: () => {
+            this.error.set('Failed to load your scheduled tasks.');
             this.loading.set(false);
           }
         });
@@ -198,25 +176,16 @@ export class TechnicianCalendarComponent implements OnInit {
         // Load assigned alerts
         this.alertService.list({ assignedTo: user.username, size: 100 }).subscribe({
           next: (response) => {
-            console.log('🚨 Alerts loaded:', response.content?.length || 0);
             this.alerts.set(response.content);
           },
-          error: (err) => {
-            console.error('❌ Failed to load alerts:', err);
-            this.error.set('Failed to load alerts');
+          error: () => {
+            this.error.set('Failed to load your assigned alerts.');
           }
         });
+      } else {
+        this.loading.set(false);
       }
     });
-  }
-
-  private filterAssignedTasks(tasks: Maintenance[], user: User): Maintenance[] {
-    console.log('🔍 Filtering calendar tasks for user:', { id: user.id, username: user.username });
-    const filtered = tasks.filter(task => 
-      Number(task.assignedTechnicianId) === Number(user.id)
-    );
-    console.log(`📊 Filtered: ${filtered.length} tasks`);
-    return filtered;
   }
 
   private generateCalendarDays(): CalendarDay[] {
@@ -309,6 +278,13 @@ export class TechnicianCalendarComponent implements OnInit {
     this.selectedEvent.set(null);
   }
 
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.showEventModal()) {
+      this.closeModal();
+    }
+  }
+
   onFilterTypeChange(event: Event): void {
     const { value } = event.target as HTMLSelectElement;
     this.filterType.set(value as any);
@@ -322,15 +298,6 @@ export class TechnicianCalendarComponent implements OnInit {
   onFilterStatusChange(event: Event): void {
     const { value } = event.target as HTMLSelectElement;
     this.filterStatus.set(value as any);
-  }
-
-  getEventTypeIcon(type: string): string {
-    switch (type) {
-      case 'TASK': return '📋';
-      case 'ALERT': return '🚨';
-      case 'MEETING': return '👥';
-      default: return '📌';
-    }
   }
 
   getEventTypeClass(type: string): string {

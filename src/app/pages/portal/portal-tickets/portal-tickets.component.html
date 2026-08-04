@@ -1,0 +1,51 @@
+<div class="portal-page">
+  <header class="portal-header">
+    <h1>Support Tickets</h1>
+    <p>Requests you've raised about your equipment. To open a new ticket, go to the machine's page.</p>
+  </header>
+
+  <div class="loading" *ngIf="isLoading">Loading your tickets…</div>
+  <div class="alert alert-error" *ngIf="error">{{ error }}</div>
+
+  <div class="ticket-list" *ngIf="!isLoading && !error">
+    <article class="ticket-card" *ngFor="let ticket of tickets">
+      <header>
+        <h3>{{ ticket.subject }}</h3>
+        <span class="status" [ngClass]="statusClass(ticket.status)">{{ ticket.status.replace('_', ' ') }}</span>
+      </header>
+      <p class="machine-ref">{{ ticket.machineName || ('Machine #' + ticket.machineId) }}</p>
+      <p class="description" *ngIf="ticket.description">{{ ticket.description }}</p>
+      <p class="resolution" *ngIf="ticket.resolutionNotes"><strong>Response:</strong> {{ ticket.resolutionNotes }}</p>
+      <footer>
+        <span>Opened {{ ticket.createdAt | date:'medium' }}</span>
+        <button type="button" class="btn-link" (click)="toggleThread(ticket)">
+          {{ expandedTicketId === ticket.id ? 'Hide conversation' : 'View conversation' }}
+        </button>
+      </footer>
+
+      <div class="thread" *ngIf="expandedTicketId === ticket.id">
+        <div class="loading" *ngIf="isThreadLoading">Loading messages…</div>
+
+        <ng-container *ngIf="!isThreadLoading">
+          <div class="message" *ngFor="let message of thread" [class.from-customer]="message.fromCustomer">
+            <div class="message-meta">
+              <strong>{{ message.fromCustomer ? 'You' : (message.senderUsername || 'Support') }}</strong>
+              <span>{{ message.createdAt | date:'short' }}</span>
+            </div>
+            <p>{{ message.body }}</p>
+          </div>
+          <p class="empty" *ngIf="thread.length === 0">No messages yet.</p>
+        </ng-container>
+
+        <div class="reply-box">
+          <textarea [(ngModel)]="replyBody" name="replyBody" placeholder="Write a reply…"></textarea>
+          <button type="button" class="btn-primary" [disabled]="!replyBody.trim() || isSendingReply" (click)="sendReply(ticket.id)">
+            {{ isSendingReply ? 'Sending…' : 'Send' }}
+          </button>
+        </div>
+      </div>
+    </article>
+
+    <p class="empty" *ngIf="tickets.length === 0">You haven't raised any support tickets yet.</p>
+  </div>
+</div>

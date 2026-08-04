@@ -1,0 +1,19 @@
+// Shared fixed-dark tokens for the auth feature (login, face-login, face-scan
+// panel). Mirrors styles.scss's [data-theme='dark'] values, hardcoded so
+// these pages stay dark regardless of the app-wide theme toggle.
+@mixin fl-tokens {
+  --fl-elevated: rgba(32, 32, 35, 0.96);
+  --fl-sunken: rgba(15, 15, 17, 0.9);
+  --fl-border: rgba(161, 161, 170, 0.14);
+  --fl-border-strong: rgba(161, 161, 170, 0.26);
+  --fl-text-primary: #e2e8f0;
+  --fl-text-secondary: #94a3b8;
+  --fl-text-muted: #64748b;
+  --fl-accent: #6b7280;
+  --fl-accent-hover: #9ca3af;
+  --fl-accent-dim: rgba(107, 114, 128, 0.16);
+  --fl-success: #22c55e;
+  --fl-success-dim: rgba(34, 197, 94, 0.14);
+  --fl-danger: #ef4444;
+  --fl-danger-dim: rgba(239, 68, 68, 0.14);
+}

@@ -1,0 +1,206 @@
+.portal-page {
+  padding: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: 0.9rem;
+
+  &:hover { color: var(--color-text-primary); }
+}
+
+.loading, .empty { color: var(--color-text-muted); padding: 1rem 0; }
+
+.alert-error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid var(--color-danger-border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+.alert-success {
+  background: var(--color-success-bg, #e7f3ec);
+  color: var(--status-success-text, #2f7d5c);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+
+  h1 { margin: 0 0 0.25rem; color: var(--color-text-primary); }
+  p { margin: 0; color: var(--color-text-secondary); }
+}
+
+.health-badge {
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+
+  &.health-good { background: var(--color-success-bg, #e7f3ec); color: var(--status-success-text, #2f7d5c); }
+  &.health-warn { background: var(--color-warning-bg); color: var(--color-warning-text); }
+  &.health-critical { background: var(--color-danger-bg); color: var(--color-danger-text); }
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 14px);
+  padding: 1.1rem;
+
+  h4 {
+    margin: 0 0 0.5rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+
+  .big { margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--color-text-primary); }
+  .recommendation { margin: 0.4rem 0 0; font-size: 0.85rem; color: var(--color-text-secondary); }
+  .estimate-note { margin: 0.5rem 0 0; font-size: 0.78rem; color: var(--color-warning-text); }
+  p { margin: 0.25rem 0; font-size: 0.9rem; color: var(--color-text-secondary); }
+}
+
+.warranty-section {
+  margin-bottom: 2rem;
+  h2 { font-size: 1.15rem; color: var(--color-text-primary); margin: 0 0 0.75rem; }
+}
+
+.warranty-card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 14px);
+  padding: 1rem 1.1rem;
+  position: relative;
+
+  p { margin: 0.2rem 0; font-size: 0.9rem; color: var(--color-text-secondary); }
+  .terms { font-size: 0.82rem; color: var(--color-text-muted); }
+}
+
+.warranty-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1.1rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--color-success-bg, #e7f3ec);
+  color: var(--status-success-text, #2f7d5c);
+
+  &.warranty-expired { background: var(--color-danger-bg); color: var(--color-danger-text); }
+}
+
+.history-section, .support-section {
+  margin-bottom: 2rem;
+
+  h2 { font-size: 1.15rem; color: var(--color-text-primary); margin: 0 0 0.75rem; }
+}
+
+.twrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+th, td {
+  text-align: left;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+th {
+  background: var(--color-bg-sunken);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.support-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ticket-form {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 14px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+
+  label { font-weight: 600; font-size: 0.85rem; color: var(--color-text-primary); }
+  input, textarea {
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-bg-sunken);
+    color: var(--color-text-primary);
+    font-family: inherit;
+  }
+  textarea { min-height: 80px; resize: vertical; }
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.btn-primary, .btn-secondary {
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+.btn-secondary {
+  background: var(--color-bg-sunken);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}

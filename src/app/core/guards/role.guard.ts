@@ -16,7 +16,7 @@ import {
   userHasRequiredRole
 } from '../utils/role.utils';
 
-export const dataRoleGuard: CanActivateFn = (route) => {
+export const dataRoleGuard: CanActivateFn = (route, state) => {
 
   const authService = inject(AuthService);
   const router = inject(Router);
@@ -63,24 +63,10 @@ export const dataRoleGuard: CanActivateFn = (route) => {
         );
 
       if (hasRole) {
-
-        console.log(
-          '✅ Access granted:',
-          user.roles
-        );
-
         return true;
       }
 
-      console.warn(
-        '⛔ Access denied',
-        'User roles:',
-        user.roles,
-        'Required:',
-        requiredRoles
-      );
-
-      router.navigate(['/access-denied']);
+      router.navigate(['/access-denied'], { queryParams: { from: state.url } });
 
       return false;
 

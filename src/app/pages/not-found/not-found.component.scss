@@ -1,0 +1,36 @@
+.not-found-shell {
+  max-width: 520px;
+  margin: 6rem auto;
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.eyebrow {
+  margin-bottom: var(--space-2);
+}
+
+h1 {
+  margin: var(--space-2) 0 var(--space-4);
+  color: var(--color-text-primary);
+}
+
+p {
+  color: var(--color-text-secondary);
+  line-height: var(--leading-normal);
+}
+
+.not-found-path {
+  font-family: var(--font-mono);
+  background: var(--color-bg-sunken);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-xs);
+  color: var(--color-text-primary);
+}
+
+.actions {
+  margin-top: var(--space-6);
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}

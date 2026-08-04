@@ -1,0 +1,88 @@
+<div class="scan">
+
+  <div class="top-row">
+    <button type="button" class="back-link" (click)="onBackClick()">
+      <lucide-icon name="ArrowLeft" [size]="15"></lucide-icon> Back to login
+    </button>
+    <span class="secure-badge"><lucide-icon name="ShieldCheck" [size]="12"></lucide-icon> Secure <span class="dot"></span></span>
+  </div>
+
+  <div class="brand-block">
+    <span class="brand-icon"><lucide-icon name="ShieldCheck" [size]="22"></lucide-icon></span>
+    <div class="brand-copy">
+      <h1>{{ brandTitle }}</h1>
+      <p>{{ brandSubtitle }}</p>
+    </div>
+  </div>
+
+  <div class="heading-block">
+    <h2>Facial Recognition</h2>
+    <p>Position your face in the frame to continue</p>
+  </div>
+
+  <div
+    class="scan-frame"
+    [class.scan-frame--success]="recognizedResponse"
+    [class.scan-frame--error]="displayError && !recognizedResponse"
+  >
+    <span class="corner corner--tl"></span>
+    <span class="corner corner--tr"></span>
+    <span class="corner corner--bl"></span>
+    <span class="corner corner--br"></span>
+
+    <div class="scan-ring"></div>
+
+    <div class="scan-circle">
+      <video #videoElement autoplay playsinline muted></video>
+      <canvas #captureCanvas class="hidden-canvas"></canvas>
+
+      <div class="camera-off" *ngIf="!cameraReady">
+        <lucide-icon name="CameraOff" [size]="26"></lucide-icon>
+      </div>
+
+      <div class="face-mesh" *ngIf="cameraReady && !recognizedResponse">
+        <span class="mesh-dot" *ngFor="let d of [1,2,3,4,5,6,7,8,9,10,11,12]"></span>
+      </div>
+    </div>
+  </div>
+
+  <div
+    class="status-card"
+    [class.status-card--detected]="isLoading && !displayError"
+    [class.status-card--success]="recognizedResponse"
+    [class.status-card--error]="displayError && !recognizedResponse"
+  >
+    <span class="status-icon">
+      <lucide-icon [name]="statusIconName" [size]="18"></lucide-icon>
+    </span>
+    <div class="status-copy">
+      <strong>{{ statusTitle }}</strong>
+      <p>{{ statusSubtitle }}</p>
+    </div>
+  </div>
+
+  <div class="progress-track">
+    <div
+      class="progress-fill"
+      [class.progress-fill--success]="recognizedResponse"
+      [class.progress-fill--error]="displayError && !recognizedResponse"
+      [style.width.%]="progressPercent"
+    ></div>
+  </div>
+
+  <button
+    type="button"
+    class="capture-btn"
+    *ngIf="!recognizedResponse"
+    [disabled]="!canCapture"
+    (click)="onCaptureClick()"
+  >
+    <lucide-icon name="Camera" [size]="18"></lucide-icon>
+    {{ isLoading || capturing ? 'Capturing…' : (displayError ? 'Try Again' : 'Capture Photo') }}
+  </button>
+
+  <p class="footer-text">
+    <ng-content select="[footer]"></ng-content>
+  </p>
+
+</div>

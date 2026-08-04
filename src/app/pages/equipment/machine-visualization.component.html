@@ -12,7 +12,7 @@
       </a>
       <div class="cmd-header__sep"></div>
       <div class="cmd-identity">
-        <span class="cmd-identity__zone">Zone A · Press Area</span>
+        <span class="cmd-identity__zone">{{ zoneLabel }}</span>
         <h1 class="cmd-identity__serial">{{ machine?.serialNumber || 'SN-——' }}</h1>
         <span class="cmd-identity__model">{{ machine?.name || 'Industrial Asset' }}</span>
       </div>
@@ -22,6 +22,13 @@
       <div class="cmd-stat-pill" [class.cmd-stat-pill--online]="isConnected" [class.cmd-stat-pill--offline]="!isConnected">
         <span class="cmd-dot"></span>
         {{ isConnected ? 'Live' : 'Offline' }}
+      </div>
+      <div
+        *ngIf="latestTelemetry?.mlPredictionAvailable === false"
+        class="cmd-stat-pill cmd-stat-pill--warn"
+        title="The ML service is unreachable — this reading uses a rule-based fallback formula, not the trained model.">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1.5 15 14H1L8 1.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6.5v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="12" r=".8" fill="currentColor"/></svg>
+        Estimated — model unreachable
       </div>
       <div class="cmd-stat-pill cmd-stat-pill--dim">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3.5l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -52,12 +59,27 @@
 
   <div *ngIf="isLoading" class="cmd-banner cmd-banner--info">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-    Loading machine data from backend…
+    Loading machine data 
   </div>
   <div *ngIf="errorMessage" class="cmd-banner cmd-banner--error">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2L14 14H2L8 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 7v3M8 11.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
     {{ errorMessage }}
   </div>
+
+  <!-- ═══════════════════════════════════════
+       ACCESS DENIED
+  ════════════════════════════════════════ -->
+  <div *ngIf="accessDenied" class="access-denied">
+    <div class="access-denied__icon">🔒</div>
+    <h2>Not assigned to this machine</h2>
+    <p>You don't have access to this machine's live view. Ask a manager or admin to assign it to you.</p>
+    <a routerLink="../" class="cmd-back cmd-back--button">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Back to Machines
+    </a>
+  </div>
+
+  <ng-container *ngIf="!accessDenied">
 
   <!-- ═══════════════════════════════════════
        KPI STRIP
@@ -79,6 +101,17 @@
               [class.kpi-ring__fill--danger]="health < 45"
               [class.kpi-ring__fill--warn]="health >= 45 && health < 65"
               [class.kpi-ring__fill--ok]="health >= 65"/>
+          </svg>
+          <svg viewBox="0 0 88 88" class="kpi-ring__needle-svg" aria-hidden="true">
+            <g class="kpi-ring__needle-group" [attr.transform]="'rotate(' + needleRotation(health, 100) + ' 44 44)'"
+              [class.kpi-ring__needle-group--danger]="health < 45"
+              [class.kpi-ring__needle-group--warn]="health >= 45 && health < 65"
+              [class.kpi-ring__needle-group--ok]="health >= 65">
+              <line class="kpi-ring__needle-shadow" x1="44" y1="47" x2="44" y2="15"/>
+              <line class="kpi-ring__needle" x1="44" y1="44" x2="44" y2="14"/>
+            </g>
+            <circle class="kpi-ring__hub-outer" cx="44" cy="44" r="5.5"/>
+            <circle class="kpi-ring__hub" cx="44" cy="44" r="3"/>
           </svg>
           <div class="kpi-ring__center">
             <strong>{{ formatLiveValue(health, 0) }}</strong>
@@ -132,7 +165,7 @@
       <svg viewBox="0 0 260 56" class="kpi-spark" preserveAspectRatio="none" aria-hidden="true">
         <polyline class="kpi-spark__line kpi-spark__line--amber" [attr.points]="getSparklinePoints('vibration')"/>
       </svg>
-      <p class="kpi-card__desc">Mechanical movement · backend</p>
+      <p class="kpi-card__desc">Mechanical movement </p>
       <div class="kpi-card__trend" [class.kpi-card__trend--up]="getTrendPercent('vibration') > 0" [class.kpi-card__trend--down]="getTrendPercent('vibration') < 0">
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path [attr.d]="getTrendPercent('vibration') >= 0 ? 'M2 9L6 3l4 6' : 'M2 3l4 6 4-6'" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         {{ formatTrendWithUnit('vibration', 'mm/s') }}
@@ -151,7 +184,7 @@
       <svg viewBox="0 0 260 56" class="kpi-spark" preserveAspectRatio="none" aria-hidden="true">
         <polyline class="kpi-spark__line kpi-spark__line--cyan" [attr.points]="getSparklinePoints('utilization')"/>
       </svg>
-      <p class="kpi-card__desc">Backend efficiency mapped</p>
+      <p class="kpi-card__desc"> efficiency mapped</p>
       <div class="kpi-card__trend" [class.kpi-card__trend--up]="getTrendPercent('utilization') > 0" [class.kpi-card__trend--down]="getTrendPercent('utilization') < 0">
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path [attr.d]="getTrendPercent('utilization') >= 0 ? 'M2 9L6 3l4 6' : 'M2 3l4 6 4-6'" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         {{ formatTrend('utilization') }}
@@ -170,7 +203,7 @@
       <svg viewBox="0 0 260 56" class="kpi-spark" preserveAspectRatio="none" aria-hidden="true">
         <polyline class="kpi-spark__line kpi-spark__line--blue" [attr.points]="getSparklinePoints('oee')"/>
       </svg>
-      <p class="kpi-card__desc">Efficiency · backend score</p>
+      <p class="kpi-card__desc">Efficiency · score</p>
       <div class="kpi-card__trend" [class.kpi-card__trend--up]="getTrendPercent('oee') > 0" [class.kpi-card__trend--down]="getTrendPercent('oee') < 0">
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path [attr.d]="getTrendPercent('oee') >= 0 ? 'M2 9L6 3l4 6' : 'M2 3l4 6 4-6'" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         {{ formatTrend('oee') }}
@@ -199,6 +232,48 @@
   </section>
 
   <!-- ═══════════════════════════════════════
+       ENVIRONMENTAL CONDITIONS — real IoT sensor (e.g. ESP32 + DHT11),
+       independent of the simulated telemetry above. Only rendered once at
+       least one real reading has arrived for this machine.
+  ════════════════════════════════════════ -->
+  <section class="panel panel--environment" *ngIf="envTemperature !== null">
+    <header class="panel__header">
+      <div class="panel__title-group">
+        <p class="panel__eyebrow">Environmental Conditions</p>
+        <h2 class="panel__title">Live sensor</h2>
+      </div>
+      <span class="env-risk-badge" [class.env-risk-badge--normal]="envRiskLevel === 'NORMAL'"
+            [class.env-risk-badge--warning]="envRiskLevel === 'WARNING'"
+            [class.env-risk-badge--critical]="envRiskLevel === 'CRITICAL'">
+        {{ envRiskLevel }}
+      </span>
+    </header>
+
+    <div class="env-kpi-grid">
+      <article class="kpi-card kpi-card--temperature">
+        <div class="kpi-card__top">
+          <span class="kpi-card__label">Temperature</span>
+        </div>
+        <div class="kpi-card__value">{{ envTemperature | number:'1.1-1' }}<span class="kpi-card__unit">°C</span></div>
+        <p class="kpi-card__desc">Real sensor · not simulated</p>
+      </article>
+
+      <article class="kpi-card kpi-card--humidity">
+        <div class="kpi-card__top">
+          <span class="kpi-card__label">Humidity</span>
+        </div>
+        <div class="kpi-card__value">{{ envHumidity | number:'1.1-1' }}<span class="kpi-card__unit">%</span></div>
+        <p class="kpi-card__desc">Real sensor · not simulated</p>
+      </article>
+    </div>
+
+    <p class="env-recommendations" *ngIf="envRecommendations.length">
+      <span *ngFor="let rec of envRecommendations">{{ rec }}</span>
+    </p>
+    <p class="env-updated" *ngIf="envLastUpdated">Updated {{ envLastUpdated | date:'short' }}</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════
        MAIN CONTENT GRID
   ════════════════════════════════════════ -->
   <div class="content-grid">
@@ -206,146 +281,191 @@
     <!-- ── LEFT COLUMN ── -->
     <div class="content-grid__main">
 
-      <!-- Telemetry Trends Chart -->
+      <!-- Telemetry Trends — live small multiples (one axis per chart; Utilization/OEE
+           legitimately share one 0–100 axis, everything else gets its own real scale) -->
       <article class="panel panel--chart">
         <header class="panel__header">
           <div class="panel__title-group">
             <p class="panel__eyebrow">Telemetry Trends</p>
-            <h2 class="panel__title">Live backend stream</h2>
+            <h2 class="panel__title">Live stream</h2>
           </div>
-          <nav class="range-nav" aria-label="Time range">
-            <button class="range-btn range-btn--active">1H</button>
-            <button class="range-btn">6H</button>
-            <button class="range-btn">24H</button>
-            <button class="range-btn">7D</button>
-            <button class="range-btn">30D</button>
+          <nav class="range-nav" aria-label="Chart sample window">
+            <button
+              *ngFor="let option of telemetryWindowOptions"
+              type="button"
+              class="range-btn"
+              [class.range-btn--active]="selectedTelemetryWindow === option.value"
+              (click)="setTelemetryWindow(option.value)"
+            >{{ option.label }}</button>
           </nav>
         </header>
-        <div class="chart-legend">
-          <span class="chart-legend__item"><i class="chart-legend__swatch chart-legend__swatch--danger"></i>Temperature °C</span>
-          <span class="chart-legend__item"><i class="chart-legend__swatch chart-legend__swatch--amber"></i>Vibration mm/s</span>
-          <span class="chart-legend__item"><i class="chart-legend__swatch chart-legend__swatch--cyan"></i>Utilization %</span>
-          <span class="chart-legend__item"><i class="chart-legend__swatch chart-legend__swatch--blue"></i>OEE %</span>
-        </div>
-        <div class="chart-canvas-wrap">
-          <svg viewBox="0 0 800 180" preserveAspectRatio="none" class="chart-svg" aria-hidden="true">
-            <!-- Grid lines -->
-            <line x1="0" y1="45" x2="800" y2="45" class="chart-grid"/>
-            <line x1="0" y1="90" x2="800" y2="90" class="chart-grid"/>
-            <line x1="0" y1="135" x2="800" y2="135" class="chart-grid"/>
-            <!-- Data lines scaled to viewBox -->
-            <polyline class="chart-line chart-line--danger" [attr.points]="getSparklinePoints('temperature')"/>
-            <polyline class="chart-line chart-line--amber" [attr.points]="getSparklinePoints('vibration')"/>
-            <polyline class="chart-line chart-line--cyan" [attr.points]="getSparklinePoints('utilization')"/>
-            <polyline class="chart-line chart-line--blue" [attr.points]="getSparklinePoints('oee')"/>
-          </svg>
-          <div class="chart-time-axis">
-            <span>{{ telemetryHistory.length > 1 ? (telemetryHistory[telemetryHistory.length - 1].timestamp | date:'HH:mm') : '--:--' }}</span>
-            <span>{{ telemetryHistory.length ? (telemetryHistory[0].timestamp | date:'HH:mm') : '--:--' }}</span>
-          </div>
-        </div>
-      </article>
 
-      <!-- Machine Status -->
-      <article class="panel panel--machine">
-        <header class="panel__header">
-          <div class="panel__title-group">
-            <p class="panel__eyebrow">Real-time Machine Status</p>
-            <h2 class="panel__title">Backend-aligned operational view</h2>
-          </div>
-          <span class="status-tag" [class.status-tag--online]="isConnected" [class.status-tag--offline]="!isConnected">
-            <span class="status-tag__dot"></span>
-            {{ isConnected ? 'RUNNING' : 'OFFLINE' }}
-          </span>
-        </header>
-
-        <div class="machine-body">
-          <!-- Machine illustration -->
-          <div class="machine-viz" aria-hidden="true">
-            <div class="machine-viz__glow"></div>
-            <svg viewBox="0 0 320 240" class="machine-viz__svg" role="img" aria-label="Machine schematic">
-              <!-- Base platform -->
-              <rect x="30" y="190" width="260" height="14" rx="7" fill="#0f1629" stroke="#1e3a5f" stroke-width="1"/>
-              <!-- Main body -->
-              <rect x="65" y="70" width="150" height="118" rx="12" fill="#0a1628" stroke="#1e3a5f" stroke-width="1.2"/>
-              <!-- Right tower -->
-              <rect x="195" y="44" width="72" height="144" rx="14" fill="#0a1628" stroke="#1e3a5f" stroke-width="1.2"/>
-              <!-- Right tower window -->
-              <rect x="208" y="68" width="46" height="92" rx="8" fill="#050e1e" stroke="#163050" stroke-width="1"/>
-              <!-- Inner panel -->
-              <rect x="85" y="94" width="76" height="40" rx="6" fill="#060f20" stroke="#163050" stroke-width="1"/>
-              <!-- Main rotor -->
-              <circle cx="230" cy="112" r="26" fill="#061020" stroke="#1e4080" stroke-width="1.5"/>
-              <circle cx="230" cy="112" r="12" fill="#070d1a" stroke="#2563eb" stroke-width="1.2"/>
-              <circle cx="230" cy="112" r="4" fill="#3b82f6"/>
-              <!-- Rotor spokes -->
-              <line x1="230" y1="88" x2="230" y2="98" stroke="#2563eb" stroke-width="1.2" stroke-linecap="round"/>
-              <line x1="230" y1="126" x2="230" y2="136" stroke="#2563eb" stroke-width="1.2" stroke-linecap="round"/>
-              <line x1="206" y1="112" x2="216" y2="112" stroke="#2563eb" stroke-width="1.2" stroke-linecap="round"/>
-              <line x1="244" y1="112" x2="254" y2="112" stroke="#2563eb" stroke-width="1.2" stroke-linecap="round"/>
-              <!-- Status LEDs -->
-              <circle cx="96" cy="83" r="4" [attr.fill]="isConnected ? '#22c55e' : '#ef4444'"/>
-              <circle cx="108" cy="83" r="4" [attr.fill]="health >= 65 ? '#22c55e' : '#f59e0b'"/>
-              <circle cx="120" cy="83" r="4" [attr.fill]="vibration < 5 ? '#22c55e' : '#ef4444'"/>
-              <!-- Indicator bar -->
-              <rect x="85" y="148" width="76" height="8" rx="4" fill="#0a1628" stroke="#163050" stroke-width="0.8"/>
-              <rect x="85" y="148" [attr.width]="(utilization / 100) * 76" height="8" rx="4" fill="#22d3ee"/>
-              <!-- Left arm -->
-              <rect x="32" y="80" width="26" height="80" rx="10" fill="#0a1628" stroke="#1e3a5f" stroke-width="1.2"/>
-              <rect x="18" y="94" width="14" height="52" rx="7" fill="#060f20" stroke="#163050" stroke-width="1"/>
-              <!-- Right pipe -->
-              <rect x="270" y="90" width="14" height="56" rx="7" fill="#060f20" stroke="#163050" stroke-width="1"/>
-              <!-- Vents -->
-              <line x1="92" y1="164" x2="152" y2="164" stroke="#163050" stroke-width="0.8" stroke-linecap="round"/>
-              <line x1="92" y1="170" x2="152" y2="170" stroke="#163050" stroke-width="0.8" stroke-linecap="round"/>
-              <line x1="92" y1="176" x2="152" y2="176" stroke="#163050" stroke-width="0.8" stroke-linecap="round"/>
-              <!-- Top exhaust -->
-              <rect x="100" y="50" width="34" height="18" rx="7" fill="#0a1628" stroke="#2563eb" stroke-width="1"/>
-            </svg>
-            <!-- Operation state badge overlay -->
-            <div class="machine-viz__state" [class.machine-viz__state--degraded]="operationState === 'DEGRADED'" [class.machine-viz__state--danger]="operationState === 'AT RISK'" [class.machine-viz__state--ok]="operationState === 'RUNNING'">
-              {{ operationState }}
+        <div class="trend-grid">
+          <div class="trend-card">
+            <div class="trend-card__head">
+              <span class="trend-card__title">Temperature</span>
+              <span class="trend-card__value trend-card__value--danger">{{ formatLiveValue(temperature, 1) }}<small>°C</small></span>
+            </div>
+            <div class="trend-card__canvas">
+              <canvas #temperatureCanvas role="img" aria-label="Temperature over time, in degrees Celsius"></canvas>
             </div>
           </div>
 
-          <!-- Status table -->
-          <div class="status-table">
-            <div class="status-table__row">
-              <span class="status-table__key">Operation State</span>
-              <strong class="status-table__val" [class.status-table__val--ok]="operationState === 'RUNNING'" [class.status-table__val--warn]="operationState === 'DEGRADED'" [class.status-table__val--danger]="operationState === 'AT RISK'">{{ operationState }}</strong>
+          <div class="trend-card">
+            <div class="trend-card__head">
+              <span class="trend-card__title">Vibration</span>
+              <span class="trend-card__value trend-card__value--amber">{{ formatLiveValue(vibration, 1) }}<small>mm/s</small></span>
             </div>
-            <div class="status-table__row">
-              <span class="status-table__key">Hydraulic Pressure</span>
-              <strong class="status-table__val">{{ formatLiveValue(hydraulicPressure, 1) }} <span class="status-table__unit">bar</span></strong>
+            <div class="trend-card__canvas">
+              <canvas #vibrationCanvas role="img" aria-label="Vibration over time, in millimeters per second"></canvas>
             </div>
-            <div class="status-table__row">
-              <span class="status-table__key">Power Consumption</span>
-              <strong class="status-table__val">{{ formatLiveValue(energyConsumption, 0) }} <span class="status-table__unit">kW</span></strong>
+          </div>
+
+          <div class="trend-card trend-card--wide">
+            <div class="trend-card__head">
+              <span class="trend-card__title">Efficiency</span>
+              <div class="trend-card__legend">
+                <span class="trend-card__legend-item"><i class="trend-card__swatch trend-card__swatch--cyan"></i>Utilization {{ formatLiveValue(utilization, 1) }}%</span>
+                <span class="trend-card__legend-item"><i class="trend-card__swatch trend-card__swatch--blue"></i>OEE {{ formatLiveValue(oee, 1) }}%</span>
+              </div>
             </div>
-            <div class="status-table__row">
-              <span class="status-table__key">RPM</span>
-              <strong class="status-table__val">{{ formatLiveValue(rpmSpeed, 0) }} <span class="status-table__unit">rpm</span></strong>
-            </div>
-            <div class="status-table__row">
-              <span class="status-table__key">Operating Hours</span>
-              <strong class="status-table__val">{{ formatLiveValue(operatingHoursValue, 0) }} <span class="status-table__unit">h</span></strong>
-            </div>
-            <div class="status-table__row">
-              <span class="status-table__key">Ambient Temp.</span>
-              <strong class="status-table__val">{{ formatLiveValue(ambientTemperature, 1) }} <span class="status-table__unit">°C</span></strong>
-            </div>
-            <div class="status-table__row">
-              <span class="status-table__key">Load Factor</span>
-              <strong class="status-table__val">{{ formatLiveValue(loadFactor, 1) }}<span class="status-table__unit">%</span></strong>
-            </div>
-            <div class="status-table__row">
-              <span class="status-table__key">Downtime Today</span>
-              <strong class="status-table__val status-table__val--warn">{{ downtimeTodayHours | number:'1.1-1' }} <span class="status-table__unit">h</span></strong>
+            <div class="trend-card__canvas">
+              <canvas #efficiencyCanvas role="img" aria-label="Utilization and OEE over time, both as a percentage"></canvas>
             </div>
           </div>
         </div>
       </article>
+
     </div>
+
+    <!-- ═══════════════════════════════════════
+         MACHINE VISUALIZATION — DIGITAL TWIN
+    ════════════════════════════════════════ -->
+    <section class="panel twin-section">
+      <header class="panel__header twin-section__head">
+        <div class="panel__title-group">
+          <p class="panel__eyebrow">Machine Visualization</p>
+          <h2 class="panel__title">{{ archetypeLabel }} · Digital Twin</h2>
+        </div>
+        <app-twin-controls
+          [anatomyMode]="anatomyMode"
+          [cameraMode]="cameraMode"
+          [heatmapOn]="heatmapOn"
+          (anatomyModeChange)="onAnatomyModeChange($event)"
+          (cameraModeChange)="onCameraModeChange($event)"
+          (heatmapToggle)="onHeatmapToggle($event)"
+        ></app-twin-controls>
+      </header>
+
+      <div class="twin-section__body">
+        <!-- MAIN STAGE -->
+        <div class="twin-stage">
+          <app-health-ring class="twin-stage__health-ring" [ring]="healthRing"></app-health-ring>
+
+          <div class="twin-stage__canvas">
+            <app-machine-illustration
+              [archetype]="archetype"
+              [viewMode]="cameraMode"
+              [heatmapOn]="effectiveHeatmap"
+              [isRunning]="isMachineRunning"
+              [highlightedComponent]="highlightedComponent"
+              [componentTones]="componentTonesMap"
+              [componentTemps]="componentTempsMap"
+              (componentClick)="onComponentClick($event)"
+            ></app-machine-illustration>
+
+            <app-sensor-overlay [sensors]="filteredSensors"></app-sensor-overlay>
+            <app-telemetry-orbit-cards [cards]="telemetryCards"></app-telemetry-orbit-cards>
+          </div>
+
+          <div class="twin-stage__maintenance-legend">
+            <p class="twin-stage__legend-title">Maintenance Overlay</p>
+            <div class="legend-item" *ngFor="let m of maintenanceOverlay" [class]="'legend-item--' + m.status">
+              <lucide-icon [name]="m.icon" [size]="13"></lucide-icon>
+              <span>{{ m.label }}</span>
+              <strong>{{ m.statusLabel }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- SIDE DETAILS -->
+        <div class="twin-side">
+          <app-component-detail-panel
+            *ngIf="selectedComponentDetail"
+            [detail]="selectedComponentDetail"
+            (close)="closeComponentDetail()"
+          ></app-component-detail-panel>
+
+          <app-ai-predictions-panel *ngIf="!selectedComponentDetail" [prediction]="aiPrediction"></app-ai-predictions-panel>
+
+          <ng-container *ngIf="!selectedComponentDetail">
+            <app-collapsible-section title="Machine Information" icon="info" [open]="true">
+              <div class="twin-info-grid">
+                <div><span>Model</span><strong>{{ machine?.model || '—' }}</strong></div>
+                <div><span>Manufacturer</span><strong>{{ machine?.manufacturer || '—' }}</strong></div>
+                <div><span>Location</span><strong>{{ machine?.location || '—' }}</strong></div>
+                <div><span>Category</span><strong>{{ machine?.subCategory || machine?.category || '—' }}</strong></div>
+              </div>
+            </app-collapsible-section>
+
+            <app-collapsible-section title="Performance" icon="activity">
+              <div class="twin-info-grid">
+                <div><span>OEE</span><strong>{{ formatLiveValue(oee,1) }}%</strong></div>
+                <div><span>Utilization</span><strong>{{ formatLiveValue(utilization,1) }}%</strong></div>
+                <div><span>Shift Output</span><strong>{{ shiftOutput }} pcs</strong></div>
+                <div><span>Downtime Today</span><strong>{{ downtimeTodayHours }} h</strong></div>
+              </div>
+            </app-collapsible-section>
+
+            <app-collapsible-section title="Current Sensors" icon="radio" [badge]="sensors.length.toString()">
+              <div class="sensor-mini-list">
+                <div class="sensor-mini-row" *ngFor="let s of sensors">
+                  <span class="sensor-mini-dot sensor-mini-dot--{{ s.status }}"></span>
+                  <span class="sensor-mini-label">{{ s.label }}</span>
+                  <strong>{{ s.value }} {{ s.unit }}</strong>
+                </div>
+              </div>
+            </app-collapsible-section>
+
+            <app-collapsible-section title="Energy" icon="zap">
+              <div class="twin-info-grid">
+                <div><span>Power</span><strong>{{ formatLiveValue(energyConsumption,0) }} kW</strong></div>
+                <div><span>Current</span><strong>{{ formatLiveValue(latestTelemetry?.current, 1) }} A</strong></div>
+                <div><span>Voltage</span><strong>{{ formatLiveValue(latestTelemetry?.voltage, 0) }} V</strong></div>
+              </div>
+            </app-collapsible-section>
+
+            <app-collapsible-section title="Maintenance" icon="wrench">
+              <ul class="twin-mini-list">
+                <li *ngFor="let item of maintenanceQueue">
+                  <span>{{ item.title }}</span>
+                  <span class="priority-tag priority-tag--{{ item.priority }}">{{ item.priority | uppercase }}</span>
+                </li>
+              </ul>
+            </app-collapsible-section>
+
+            <app-collapsible-section title="Predictions" icon="brain">
+              <div class="twin-info-grid">
+                <div><span>Failure Probability</span><strong>{{ failureProbability }}%</strong></div>
+                <div><span>Bearing Confidence</span><strong>{{ bearingConfidence }}%</strong></div>
+                <div><span>Thermal Confidence</span><strong>{{ thermalConfidence }}%</strong></div>
+              </div>
+            </app-collapsible-section>
+
+            <app-collapsible-section title="Logs" icon="file-text">
+              <ul class="twin-mini-list twin-mini-list--log">
+                <li *ngFor="let alert of activeAlerts">
+                  <span class="twin-log-time">{{ alert.ageLabel }}</span>
+                  <span>{{ alert.title }}</span>
+                </li>
+              </ul>
+            </app-collapsible-section>
+          </ng-container>
+        </div>
+      </div>
+
+      <app-twin-event-timeline [events]="timelineEvents"></app-twin-event-timeline>
+    </section>
 
     <!-- ── RIGHT SIDEBAR ── -->
     <aside class="content-grid__side">
@@ -428,4 +548,24 @@
       </p>
     </aside>
   </div>
+
+  <div class="twin-extras" *ngIf="machine as m">
+    <app-collapsible-section title="Why this risk level?" icon="brain">
+      <app-prediction-explanation [machineId]="m.id"></app-prediction-explanation>
+    </app-collapsible-section>
+
+    <app-collapsible-section title="Activity Timeline" icon="clock">
+      <app-machine-timeline [machineId]="m.id"></app-machine-timeline>
+    </app-collapsible-section>
+
+    <app-collapsible-section title="Comments" icon="file-text">
+      <app-machine-comments [machineId]="m.id"></app-machine-comments>
+    </app-collapsible-section>
+
+    <app-collapsible-section title="QR Code" icon="scan">
+      <app-machine-qr-code [machineId]="m.id" [serialNumber]="m.serialNumber"></app-machine-qr-code>
+    </app-collapsible-section>
+  </div>
+
+  </ng-container>
 </div>

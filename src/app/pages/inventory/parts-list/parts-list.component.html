@@ -6,7 +6,7 @@
     <div class="hero-left">
 
       <div class="hero-badge">
-        📦 SMART INVENTORY
+        <lucide-icon name="Package" [size]="13"></lucide-icon> SMART INVENTORY
       </div>
 
       <h1 class="hero-title">
@@ -52,7 +52,7 @@
 
     <div class="search-wrapper">
 
-      <span class="search-icon">🔍</span>
+      <lucide-icon name="Search" [size]="15" class="search-icon"></lucide-icon>
 
       <input
         type="search"
@@ -113,7 +113,7 @@
         (click)="exportToCsv()"
         [disabled]="isExporting">
 
-        <span>⬇</span>
+        <lucide-icon name="Download" [size]="15"></lucide-icon>
         Export
 
       </button>
@@ -122,7 +122,7 @@
         class="btn btn-primary"
         (click)="createPart()">
 
-        <span>＋</span>
+        <lucide-icon name="Plus" [size]="15"></lucide-icon>
         Add Part
 
       </button>
@@ -134,7 +134,7 @@
   <!-- ERROR -->
   <div class="alert-error" *ngIf="error">
 
-    <span>⚠</span>
+    <lucide-icon name="TriangleAlert" [size]="15"></lucide-icon>
 
     <div>
       {{ error }}
@@ -225,7 +225,7 @@
                   />
 
                   <span *ngIf="!getImageUrl(part)">
-                    📦
+                    <lucide-icon name="Package" [size]="18"></lucide-icon>
                   </span>
 
                 </div>
@@ -345,18 +345,45 @@
               <div class="actions">
 
                 <button
-                  class="btn-action btn-view"
-                  (click)="viewPart(part)">
+                  *ngIf="canRequest() && stockStatus(part) !== 'ok'"
+                  class="icon-btn reorder"
+                  title="Request reorder"
+                  aria-label="Request reorder"
+                  (click)="openReorderModal(part)">
 
-                  View
+                  <lucide-icon name="RotateCw" [size]="15"></lucide-icon>
 
                 </button>
 
                 <button
-                  class="btn-action btn-edit"
+                  class="icon-btn"
+                  title="View part"
+                  aria-label="View part"
+                  (click)="viewPart(part)">
+
+                  <lucide-icon name="Eye" [size]="15"></lucide-icon>
+
+                </button>
+
+                <button
+                  class="icon-btn edit"
+                  title="Edit part"
+                  aria-label="Edit part"
                   (click)="editPart(part)">
 
-                  Edit
+                  <lucide-icon name="SquarePen" [size]="15"></lucide-icon>
+
+                </button>
+
+                <button
+                  *ngIf="canDelete()"
+                  class="icon-btn danger"
+                  title="Delete part"
+                  aria-label="Delete part"
+                  [disabled]="deletingPartId === part.id"
+                  (click)="deletePart(part)">
+
+                  <lucide-icon [name]="deletingPartId === part.id ? 'LoaderCircle' : 'Trash2'" [size]="15" [class.spin]="deletingPartId === part.id"></lucide-icon>
 
                 </button>
 
@@ -376,7 +403,7 @@
               <div class="empty-content">
 
                 <div class="empty-icon">
-                  📦
+                  <lucide-icon name="Package" [size]="26"></lucide-icon>
                 </div>
 
                 <h3>
@@ -430,5 +457,56 @@
     </button>
 
   </section>
+
+  <!-- QUICK REORDER MODAL -->
+  <div class="modal-overlay" *ngIf="reorderModalPart as part">
+    <div class="modal-backdrop" (click)="closeReorderModal()"></div>
+    <div class="modal-card" style="width: min(420px, 92vw);" role="dialog" aria-modal="true" aria-labelledby="reorder-modal-title">
+      <header class="modal-header">
+        <div>
+          <p class="modal-subtitle">Request reorder</p>
+          <h2 class="modal-title" id="reorder-modal-title">{{ part.name }}</h2>
+        </div>
+        <button type="button" class="modal-close" (click)="closeReorderModal()" aria-label="Close">✕</button>
+      </header>
+
+      <div class="modal-body">
+        <div>
+          <label class="form-label" for="reorder-qty">Quantity</label>
+          <input
+            id="reorder-qty"
+            type="number"
+            min="1"
+            class="form-control"
+            [(ngModel)]="reorderQty"
+            name="reorderQty"
+          />
+        </div>
+        <div>
+          <label class="form-label" for="reorder-reason">Reason</label>
+          <input
+            id="reorder-reason"
+            type="text"
+            class="form-control"
+            placeholder="e.g. Replenishment"
+            [(ngModel)]="reorderReason"
+            name="reorderReason"
+          />
+        </div>
+      </div>
+
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-ghost" (click)="closeReorderModal()">Cancel</button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="isSubmittingReorder || !reorderQty || reorderQty <= 0"
+          (click)="submitReorderModal()"
+        >
+          {{ isSubmittingReorder ? 'Submitting…' : 'Submit request' }}
+        </button>
+      </footer>
+    </div>
+  </div>
 
 </div>

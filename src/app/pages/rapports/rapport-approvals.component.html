@@ -1,0 +1,122 @@
+<div class="section-header">
+  <div>
+    <h2>Maintenance Rapport Approvals</h2>
+    <p>Review technician job rapports awaiting manager or finance sign-off.</p>
+  </div>
+  <button class="btn-refresh" type="button" (click)="loadAll()">Refresh</button>
+</div>
+
+<div *ngIf="error" class="alert alert-error" (click)="dismissError()">{{ error }}</div>
+<div *ngIf="successMessage" class="alert alert-success" (click)="dismissSuccess()">{{ successMessage }}</div>
+
+<div class="tabs" *ngIf="isManager && isFinanceManager">
+  <button type="button" [class.active]="activeTab === 'manager'" (click)="setTab('manager')">
+    Pending Manager Approval ({{ managerRapports.length }})
+  </button>
+  <button type="button" [class.active]="activeTab === 'finance'" (click)="setTab('finance')">
+    Pending Finance Approval ({{ financeRapports.length }})
+  </button>
+</div>
+
+<div class="loading" *ngIf="isLoading">Loading rapports…</div>
+
+<ng-container *ngIf="!isLoading">
+  <div class="rapports" *ngIf="activeTab === 'manager' && isManager">
+    <article class="card" *ngFor="let rapport of managerRapports; trackBy: trackById">
+      <header>
+        <div>
+          <h3>{{ rapport.title }}</h3>
+          <p>{{ rapport.machineName || ('Machine #' + rapport.machineId) }} — by {{ rapport.technicianName || rapport.technicianUsername }}</p>
+        </div>
+        <span class="status pending">{{ rapport.status }}</span>
+        <span class="status failed-checklist" *ngIf="rapport.hasFailedChecklistItems">⚠ Failed checklist item</span>
+      </header>
+
+      <p class="description">{{ rapport.workPerformed }}</p>
+
+      <dl>
+        <div><dt>Labor</dt><dd>{{ rapport.laborHours }}h — {{ rapport.laborCost | currency:'TND':'symbol' }}</dd></div>
+        <div><dt>Parts</dt><dd>{{ rapport.partsCost | currency:'TND':'symbol' }}</dd></div>
+        <div><dt>Total</dt><dd class="total">{{ totalCost(rapport) | currency:'TND':'symbol' }}</dd></div>
+      </dl>
+
+      <div class="parts-list" *ngIf="rapport.parts?.length">
+        <span class="part-chip" *ngFor="let part of rapport.parts">
+          {{ part.partName }} x{{ part.quantity }} — {{ part.totalCost | currency:'TND':'symbol' }}
+        </span>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn-approve" (click)="openReview(rapport, 'approve')">Approve</button>
+        <button type="button" class="btn-reject" (click)="openReview(rapport, 'reject')">Reject</button>
+      </div>
+    </article>
+
+    <p class="empty" *ngIf="managerRapports.length === 0">No rapports awaiting manager approval.</p>
+  </div>
+
+  <div class="rapports" *ngIf="activeTab === 'finance' && isFinanceManager">
+    <article class="card" *ngFor="let rapport of financeRapports; trackBy: trackById">
+      <header>
+        <div>
+          <h3>{{ rapport.title }}</h3>
+          <p>{{ rapport.machineName || ('Machine #' + rapport.machineId) }} — by {{ rapport.technicianName || rapport.technicianUsername }}</p>
+        </div>
+        <span class="status pending">{{ rapport.status }}</span>
+        <span class="status failed-checklist" *ngIf="rapport.hasFailedChecklistItems">⚠ Failed checklist item</span>
+      </header>
+
+      <p class="description">{{ rapport.workPerformed }}</p>
+
+      <dl>
+        <div><dt>Labor</dt><dd>{{ rapport.laborHours }}h — {{ rapport.laborCost | currency:'TND':'symbol' }}</dd></div>
+        <div><dt>Parts</dt><dd>{{ rapport.partsCost | currency:'TND':'symbol' }}</dd></div>
+        <div><dt>Total</dt><dd class="total">{{ totalCost(rapport) | currency:'TND':'symbol' }}</dd></div>
+        <div><dt>Manager Approved By</dt><dd>{{ rapport.approvedByManager }} on {{ rapport.managerApprovedDate | date:'mediumDate' }}</dd></div>
+      </dl>
+
+      <div class="parts-list" *ngIf="rapport.parts?.length">
+        <span class="part-chip" *ngFor="let part of rapport.parts">
+          {{ part.partName }} x{{ part.quantity }} — {{ part.totalCost | currency:'TND':'symbol' }}
+        </span>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn-approve" (click)="openReview(rapport, 'approve')">Approve</button>
+        <button type="button" class="btn-reject" (click)="openReview(rapport, 'reject')">Reject</button>
+      </div>
+    </article>
+
+    <p class="empty" *ngIf="financeRapports.length === 0">No rapports awaiting finance approval.</p>
+  </div>
+</ng-container>
+
+<div class="modal-overlay" *ngIf="reviewingRapport" (click)="closeReview()">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <h3>{{ reviewMode === 'approve' ? 'Approve' : 'Reject' }} Rapport #{{ reviewingRapport.id }}</h3>
+    <p>{{ reviewingRapport.title }}</p>
+
+    <div class="form-row" *ngIf="reviewMode === 'reject'">
+      <label>Rejection reason</label>
+      <textarea [(ngModel)]="rejectionReason" placeholder="Explain why this rapport is being rejected…"></textarea>
+    </div>
+
+    <div class="checklist-warning" *ngIf="requiresReviewNote">
+      ⚠ This rapport has one or more failed checklist items. Acknowledge them before approving.
+    </div>
+    <div class="form-row" *ngIf="requiresReviewNote">
+      <label>Review note (required)</label>
+      <textarea [(ngModel)]="reviewNote" placeholder="Explain why you're approving despite the failed checklist item(s)…"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" (click)="closeReview()">Cancel</button>
+      <button type="button"
+              [class]="reviewMode === 'approve' ? 'btn-approve' : 'btn-reject'"
+              [disabled]="isReviewing || (reviewMode === 'reject' && !rejectionReason.trim()) || (requiresReviewNote && !reviewNote.trim())"
+              (click)="handleReview()">
+        Confirm {{ reviewMode === 'approve' ? 'Approval' : 'Rejection' }}
+      </button>
+    </div>
+  </div>
+</div>

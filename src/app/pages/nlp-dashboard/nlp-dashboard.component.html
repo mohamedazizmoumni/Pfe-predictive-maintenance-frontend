@@ -1,267 +1,320 @@
-<div class="nlp-shell">
-  <header class="hero glass">
-    <div class="hero-brand">
-      <div class="brand-mark">AI</div>
-      <div>
-        <span class="eyebrow">AI Operations Copilot</span>
-        <h1>{{ pageTitle() }}</h1>
-        <p>{{ pageSubtitle() }}</p>
-      </div>
+<div class="ai-layout">
+
+  <!-- SIDEBAR -->
+
+  <aside class="sidebar">
+
+    <div class="sidebar-header">
+      <h2>Maintenance AI</h2>
+
+      <button class="new-chat-btn">
+        + New Chat
+      </button>
     </div>
 
-    <div class="hero-search">
+    <div class="machine-section">
+
+      <span class="sidebar-label">
+        EQUIPMENT
+      </span>
+
       <input
         type="search"
+        class="machine-search"
         [ngModel]="machineSearch()"
         (ngModelChange)="onMachineSearchChange($event)"
-        placeholder="Search machines, tickets, insights..."
-      />
+        placeholder="Search machine..." />
+
+      <select
+        class="machine-dropdown"
+        [ngModel]="selectedMachineContext?.id ?? ''"
+        (ngModelChange)="onMachineSelectionChange($event)"
+        [disabled]="filteredMachines().length === 0">
+        <option value="" disabled>— Select a machine —</option>
+        <option
+          *ngFor="let machine of filteredMachines(); trackBy: trackByMachineId"
+          [value]="machine.id">
+          {{ machine.name || ('Machine ' + machine.id) }}<ng-container *ngIf="machine.serialNumber"> · {{ machine.serialNumber }}</ng-container>
+        </option>
+      </select>
+
+      <div class="machine-list">
+
+        <button
+          *ngFor="let machine of filteredMachines(); trackBy: trackByMachineId"
+          class="machine-item"
+          [class.active]="selectedMachineContext?.id === machine.id"
+          (click)="onMachineSelectionChange(machine.id.toString())">
+
+          <div class="machine-name">
+            {{ machine.name || machine.serialNumber }}
+          </div>
+
+          <div class="machine-id">
+            #{{ machine.id }}<ng-container *ngIf="machine.serialNumber"> · {{ machine.serialNumber }}</ng-container>
+          </div>
+
+        </button>
+
+        <p class="machine-list-empty" *ngIf="filteredMachines().length === 0">
+          {{ errorMessage() || 'No machines assigned to you yet.' }}
+        </p>
+
+      </div>
+
     </div>
 
-    <div class="hero-status">
-      <div class="status-pill" [class.status-pill--online]="connected()">
-        <span class="status-pill__dot"></span>
-        <div>
-          <strong>AI Engine Online</strong>
-          <span>{{ connected() ? 'All systems operational' : 'Connecting to telemetry' }}</span>
+  </aside>
+
+  <!-- MAIN CHAT -->
+
+  <main class="chat-area">
+
+    <!-- TOP BAR -->
+
+    <header class="chat-topbar">
+
+      <div class="assistant-info">
+
+        <div class="assistant-avatar">
+          AI
         </div>
+
+        <div>
+
+          <h1>Maintenance Assistant</h1>
+
+          <span>
+            AI-powered diagnostics and maintenance recommendations
+          </span>
+
+        </div>
+
       </div>
 
-      <div class="hero-actions">
-        <button type="button" class="icon-button" aria-label="Refresh" (click)="submitReport(draftText())">↻</button>
-        <button type="button" class="icon-button icon-button--badge" aria-label="Alerts">🔔<span>3</span></button>
-        <div class="user-chip">
-          <span class="user-chip__avatar">JT</span>
-          <div>
-            <strong>John Technician</strong>
-            <span>Technician Mode</span>
-          </div>
-        </div>
+      <div
+        *ngIf="selectedMachineContext"
+        class="machine-chip">
+
+        {{ selectedMachineContext.name || ('Machine ' + selectedMachineContext.id) }}
+        <ng-container *ngIf="selectedMachineContext.serialNumber"> · {{ selectedMachineContext.serialNumber }}</ng-container>
+
       </div>
+
+    </header>
+
+    <!-- EMPTY STATE -->
+
+    <div
+      *ngIf="assistantMessages().length === 0"
+      class="welcome-screen">
+
+      <h2>
+        How can I help with your equipment today?
+      </h2>
+
+      <p>
+        Select a machine and describe the issue.
+      </p>
+
+      <div class="suggestions">
+
+        <button (click)="usePrompt('Analyze abnormal machine vibration')">
+          Analyze vibration
+        </button>
+
+        <button (click)="usePrompt('Explain current machine alarms')">
+          Explain alarms
+        </button>
+
+        <button (click)="usePrompt('Predict possible failures')">
+          Predict failures
+        </button>
+
+        <button (click)="usePrompt('Generate maintenance report')">
+          Generate report
+        </button>
+
+      </div>
+
     </div>
-  </header>
 
-  <section class="context-rail glass">
-    <div class="context-rail__mode">
-      <span class="mode-badge">{{ assistantMode() === 'manager' ? 'Manager Mode' : 'Technician Mode' }}</span>
-      <strong>{{ machineContextLabel() }}</strong>
-      <span>{{ machineContextDetail() }}</span>
+    <!-- CHAT -->
+
+    <div
+      *ngIf="assistantMessages().length > 0"
+      class="chat-messages">
+
+      <div
+        *ngFor="let m of assistantMessages(); trackBy: trackByIndex"
+        class="message-wrapper"
+        [class.user]="m.role === 'user'"
+        [class.assistant]="m.role === 'assistant'">
+
+        <div class="message">
+
+          <div class="message-role">
+
+            {{ m.role === 'user' ? 'You' : 'Maintenance AI' }}
+
+          </div>
+
+          <img
+            *ngIf="m.imagePreviewUrl"
+            [src]="m.imagePreviewUrl"
+            alt="Equipment photo"
+            class="message-photo" />
+
+          <div class="message-text">
+
+            {{ m.text }}
+
+            <span
+              *ngIf="m.pendingImageAnalysisId"
+              class="analyzing-dots"
+              aria-hidden="true">
+              <span></span><span></span><span></span>
+            </span>
+
+          </div>
+
+          <div
+            *ngIf="m.imageAnalysis as ia"
+            class="message-image-analysis">
+
+            <app-risk-badge [level]="ia.riskLevel"></app-risk-badge>
+
+            <span
+              *ngFor="let kw of ia.keywords"
+              class="keyword-chip">
+              {{ kw }}
+            </span>
+
+          </div>
+
+          <div class="message-time">
+
+            {{ m.timestamp | date:'shortTime' }}
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- DIAGNOSIS CARD -->
+
+      <div
+        *ngIf="lastDiagnosis() as d"
+        class="diagnosis-card">
+
+        <div class="diagnosis-header">
+
+          <app-risk-badge
+            [level]="d.severity">
+          </app-risk-badge>
+
+        </div>
+
+        <div class="diagnosis-section">
+
+          <h4>Probable Causes</h4>
+
+          <ul>
+
+            <li *ngFor="let cause of d.probableCauses">
+              {{ cause }}
+            </li>
+
+          </ul>
+
+        </div>
+
+        <div class="diagnosis-section">
+
+          <h4>Recommended Actions</h4>
+
+          <ul>
+
+            <li *ngFor="let action of d.recommendedActions">
+              {{ action }}
+            </li>
+
+          </ul>
+
+        </div>
+
+        <div class="diagnosis-actions">
+
+          <button>Create Work Order</button>
+
+          <button>Schedule Maintenance</button>
+
+        </div>
+
+      </div>
+
     </div>
 
-    <ng-container *ngIf="selectedMachineContext as machine; else noMachineContext">
-      <div class="machine-summary">
-        <div>
-          <img [src]="'assets/machines/' + (machine.serialNumber || machine.id) + '.png'" alt="Machine preview" onerror="this.style.display='none'" />
-        </div>
-        <div class="machine-summary__body">
-          <span class="machine-summary__label">Active Machine</span>
-          <h2>{{ machine.name || machine.serialNumber || ('Machine ' + machine.id) }}</h2>
-          <p>{{ machine.model || 'Industrial asset' }}</p>
-          <div class="machine-summary__meta">
-            <span>Status: Active</span>
-            <span>ID: {{ machine.id }}</span>
-            <span>{{ machine.location || 'Unknown location' }}</span>
-          </div>
-        </div>
-        <div class="machine-summary__health">
-          <span>Health Score</span>
-          <strong>87%</strong>
-          <div class="health-ring" aria-hidden="true"></div>
-        </div>
-      </div>
-    </ng-container>
+    <!-- INPUT -->
 
-    <ng-template #noMachineContext>
-      <div class="context-warning">
-        <strong>No machine selected</strong>
-        <span>Select a machine to begin AI diagnostics.</span>
-      </div>
-      <button type="button" class="ghost" routerLink="/equipment">Browse Machines</button>
-    </ng-template>
-  </section>
+    <div class="chat-input-container">
 
-  <section class="dashboard-grid">
-    <aside class="panel glass chat-panel" *ngIf="assistantMode() === 'technician'">
-      <div class="panel-head">
-        <div>
-          <span class="panel-kicker">AI Diagnostic Chat</span>
-          <h2>Machine Context</h2>
-        </div>
-        <button type="button" class="ghost ghost--compact" *ngIf="selectedMachineContext" (click)="clearMachineContext()">Clear Context</button>
+      <div
+        *ngIf="photoPreviewUrl() as preview"
+        class="photo-preview-chip">
+
+        <img [src]="preview" alt="Selected equipment photo" />
+
+        <button type="button" class="photo-remove-btn" (click)="clearSelectedPhoto()">✕</button>
+
+        <button
+          type="button"
+          class="photo-send-btn"
+          (click)="submitPhoto()"
+          [disabled]="isAnalyzingPhoto()">
+          {{ isAnalyzingPhoto() ? 'Analyzing photo…' : 'Send photo' }}
+        </button>
+
       </div>
 
-      <div class="machine-context-panel">
-        <div class="machine-picker">
-          <input
-            type="search"
-            class="machine-search"
-            [ngModel]="machineSearch()"
-            (ngModelChange)="onMachineSearchChange($event)"
-            placeholder="Search machine by name, serial, or id"
-          />
+      <div class="chat-input">
 
-          <select
-            class="machine-select"
-            [value]="selectedMachineContext?.id ?? ''"
-            (change)="onMachineSelectionChange($any($event.target).value)"
-          >
-            <option value="">Choose a machine</option>
-            <option *ngFor="let machine of filteredMachines()" [value]="machine.id">
-              {{ machine.name || machine.serialNumber || machine.model || ('Machine ' + machine.id) }}
-            </option>
-          </select>
+        <input
+          type="file"
+          accept="image/*"
+          #photoInput
+          hidden
+          (change)="onPhotoSelected($event)" />
 
-          <span class="hint">{{ filteredMachines().length }} matching machine(s)</span>
-        </div>
+        <button
+          type="button"
+          class="attach-btn"
+          title="Attach an equipment photo"
+          (click)="photoInput.click()"
+          [disabled]="isAnalyzingPhoto()">
+          📷
+        </button>
 
-        <div class="selected-context" *ngIf="selectedMachineContext as machine; else emptyMachine">
-          <span class="selected-context__status"></span>
-          <div>
-            <strong>{{ machine.name || machine.serialNumber || ('Machine ' + machine.id) }}</strong>
-            <span>{{ machine.location || 'Unknown location' }}</span>
-          </div>
-        </div>
-
-        <ng-template #emptyMachine>
-          <div class="selected-context selected-context--empty">
-            <span class="selected-context__status selected-context__status--warn"></span>
-            <div>
-              <strong>Select a machine to start diagnosis</strong>
-              <span>Pick by name, serial number, or id.</span>
-            </div>
-          </div>
-        </ng-template>
-      </div>
-
-      <div class="chips">
-        <button *ngFor="let p of quickPrompts" (click)="usePrompt(p)">{{ p }}</button>
-      </div>
-
-      <div class="compose-card">
         <textarea
           [ngModel]="draftText()"
           (ngModelChange)="draftText.set($event)"
-          placeholder="Describe the issue in natural language...">
+          placeholder="Ask about a machine issue, alarm, maintenance task, or equipment failure...">
         </textarea>
 
-        <div class="compose-actions">
-          <button type="button" class="ghost ghost--compact" (click)="draftText.set('')">Clear</button>
-          <button type="button" class="primary" (click)="submitReport()" [disabled]="isSubmitting()">
-            {{ isSubmitting() ? 'Analyzing...' : 'Run Diagnosis' }}
-          </button>
-        </div>
+        <button
+          class="send-btn"
+          (click)="submitReport()"
+          [disabled]="isSubmitting()">
+
+          {{ isSubmitting() ? 'Analyzing...' : 'Send' }}
+
+        </button>
+
       </div>
 
-      <div class="chat-thread">
-        <div *ngFor="let m of assistantMessages(); trackBy: trackByIndex" class="chat-bubble" [class.chat-bubble--user]="m.role === 'user'" [class.chat-bubble--ai]="m.role === 'assistant'">
-          <div class="chat-bubble__meta">
-            <span>{{ m.role === 'user' ? 'You' : 'AI Copilot' }}</span>
-            <small>{{ m.timestamp | date:'shortTime' }}</small>
-          </div>
-          <p>{{ m.text }}</p>
-        </div>
-      </div>
-    </aside>
+    </div>
 
-    <section class="panel glass diagnosis-panel">
-      <div class="panel-head">
-        <div>
-          <span class="panel-kicker">AI Diagnosis</span>
-          <h2>Analysis Complete</h2>
-        </div>
-        <span class="panel-status" [class.panel-status--online]="!!lastDiagnosis()">{{ lastDiagnosis() ? 'Ready' : 'Waiting for input' }}</span>
-      </div>
+  </main>
 
-      <ng-container *ngIf="lastDiagnosis() as d; else empty">
-        <div class="diagnosis-card">
-          <div class="diag-header">
-            <div class="diag-title">
-              <span class="label">Issue Type</span>
-              <h3>{{ formatIssueType(d.issueType) }}</h3>
-            </div>
-            <app-risk-badge [level]="d.severity"></app-risk-badge>
-          </div>
-
-          <div class="confidence">
-            <div class="confidence__head">
-              <span>Confidence</span>
-              <strong>{{ d.confidence | percent }}</strong>
-            </div>
-            <div class="bar"><div class="fill" [style.width.%]="d.confidence * 100"></div></div>
-          </div>
-
-          <div class="diag-grid">
-            <div class="block block--soft">
-              <h4>Probable Causes</h4>
-              <ul>
-                <li *ngFor="let c of d.probableCauses">{{ c }}</li>
-              </ul>
-            </div>
-
-            <div class="block block--soft">
-              <h4>Recommended Actions</h4>
-              <div class="actions-list">
-                <button *ngFor="let a of d.recommendedActions" type="button" (click)="requestAction(a)">{{ a }}</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="insight-strip">
-            <div>
-              <span>Risk Level</span>
-              <strong>{{ severityLabel(d.severity) }}</strong>
-            </div>
-            <div>
-              <span>Impact</span>
-              <strong>{{ d.severity === 'CRITICAL' || d.severity === 'HIGH' ? 'Production' : 'Limited' }}</strong>
-            </div>
-            <div>
-              <span>Estimated Downtime</span>
-              <strong>{{ d.severity === 'LOW' ? '0-1 h' : d.severity === 'MEDIUM' ? '2-4 h' : '4+ h' }}</strong>
-            </div>
-          </div>
-
-          <div class="footer-actions">
-            <button type="button">Create Ticket</button>
-            <button type="button">Schedule Maintenance</button>
-            <button type="button">Notify Team</button>
-          </div>
-        </div>
-      </ng-container>
-
-      <ng-template #empty>
-        <div class="empty">
-          <h3>No diagnosis yet</h3>
-          <p>Describe a machine issue to begin analysis.</p>
-        </div>
-      </ng-template>
-    </section>
-
-    <section class="panel glass intel">
-      <div class="panel-head">
-        <div>
-          <span class="panel-kicker">Operations Intelligence</span>
-          <h2>Live Signals</h2>
-        </div>
-        <select class="signal-filter">
-          <option>All Signals</option>
-          <option>Alerts</option>
-          <option>Insights</option>
-        </select>
-      </div>
-
-      <div class="signals">
-        <div *ngFor="let item of recentSignals()" class="signal">
-          <div class="signal__icon">{{ item.alert ? '⚠' : '⋯' }}</div>
-          <div class="signal__body">
-            <strong>{{ item.alert?.failureType || item.insight?.title }}</strong>
-            <p>{{ item.alert?.summary || item.insight?.details }}</p>
-          </div>
-          <span class="signal__time">{{ (item.alert?.timestamp || item.insight?.timestamp) | date:'shortTime' }}</span>
-        </div>
-      </div>
-
-      <button type="button" class="view-all">View All Insights</button>
-    </section>
-  </section>
 </div>

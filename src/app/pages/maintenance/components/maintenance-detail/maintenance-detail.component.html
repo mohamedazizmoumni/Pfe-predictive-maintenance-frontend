@@ -34,7 +34,7 @@
       </article>
       <article>
         <p>Technician</p>
-        <h4>{{ task.assignedTechnicianId || 'Unassigned' }}</h4>
+        <h4>{{ technicianName }}</h4>
         <span>Assignment source</span>
       </article>
     </section>
@@ -68,10 +68,12 @@
         Cancel Task
       </button>
       <div class="action-row">
+        <button type="button" class="ghost" (click)="onApprove()" [disabled]="!canApprove"
+          [title]="!canApproveRole ? 'Only the assigned technician, or a Manager/Admin, can accept this task' : ''">Accept</button>
         <button type="button" (click)="onStart()" [disabled]="!canStart">Start</button>
         <button type="button" (click)="onComplete()" [disabled]="!canComplete">Complete</button>
-        <button type="button" class="ghost" (click)="onApprove()" [disabled]="!canApprove">Approve</button>
-        <button type="button" class="danger" (click)="onDelete()">Delete</button>
+        <button type="button" class="danger" (click)="onDelete()" [disabled]="!canDeleteRole"
+          [title]="!canDeleteRole ? 'Only an Admin can delete a task' : ''">Delete</button>
       </div>
     </footer>
 

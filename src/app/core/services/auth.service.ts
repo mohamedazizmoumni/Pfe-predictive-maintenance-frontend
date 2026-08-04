@@ -98,6 +98,39 @@ export class AuthService {
       );
   }
 
+  /**
+   * Enroll face for the currently authenticated user.
+   * POST /auth/face-enroll  (multipart: file)
+   * Returns the updated user with profilePictureUrl set.
+   */
+  faceEnroll(formData: FormData): Observable<{ profilePictureUrl?: string; message?: string }> {
+    console.log('📸 Enrolling face for current user...');
+    return this.http
+      .post<{ profilePictureUrl?: string; message?: string }>(
+        apiEndpoint('/auth/face-enroll'),
+        formData
+      )
+      .pipe(
+        tap((response) => {
+          console.log('✅ Face enrollment successful');
+          // Persist profile picture URL in the current user session
+          if (response?.profilePictureUrl) {
+            const current = this.currentUserSubject.value;
+            if (current) {
+              this.updateCurrentUser({
+                ...current,
+                profilePictureUrl: response.profilePictureUrl,
+              });
+            }
+          }
+        }),
+        catchError((error) => {
+          console.error('❌ Face enrollment failed:', error.status, error.message);
+          return throwError(() => error);
+        })
+      );
+  }
+
   refreshToken(): Observable<LoginResponse> {
     console.log('🔄 Attempting to refresh token...');
     const refreshToken = this.getStorageItem(this.REFRESH_TOKEN_KEY);
@@ -113,7 +146,6 @@ export class AuthService {
       .pipe(
         tap((response) => {
           console.log('✅ Token refreshed successfully');
-          console.log('🔑 New token:', response.token);
           this.persistSession(response);
         }),
         catchError((error: any) => {
@@ -209,11 +241,36 @@ export class AuthService {
 
     // Never reuse the previous session user here; that can leak roles,
     // avatar data, and department info into the newly authenticated session.
-    const userPayload = response.user ?? null;
+    const userPayload = this.extractUserPayload(response);
     const user = this.buildUserFromToken(accessToken, userPayload);
     this.setUserToStorage(user);
     this.currentUserSubject.next(user);
     this.isAuthenticatedSubject.next(true);
+  }
+
+  /**
+   * The backend's LoginResponse (login, register, face-login, refresh) puts
+   * id/username/email/roles as flat top-level fields — there is no nested
+   * `response.user`. Normalize that shape into a User seed here so
+   * buildUserFromToken() gets the real numeric id instead of falling back
+   * to the JWT's `sub` claim, which this backend sets to the *username*.
+   */
+  private extractUserPayload(response: any): User | null {
+    if (response?.user) {
+      return response.user as User;
+    }
+    if (response?.id === undefined && !response?.username) {
+      return null;
+    }
+    return {
+      id: response.id !== undefined && response.id !== null ? String(response.id) : undefined,
+      username: response.username,
+      email: response.email,
+      firstName: response.firstName,
+      lastName: response.lastName,
+      department: response.department,
+      roles: response.roles,
+    } as User;
   }
 
   private resolveAccessToken(response: any): string | null {
@@ -270,7 +327,13 @@ export class AuthService {
       const username = payload.username || payload.sub || user?.username || 'unknown-user';
       const storedProfilePictureUrl = this.getStoredProfilePictureUrl(username);
       const mergedUser: User = {
-        id: payload.sub || user?.id || payload.userId || 'unknown-user',
+        // payload.sub is the JWT *subject*, which this backend sets to the
+        // username (see JwtTokenProvider.generateAccessToken) — it is never
+        // a numeric database id and must not win over a real one. Backend
+        // endpoints that expect a numeric technician/user id (e.g.
+        // GET /maintenance?assignedTechnicianId=) 500 if a username leaks in
+        // here instead.
+        id: user?.id || payload.userId || payload.sub || 'unknown-user',
         username,
         email: payload.email || user?.email || '',
         firstName: payload.firstName || user?.firstName,

@@ -55,7 +55,7 @@ export const DASHBOARD_SHELL_STYLES = `
   font-weight: 700;
   cursor: pointer;
   color: white;
-  background: linear-gradient(135deg, var(--accent-solid, #2563eb), var(--accent-strong, #0ea5e9));
+  background: linear-gradient(135deg, var(--color-accent, #6b7280), var(--color-accent-hover, #9ca3af));
 }
 
 .dashboard-button.secondary {
@@ -137,7 +137,7 @@ export const DASHBOARD_SHELL_STYLES = `
 .tone.good { background: rgba(16, 185, 129, 0.15); color: #86efac; }
 .tone.warning { background: rgba(245, 158, 11, 0.15); color: #fcd34d; }
 .tone.critical { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
-.tone.info { background: rgba(37, 99, 235, 0.15); color: #93c5fd; }
+.tone.info { background: rgba(107, 114, 128, 0.15); color: #d1d5db; }
 
 .chart-bars {
   display: grid;
@@ -161,7 +161,7 @@ export const DASHBOARD_SHELL_STYLES = `
 .chart-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #2563eb, #0ea5e9);
+  background: linear-gradient(90deg, var(--color-accent, #6b7280), var(--color-accent-hover, #9ca3af));
 }
 
 .list-table {

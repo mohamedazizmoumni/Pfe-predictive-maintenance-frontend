@@ -12,11 +12,19 @@ import { Machine } from '../../../../core/models/machine.model';
 import { MaintenanceRecommendationDTO } from '../../../../core/models/recommendation.model';
 import { BaseDashboardComponent, DashboardBarRow, DashboardKpiCard } from '../../base-dashboard/base-dashboard.component';
 import { DASHBOARD_SHELL_STYLES } from '../../base-dashboard/dashboard-shell.styles';
+import { ExecutiveSummaryWidgetComponent } from '../../../../shared/executive-summary-widget/executive-summary-widget.component';
+import { DashboardCustomizeBarComponent, DashboardWidgetOption } from '../../../../shared/dashboard-customize-bar/dashboard-customize-bar.component';
+
+const ADMIN_DASHBOARD_WIDGETS: DashboardWidgetOption[] = [
+  { id: 'kpis', label: 'KPI cards' },
+  { id: 'status-pipeline', label: 'Machine status & maintenance pipeline' },
+  { id: 'queue-alerts', label: 'Priority queue & alert overview' },
+];
 
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, NgIf, NgFor, DecimalPipe],
+  imports: [CommonModule, NgIf, NgFor, DecimalPipe, ExecutiveSummaryWidgetComponent, DashboardCustomizeBarComponent],
   template: `
     <section class="dashboard-shell">
       <header class="dashboard-header">
@@ -26,6 +34,7 @@ import { DASHBOARD_SHELL_STYLES } from '../../base-dashboard/dashboard-shell.sty
           <p class="dashboard-subtitle">Machines, alerts, and maintenance activity for daily operational governance.</p>
         </div>
         <div class="dashboard-actions">
+          <app-dashboard-customize-bar [widgets]="widgetOptions" dashboardKey="admin" (hiddenChange)="hiddenWidgets = $event"></app-dashboard-customize-bar>
           <button class="dashboard-button secondary" type="button" (click)="refresh()">Refresh</button>
         </div>
       </header>
@@ -33,16 +42,23 @@ import { DASHBOARD_SHELL_STYLES } from '../../base-dashboard/dashboard-shell.sty
       <div *ngIf="error()" class="dashboard-error">{{ error() }}</div>
       <div *ngIf="loading()" class="empty-state">Loading operational view...</div>
 
+      <app-executive-summary-widget />
+
       <ng-container *ngIf="!loading()">
-        <section class="kpi-grid">
-          <article class="card kpi-card" *ngFor="let card of kpiCards()">
+        <section class="kpi-grid" *ngIf="!hiddenWidgets.has('kpis')">
+          <article
+            class="card kpi-card"
+            *ngFor="let card of kpiCards()"
+            role="group"
+            [attr.aria-label]="card.label + ': ' + card.value + (card.note ? ', ' + card.note : '')"
+          >
             <p class="dashboard-eyebrow">{{ card.label }}</p>
             <p class="kpi-value">{{ card.value }}</p>
             <p class="kpi-note">{{ card.note }}</p>
           </article>
         </section>
 
-        <section class="split-grid">
+        <section class="split-grid" *ngIf="!hiddenWidgets.has('status-pipeline')">
           <article class="chart-card">
             <h3>Machine status summary</h3>
             <div class="chart-bars">
@@ -66,7 +82,7 @@ import { DASHBOARD_SHELL_STYLES } from '../../base-dashboard/dashboard-shell.sty
           </article>
         </section>
 
-        <section class="split-grid">
+        <section class="split-grid" *ngIf="!hiddenWidgets.has('queue-alerts')">
           <article class="table-card">
             <h3>Priority maintenance queue</h3>
             <table class="list-table" *ngIf="queueRows().length; else emptyQueue">
@@ -114,6 +130,9 @@ import { DASHBOARD_SHELL_STYLES } from '../../base-dashboard/dashboard-shell.sty
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminDashboardComponent extends BaseDashboardComponent implements OnInit {
+  readonly widgetOptions = ADMIN_DASHBOARD_WIDGETS;
+  hiddenWidgets = new Set<string>();
+
   readonly machines = signal<Machine[]>([]);
   readonly maintenance = signal<Maintenance[]>([]);
   readonly alerts = signal<AlertResponse[]>([]);

@@ -1,0 +1,49 @@
+<div class="audit-page">
+  <header class="page-header">
+    <div>
+      <h1>Audit Console</h1>
+      <p>Every governance action recorded across the platform — role changes, approvals, rejections, deletions, and automated decisions.</p>
+    </div>
+    <span class="total-badge" *ngIf="!isLoading">{{ totalElements }} event(s)</span>
+  </header>
+
+  <div class="filters">
+    <div class="filter-field">
+      <label>Entity type</label>
+      <input type="text" [(ngModel)]="entityTypeFilter" placeholder="e.g. User, Maintenance, Alert" (keyup.enter)="applyFilters()" />
+    </div>
+    <div class="filter-field">
+      <label>Entity ID</label>
+      <input type="number" [(ngModel)]="entityIdFilter" placeholder="e.g. 42" (keyup.enter)="applyFilters()" />
+    </div>
+    <button type="button" class="btn-primary" (click)="applyFilters()">Filter</button>
+    <button type="button" class="btn-secondary" (click)="clearFilters()">Clear</button>
+  </div>
+
+  <div class="loading" *ngIf="isLoading">Loading audit log…</div>
+  <div class="alert alert-error" *ngIf="error">{{ error }}</div>
+
+  <div class="twrap" *ngIf="!isLoading && !error">
+    <table>
+      <thead>
+        <tr><th>When</th><th>Actor</th><th>Action</th><th>Entity</th><th>Details</th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let event of events">
+          <td class="mono">{{ event.createdAt | date:'medium' }}</td>
+          <td>{{ event.actor }}</td>
+          <td><span class="action-chip" [ngClass]="actionClass(event.action)">{{ event.action }}</span></td>
+          <td>{{ event.entityType }}<span *ngIf="event.entityId">&nbsp;#{{ event.entityId }}</span></td>
+          <td class="details">{{ event.details || '—' }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="empty" *ngIf="events.length === 0">No audit events match this filter.</p>
+  </div>
+
+  <div class="pagination" *ngIf="!isLoading && totalPages > 1">
+    <button type="button" (click)="previousPage()" [disabled]="page === 0">← Previous</button>
+    <span>Page {{ page + 1 }} of {{ totalPages }}</span>
+    <button type="button" (click)="nextPage()" [disabled]="page + 1 >= totalPages">Next →</button>
+  </div>
+</div>

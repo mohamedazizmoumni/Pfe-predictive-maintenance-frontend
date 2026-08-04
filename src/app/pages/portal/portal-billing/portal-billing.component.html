@@ -1,0 +1,35 @@
+<div class="portal-page">
+  <header class="portal-header">
+    <h1>Billing</h1>
+    <p>Invoices for equipment servicing, parts, and warranty work.</p>
+  </header>
+
+  <div class="loading" *ngIf="isLoading">Loading your invoices…</div>
+  <div class="alert alert-error" *ngIf="error">{{ error }}</div>
+
+  <div class="summary-card" *ngIf="!isLoading && !error && invoices.length">
+    <h4>Outstanding Balance</h4>
+    <p class="big">{{ totalUnpaid | currency }}</p>
+  </div>
+
+  <div class="invoice-list" *ngIf="!isLoading && !error">
+    <div class="twrap" *ngIf="invoices.length; else noInvoices">
+      <table>
+        <thead>
+          <tr><th>Invoice #</th><th>Machine</th><th>Amount</th><th>Status</th><th>Issued</th><th>Due</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let invoice of invoices">
+            <td>{{ invoice.invoiceNumber }}</td>
+            <td>{{ invoice.machineName || '—' }}</td>
+            <td>{{ invoice.amount | currency }}</td>
+            <td><span class="status" [ngClass]="statusClass(invoice.status)">{{ invoice.status }}</span></td>
+            <td>{{ invoice.issueDate | date:'mediumDate' }}</td>
+            <td>{{ invoice.dueDate | date:'mediumDate' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ng-template #noInvoices><p class="empty">No invoices on file yet.</p></ng-template>
+  </div>
+</div>

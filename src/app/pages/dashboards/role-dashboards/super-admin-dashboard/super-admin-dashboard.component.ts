@@ -1,23 +1,129 @@
 import { CommonModule, CurrencyPipe, DecimalPipe, NgFor, NgIf } from '@angular/common';
 import { ChangeDetectionStrategy, Component, OnInit, computed, signal } from '@angular/core';
 import { forkJoin, of } from 'rxjs';
-import { catchError, switchMap } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 import { AlertApiService } from '../../../../core/services/alert.service';
 import { AuthService } from '../../../../core/services/auth.service';
-import { BudgetService } from '../../../../core/services/budget.service';
+import { FinanceService } from '../../../../core/services/finance.service';
 import { MachineService } from '../../../../core/services/machine.service';
 import { NotificationService } from '../../../../core/services/notification.service';
-import { RecommendationService } from '../../../../core/services/recommendation.service';
-import { AlertResponse, Machine } from '../../../../core/models/sentinel.models';
-import { MaintenanceBudgetDTO } from '../../../../core/models/budget.model';
-import { MaintenanceRecommendationDTO } from '../../../../core/models/recommendation.model';
+import { AlertResponse, AlertSeverity, FinanceDashboardStats, Machine } from '../../../../core/models/sentinel.models';
 import { BaseDashboardComponent, DashboardBarRow, DashboardKpiCard } from '../../base-dashboard/base-dashboard.component';
 import { DASHBOARD_SHELL_STYLES } from '../../base-dashboard/dashboard-shell.styles';
+import { ExecutiveSummaryWidgetComponent } from '../../../../shared/executive-summary-widget/executive-summary-widget.component';
+import { DashboardCustomizeBarComponent, DashboardWidgetOption } from '../../../../shared/dashboard-customize-bar/dashboard-customize-bar.component';
+
+// Donut/ring chart + refreshed KPI-card treatment, scoped to this component
+// only (appended alongside the shared DASHBOARD_SHELL_STYLES below, so other
+// role dashboards reusing that same base file are unaffected).
+const SUPER_ADMIN_DASHBOARD_EXTRA_STYLES = `
+  .health-donut-row {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    flex-wrap: wrap;
+  }
+
+  .health-donut {
+    position: relative;
+    width: 132px;
+    height: 132px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .health-donut::before {
+    content: '';
+    position: absolute;
+    inset: 16px;
+    border-radius: 50%;
+    background: var(--color-bg-elevated, #fff);
+  }
+
+  .health-donut-center {
+    position: absolute;
+    inset: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .health-donut-value {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--color-text-primary, #0f172a);
+  }
+
+  .health-donut-label {
+    margin-top: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-text-muted, #94a3b8);
+  }
+
+  .health-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    min-width: 180px;
+  }
+
+  .health-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+  }
+
+  .health-legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .health-legend-label {
+    flex: 1;
+    color: var(--color-text-secondary, #475569);
+  }
+
+  .health-legend-value {
+    font-weight: 700;
+    color: var(--color-text-primary, #0f172a);
+  }
+
+  .kpi-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--kpi-accent, var(--color-accent, #6b7280));
+  }
+`;
+
+const SUPER_ADMIN_DASHBOARD_WIDGETS: DashboardWidgetOption[] = [
+  { id: 'kpis', label: 'KPI cards' },
+  { id: 'health-budget', label: 'System health & budget' },
+  { id: 'risk-security', label: 'High-risk machines & security' },
+  { id: 'alerts', label: 'Executive alerts' },
+];
 
 @Component({
   selector: 'app-super-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, NgIf, NgFor, CurrencyPipe, DecimalPipe],
+  imports: [CommonModule, NgIf, NgFor, CurrencyPipe, DecimalPipe, ExecutiveSummaryWidgetComponent, DashboardCustomizeBarComponent],
   template: `
     <section class="dashboard-shell">
       <header class="dashboard-header">
@@ -27,6 +133,7 @@ import { DASHBOARD_SHELL_STYLES } from '../../base-dashboard/dashboard-shell.sty
           <p class="dashboard-subtitle">Fleet health, security scope, alerts, and budget posture in one executive view.</p>
         </div>
         <div class="dashboard-actions">
+          <app-dashboard-customize-bar [widgets]="widgetOptions" dashboardKey="super-admin" (hiddenChange)="hiddenWidgets = $event"></app-dashboard-customize-bar>
           <button class="dashboard-button secondary" type="button" (click)="refresh()">Refresh</button>
           <span class="tone info">Updated {{ lastRefreshAt() ? (lastRefreshAt() | date:'short') : 'just now' }}</span>
         </div>
@@ -35,49 +142,64 @@ import { DASHBOARD_SHELL_STYLES } from '../../base-dashboard/dashboard-shell.sty
       <div *ngIf="error()" class="dashboard-error">{{ error() }}</div>
       <div *ngIf="loading()" class="empty-state">Loading executive telemetry...</div>
 
+      <app-executive-summary-widget />
+
       <ng-container *ngIf="!loading()">
-        <section class="kpi-grid">
-          <article class="card kpi-card" *ngFor="let card of kpiCards()">
+        <section class="kpi-grid" *ngIf="!hiddenWidgets.has('kpis')">
+          <article
+            class="card kpi-card"
+            *ngFor="let card of kpiCards()"
+            role="group"
+            [attr.aria-label]="card.label + ': ' + card.value + (card.note ? ', ' + card.note : '')"
+          >
             <p class="dashboard-eyebrow">{{ card.label }}</p>
             <p class="kpi-value">{{ card.value }}</p>
             <p class="kpi-note">{{ card.note }}</p>
           </article>
         </section>
 
-        <section class="split-grid">
+        <section class="split-grid" *ngIf="!hiddenWidgets.has('health-budget')">
           <article class="chart-card">
             <h3>System health distribution</h3>
-            <div class="chart-bars">
-              <div class="chart-row" *ngFor="let row of healthRows()">
-                <strong>{{ row.label }}</strong>
-                <div class="chart-track"><div class="chart-fill" [style.width.%]="row.value"></div></div>
-                <span>{{ row.display }}</span>
+            <div class="health-donut-row">
+              <div class="health-donut" [style.background]="healthDonutGradient()">
+                <div class="health-donut-center">
+                  <span class="health-donut-value">{{ operationalPercentage() }}%</span>
+                  <span class="health-donut-label">Operational</span>
+                </div>
+              </div>
+              <div class="health-legend">
+                <div class="health-legend-row" *ngFor="let row of healthRows()">
+                  <span class="health-legend-dot" [style.background]="healthDotColor(row.tone)"></span>
+                  <span class="health-legend-label">{{ row.label }}</span>
+                  <span class="health-legend-value">{{ row.display }}</span>
+                </div>
               </div>
             </div>
           </article>
 
           <article class="summary-card">
             <h3>Budget summary</h3>
-            <p class="kpi-value">{{ (budget()?.percentageUsed || 0) | number:'1.0-0' }}%</p>
-            <p class="card-note">{{ budget()?.department || 'Operations' }} · {{ budget()?.period || currentPeriod() }}</p>
+            <p class="kpi-value">{{ (financeStats()?.utilizationPercentage || 0) | number:'1.0-0' }}%</p>
+            <p class="card-note">All departments · FY {{ financeStats()?.currentYear || nowYear() }}</p>
             <div class="meta-grid">
-              <div>
+              <div role="group" [attr.aria-label]="'Allocated: ' + ((financeStats()?.totalBudget || 0) | currency:'TND':'symbol':'1.0-0')">
                 <span class="dashboard-eyebrow">Allocated</span>
-                <p>{{ (budget()?.allocatedAmount || 0) | currency:'USD':'symbol':'1.0-0' }}</p>
+                <p>{{ (financeStats()?.totalBudget || 0) | currency:'TND':'symbol':'1.0-0' }}</p>
               </div>
-              <div>
+              <div role="group" [attr.aria-label]="'Spent: ' + ((financeStats()?.spentAmount || 0) | currency:'TND':'symbol':'1.0-0')">
                 <span class="dashboard-eyebrow">Spent</span>
-                <p>{{ (budget()?.spentAmount || 0) | currency:'USD':'symbol':'1.0-0' }}</p>
+                <p>{{ (financeStats()?.spentAmount || 0) | currency:'TND':'symbol':'1.0-0' }}</p>
               </div>
-              <div>
+              <div role="group" [attr.aria-label]="'Remaining: ' + ((financeStats()?.remainingBudget || 0) | currency:'TND':'symbol':'1.0-0')">
                 <span class="dashboard-eyebrow">Remaining</span>
-                <p>{{ (budget()?.remainingAmount || 0) | currency:'USD':'symbol':'1.0-0' }}</p>
+                <p>{{ (financeStats()?.remainingBudget || 0) | currency:'TND':'symbol':'1.0-0' }}</p>
               </div>
             </div>
           </article>
         </section>
 
-        <section class="split-grid">
+        <section class="split-grid" *ngIf="!hiddenWidgets.has('risk-security')">
           <article class="table-card">
             <h3>High-risk machines</h3>
             <table class="list-table" *ngIf="criticalMachines().length; else noMachines">
@@ -101,27 +223,27 @@ import { DASHBOARD_SHELL_STYLES } from '../../base-dashboard/dashboard-shell.sty
           <article class="table-card">
             <h3>Security and access snapshot</h3>
             <div class="meta-grid">
-              <div class="surface-panel">
+              <div class="surface-panel" role="group" [attr.aria-label]="'Primary role: ' + primaryRole()">
                 <span class="dashboard-eyebrow">Primary role</span>
                 <p>{{ primaryRole() }}</p>
               </div>
-              <div class="surface-panel">
+              <div class="surface-panel" role="group" [attr.aria-label]="'Role count: ' + roleCount()">
                 <span class="dashboard-eyebrow">Role count</span>
                 <p>{{ roleCount() }}</p>
               </div>
-              <div class="surface-panel">
+              <div class="surface-panel" role="group" [attr.aria-label]="'High alerts: ' + highAlertCount()">
                 <span class="dashboard-eyebrow">High alerts</span>
                 <p>{{ highAlertCount() }}</p>
               </div>
-              <div class="surface-panel">
-                <span class="dashboard-eyebrow">Savings potential</span>
-                <p>{{ totalSavings() | currency:'USD':'symbol':'1.0-0' }}</p>
+              <div class="surface-panel" role="group" [attr.aria-label]="'Open alerts: ' + alerts().length">
+                <span class="dashboard-eyebrow">Open alerts</span>
+                <p>{{ alerts().length }}</p>
               </div>
             </div>
           </article>
         </section>
 
-        <section class="table-card">
+        <section class="table-card" *ngIf="!hiddenWidgets.has('alerts')">
           <h3>Executive alerts</h3>
           <table class="list-table" *ngIf="alertRows().length; else noAlerts">
             <thead>
@@ -143,13 +265,15 @@ import { DASHBOARD_SHELL_STYLES } from '../../base-dashboard/dashboard-shell.sty
       </ng-container>
     </section>
   `,
-  styles: [DASHBOARD_SHELL_STYLES],
+  styles: [DASHBOARD_SHELL_STYLES, SUPER_ADMIN_DASHBOARD_EXTRA_STYLES],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SuperAdminDashboardComponent extends BaseDashboardComponent implements OnInit {
+  readonly widgetOptions = SUPER_ADMIN_DASHBOARD_WIDGETS;
+  hiddenWidgets = new Set<string>();
+
   readonly machines = signal<Machine[]>([]);
-  readonly budget = signal<MaintenanceBudgetDTO | null>(null);
-  readonly recommendations = signal<MaintenanceRecommendationDTO[]>([]);
+  readonly financeStats = signal<FinanceDashboardStats | null>(null);
   readonly alerts = signal<AlertResponse[]>([]);
   readonly currentUser = signal(this.authService.getCurrentUser());
 
@@ -160,13 +284,13 @@ export class SuperAdminDashboardComponent extends BaseDashboardComponent impleme
     const total = this.machines().length;
     const operational = this.machines().filter((machine) => this.isStatus(machine, 'OPERATIONAL')).length;
     const maintenance = this.machines().filter((machine) => this.isStatus(machine, 'MAINTENANCE')).length;
-    const critical = this.recommendations().filter((item) => item.urgencyLevel === 'CRITICAL').length;
+    const critical = this.criticalMachines().filter((item) => item.tone === 'critical').length;
 
     return [
       { label: 'Total machines', value: total, note: 'Complete fleet scope', tone: 'info' },
       { label: 'Operational', value: operational, note: 'Running inside target thresholds', tone: 'good' },
       { label: 'Under maintenance', value: maintenance, note: 'Currently in service windows', tone: 'warning' },
-      { label: 'Critical recommendations', value: critical, note: 'Immediate executive review', tone: 'critical' },
+      { label: 'High-risk machines', value: critical, note: 'Immediate executive review', tone: 'critical' },
     ];
   });
 
@@ -183,30 +307,62 @@ export class SuperAdminDashboardComponent extends BaseDashboardComponent impleme
     ];
   });
 
-  readonly totalSavings = computed(() =>
-    this.recommendations().reduce((sum, item) => sum + (item.estimatedSavings ?? 0), 0)
-  );
-
   readonly highAlertCount = computed(() =>
-    this.recommendations().filter((item) => item.urgencyLevel === 'HIGH' || item.urgencyLevel === 'CRITICAL').length
+    this.alerts().filter((alert) => alert.severity === AlertSeverity.WARNING || alert.severity === AlertSeverity.CRITICAL).length
   );
 
   readonly criticalMachines = computed(() =>
     this.machines()
       .map((machine) => {
-        const recommendation = this.recommendations().find((item) => item.machineId === machine.id);
-        const severity = recommendation?.urgencyLevel ?? 'LOW';
+        const risk = machine.riskScore ?? 0;
+        const tone = risk >= 0.7 ? 'critical' : risk >= 0.4 ? 'warning' : 'good';
         return {
           machine,
           status: machine.status || 'UNKNOWN',
-          risk: `${Math.round((machine.riskScore ?? 0) * 100)}%`,
-          recommendation: recommendation?.justification || 'Monitor continuously',
-          tone: severity === 'CRITICAL' ? 'critical' : severity === 'HIGH' ? 'warning' : 'good',
+          risk: `${Math.round(risk * 100)}%`,
+          recommendation:
+            tone === 'critical'
+              ? 'Schedule immediate inspection'
+              : tone === 'warning'
+              ? 'Plan preventive maintenance soon'
+              : 'Monitor continuously',
+          tone,
         };
       })
       .filter((item) => item.tone !== 'good')
+      .sort((a, b) => (b.machine.riskScore ?? 0) - (a.machine.riskScore ?? 0))
       .slice(0, 6)
   );
+
+  private static readonly HEALTH_TONE_COLORS: Record<string, string> = {
+    good: '#22c55e',
+    warning: '#f59e0b',
+    critical: '#ef4444',
+  };
+
+  readonly healthDonutGradient = computed(() => {
+    const rows = this.healthRows();
+    let position = 0;
+    const segments = rows.map((row) => {
+      const start = position;
+      position += row.value;
+      return `${this.healthDotColor(row.tone)} ${start}% ${position}%`;
+    });
+    if (position < 100) {
+      segments.push(`#e2e8f0 ${position}% 100%`);
+    }
+    return `conic-gradient(${segments.join(', ')})`;
+  });
+
+  readonly operationalPercentage = computed(() => this.healthRows()[0]?.value ?? 0);
+
+  healthDotColor(tone: string): string {
+    return SuperAdminDashboardComponent.HEALTH_TONE_COLORS[tone] || '#94a3b8';
+  }
+
+  nowYear(): number {
+    return new Date().getFullYear();
+  }
 
   readonly alertRows = computed(() =>
     this.alerts().slice(0, 6).map((alert) => ({
@@ -220,8 +376,7 @@ export class SuperAdminDashboardComponent extends BaseDashboardComponent impleme
 
   constructor(
     private readonly machineService: MachineService,
-    private readonly budgetService: BudgetService,
-    private readonly recommendationService: RecommendationService,
+    private readonly financeService: FinanceService,
     private readonly alertService: AlertApiService,
     private readonly authService: AuthService,
     private readonly notificationService: NotificationService
@@ -239,42 +394,23 @@ export class SuperAdminDashboardComponent extends BaseDashboardComponent impleme
 
   loadDashboardData(): void {
     this.beginLoad();
-    const period = this.currentPeriod();
-    const department = this.currentDepartment();
 
-    this.machineService
-      .getAll()
-      .pipe(
-        catchError(() => of([] as Machine[])),
-        switchMap((machines) => {
-          this.machines.set(machines);
-          const recommendationCalls = machines.slice(0, 10).map((machine) =>
-            this.recommendationService.getLatestRecommendation(machine.id).pipe(catchError(() => of(null)))
-          );
-
-          return forkJoin({
-            budget: this.budgetService.getBudgetStatus(department, period).pipe(catchError(() => of(null))),
-            alerts: this.alertService.list({ size: 25 }).pipe(catchError(() => of({ content: [] } as { content: AlertResponse[] }))),
-            recommendations: recommendationCalls.length ? forkJoin(recommendationCalls) : of([] as Array<MaintenanceRecommendationDTO | null>),
-          });
-        })
-      )
-      .subscribe({
-        next: ({ budget, alerts, recommendations }) => {
-          this.budget.set((budget as MaintenanceBudgetDTO | null) ?? null);
-          this.alerts.set(alerts.content ?? []);
-          this.recommendations.set((recommendations ?? []).filter((item): item is MaintenanceRecommendationDTO => !!item));
-          this.endLoad();
-        },
-        error: () => {
-          this.fail('Executive dashboard data could not be loaded.');
-          this.notificationService.error('Executive dashboard data could not be loaded.');
-        },
-      });
-  }
-
-  private currentDepartment(): string {
-    return this.authService.getCurrentUser()?.department || 'Operations';
+    forkJoin({
+      machines: this.machineService.getAll().pipe(catchError(() => of([] as Machine[]))),
+      finance: this.financeService.getDashboard().pipe(catchError(() => of(null))),
+      alerts: this.alertService.list({ size: 25 }).pipe(catchError(() => of({ content: [] } as { content: AlertResponse[] }))),
+    }).subscribe({
+      next: ({ machines, finance, alerts }) => {
+        this.machines.set(machines);
+        this.financeStats.set(finance);
+        this.alerts.set(alerts.content ?? []);
+        this.endLoad();
+      },
+      error: () => {
+        this.fail('Executive dashboard data could not be loaded.');
+        this.notificationService.error('Executive dashboard data could not be loaded.');
+      },
+    });
   }
 
   currentPeriod(): string {

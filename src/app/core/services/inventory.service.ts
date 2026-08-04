@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
-import { tap, catchError, map } from 'rxjs/operators';
+import { tap, catchError, map, switchMap } from 'rxjs/operators';
 import {
   Part,
   PartRequest,
@@ -225,10 +225,6 @@ export class InventoryService {
     return of(subs);
   }
 
-  createCategory(name: string): Observable<any> {
-    return this.unsupported<any>('Category creation endpoint is not available in the current backend contract.');
-  }
-
   getCategoryObjects(): Observable<any[]> {
     return this.getCategories().pipe(map((names) => names.map((name, idx) => ({ id: idx + 1, name }))));
   }
@@ -241,6 +237,17 @@ export class InventoryService {
 
   getUsageHistory(page: number = 0, size: number = 10): Observable<any> {
     return of({ content: [], totalElements: 0, totalPages: 0, number: page, size });
+  }
+
+  /** Real recorded usage across all parts over the trailing window — empty until technicians log part consumption via rapports. */
+  getAllUsage(days: number = 90): Observable<InventoryUsage[]> {
+    const url = apiEndpoint(`/inventory/analytics/usage?days=${days}`);
+    return this.http.get<InventoryUsage[]>(url).pipe(
+      catchError((error) => {
+        console.error('Failed to load usage history:', error);
+        return of([]);
+      })
+    );
   }
 
   // ============= REORDER REQUESTS =============
@@ -298,8 +305,7 @@ export class InventoryService {
     );
   }
 
-  // FIX: was `/approval`, backend maps to `/approve`
-    approveReorder(id: number, request: ReorderApprovalRequest): Observable<ReorderRequest> {
+  approveReorder(id: number, request: ReorderApprovalRequest): Observable<ReorderRequest> {
     const url = apiEndpoint(`/inventory/reorders/${id}/approval`);
     return this.http.put<any>(url, request).pipe(
       map((response) => this.toReorderRequest(response)),
@@ -319,7 +325,7 @@ export class InventoryService {
 
 
   createStockOrder(request: StockOrderRequest): Observable<StockOrder> {
-    const url = apiEndpoint('/inventory/stock-orders');
+    const url = apiEndpoint('/inventory/orders');
     return this.http.post<any>(url, request).pipe(
       map((response) => ({
         id: response.id || 0,
@@ -345,7 +351,7 @@ export class InventoryService {
   }
 
   getStockOrders(page: number = 0, size: number = 10): Observable<any> {
-    const url = apiEndpoint('/inventory/stock-orders');
+    const url = apiEndpoint('/inventory/orders');
     return this.http.get<any>(url).pipe(
       map((response) => {
         const content = Array.isArray(response) ? response : response?.content || [];
@@ -365,7 +371,7 @@ export class InventoryService {
   }
 
   receiveStockOrder(id: number, request: StockOrderReceiptRequest): Observable<StockOrder> {
-    const url = apiEndpoint(`/inventory/stock-orders/${id}/receive`);
+    const url = apiEndpoint(`/inventory/orders/${id}/deliver`);
     return this.http.put<any>(url, request).pipe(
       map((response) => ({
         id: response.id || id,
@@ -403,22 +409,33 @@ export class InventoryService {
     // If parts haven't been loaded yet, fetch them first then compute
     if (parts.length === 0) {
       return this.getParts(0, 10000).pipe(
-        map(() => this.computeStats(this.partsSubject.value, this.reordersSubject.value)),
-        tap((stats) => this.statsSubject.next(stats)),
+        switchMap((): Observable<InventoryStats> =>
+          this.computeStatsWithTurnover(this.partsSubject.value, this.reordersSubject.value)
+        ),
+        tap((stats: InventoryStats) => this.statsSubject.next(stats)),
         catchError(() => {
-          const fallback = this.computeStats([], []);
+          const fallback = this.computeStats([], [], 0);
           this.statsSubject.next(fallback);
           return of(fallback);
         })
       );
     }
 
-    const stats = this.computeStats(parts, reorders);
-    this.statsSubject.next(stats);
-    return of(stats);
+    return this.computeStatsWithTurnover(parts, reorders).pipe(
+      tap((stats) => this.statsSubject.next(stats))
+    );
   }
 
-  private computeStats(parts: Part[], reorders: ReorderRequest[]): InventoryStats {
+  /** Computes client-side stats and merges in the real, backend-computed turnover rate. */
+  private computeStatsWithTurnover(parts: Part[], reorders: ReorderRequest[]): Observable<InventoryStats> {
+    const url = apiEndpoint('/inventory/analytics/stats');
+    return this.http.get<InventoryStats>(url).pipe(
+      map((backendStats) => this.computeStats(parts, reorders, backendStats.turnoverRate)),
+      catchError(() => of(this.computeStats(parts, reorders, 0)))
+    );
+  }
+
+  private computeStats(parts: Part[], reorders: ReorderRequest[], turnoverRate: number): InventoryStats {
     const lowStockPartsCount = parts.filter(
       (p) => p.currentStock > 0 && p.currentStock <= p.minimumStock
     ).length;
@@ -442,17 +459,29 @@ export class InventoryService {
       outOfStockPartsCount,
       pendingOrdersCount,
       totalInventoryValue,
-      turnoverRate: 0, // Requires usage history from backend — not available client-side
+      turnoverRate,
       lastUpdated: new Date().toISOString(),
     };
   }
 
   getLowStockAlerts(): Observable<LowStockAlert[]> {
-    return of([]);
+    const url = apiEndpoint('/inventory/analytics/low-stock-alerts');
+    return this.http.get<LowStockAlert[]>(url).pipe(
+      catchError((error) => {
+        console.error('Failed to load low stock alerts:', error);
+        return of([]);
+      })
+    );
   }
 
-  getCriticalReorders(): Observable<ReorderSummary[]> {
-    return of([]);
+  getCriticalReorders(limit: number = 10): Observable<ReorderSummary[]> {
+    const url = apiEndpoint(`/inventory/analytics/critical-reorders?limit=${limit}`);
+    return this.http.get<ReorderSummary[]>(url).pipe(
+      catchError((error) => {
+        console.error('Failed to load critical reorders:', error);
+        return of([]);
+      })
+    );
   }
 
   // ============= IMAGE UPLOAD =============

@@ -1,0 +1,40 @@
+<section class="exec-widget">
+  <header>
+    <h3>Executive Summary</h3>
+    <a routerLink="/audit-console" class="widget-link">Audit Console →</a>
+  </header>
+
+  <div class="widget-loading" *ngIf="isLoading">Loading executive summary…</div>
+  <div class="widget-error" *ngIf="error">Could not load the executive summary.</div>
+
+  <div class="exec-grid" *ngIf="!isLoading && !error && summary as s">
+    <div class="exec-kpi" [ngClass]="healthClass(s.fleetAverageHealth)">
+      <span class="value">{{ s.fleetAverageHealth != null ? (s.fleetAverageHealth | number:'1.0-0') + '%' : '—' }}</span>
+      <span class="label">Fleet Health ({{ s.machineCount }} machines)</span>
+    </div>
+    <div class="exec-kpi" [ngClass]="s.overdueWorkOrders > 0 ? 'kpi-critical' : 'kpi-good'">
+      <span class="value">{{ s.openWorkOrders }}</span>
+      <span class="label">Open Work Orders ({{ s.overdueWorkOrders }} overdue)</span>
+    </div>
+    <div class="exec-kpi" [ngClass]="budgetClass(s.budgetUtilizationPercentage)">
+      <span class="value">{{ s.budgetUtilizationPercentage != null ? (s.budgetUtilizationPercentage | number:'1.0-0') + '%' : '—' }}</span>
+      <span class="label">Budget Utilization</span>
+    </div>
+    <div class="exec-kpi" [ngClass]="(s.pendingRapportApprovals + s.pendingExpenseApprovals + s.pendingReorderApprovals) > 0 ? 'kpi-warn' : 'kpi-good'">
+      <span class="value">{{ s.pendingRapportApprovals + s.pendingExpenseApprovals + s.pendingReorderApprovals }}</span>
+      <span class="label">Pending Approvals</span>
+    </div>
+    <div class="exec-kpi kpi-neutral">
+      <span class="value">{{ s.openSupportTickets }}</span>
+      <span class="label">Open Support Tickets</span>
+    </div>
+  </div>
+
+  <div class="risk-list" *ngIf="!isLoading && !error && summary?.topReliabilityRisks?.length">
+    <h4>Top Reliability Risks</h4>
+    <div class="risk-row" *ngFor="let risk of summary!.topReliabilityRisks">
+      <span class="risk-name">{{ risk.machineName }}</span>
+      <span class="risk-mtbf">MTBF: {{ risk.mtbfHours != null ? (risk.mtbfHours < 48 ? (risk.mtbfHours | number:'1.0-1') + 'h' : (risk.mtbfHours / 24 | number:'1.0-1') + 'd') : '—' }}</span>
+    </div>
+  </div>
+</section>

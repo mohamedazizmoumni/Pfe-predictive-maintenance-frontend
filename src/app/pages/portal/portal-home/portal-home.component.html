@@ -1,0 +1,27 @@
+<div class="portal-page">
+  <header class="portal-header">
+    <h1>My Machines</h1>
+    <p>The equipment linked to your account — health, status, and upcoming maintenance.</p>
+  </header>
+
+  <div class="loading" *ngIf="isLoading">Loading your machines…</div>
+  <div class="alert alert-error" *ngIf="error">{{ error }}</div>
+
+  <div class="machine-grid" *ngIf="!isLoading && !error">
+    <a class="machine-card" *ngFor="let machine of machines" [routerLink]="['/portal/machines', machine.machineId]">
+      <div class="machine-card__header">
+        <h3>{{ machine.name }}</h3>
+        <span class="health-badge" [ngClass]="healthClass(machine.healthScore)">{{ machine.healthScore }}%</span>
+      </div>
+      <p class="machine-card__meta">{{ machine.serialNumber }} — {{ machine.location || 'Location not set' }}</p>
+      <p class="machine-card__status">{{ machine.statusLabel }}</p>
+      <div class="machine-card__dates">
+        <span *ngIf="machine.nextMaintenanceDate">Next service: {{ machine.nextMaintenanceDate | date:'mediumDate' }}</span>
+      </div>
+    </a>
+
+    <p class="empty" *ngIf="machines.length === 0">
+      No machines are linked to your account yet. Contact your account manager to get set up.
+    </p>
+  </div>
+</div>

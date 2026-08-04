@@ -1,0 +1,161 @@
+.reliability-page {
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 1.5rem;
+  h1 { margin: 0 0 0.35rem; font-size: 1.6rem; color: var(--color-text-primary); }
+  p { margin: 0; color: var(--color-text-secondary); }
+}
+
+.loading, .empty { color: var(--color-text-muted); padding: 1.5rem 0; text-align: center; }
+
+.alert-error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid var(--color-danger-border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+  color: var(--color-text-primary);
+  margin: 0 0 0.75rem;
+
+  .hint { font-size: 0.8rem; font-weight: 400; color: var(--color-text-muted); }
+}
+
+.fleet-section { margin-bottom: 2rem; }
+
+.twrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+
+th, td { text-align: left; padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--color-border); }
+
+th {
+  background: var(--color-bg-sunken);
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+tr.selected { background: var(--color-accent-dim); }
+
+.rel-chip {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.82rem;
+
+  &.rel-good { background: var(--color-success-bg, #e7f3ec); color: var(--status-success-text, #2f7d5c); }
+  &.rel-warn { background: var(--color-warning-bg); color: var(--color-warning-text); }
+  &.rel-critical { background: var(--color-danger-bg); color: var(--color-danger-text); }
+  &.rel-unknown { background: var(--color-bg-sunken); color: var(--color-text-muted); }
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--color-accent-text, var(--color-accent));
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: inherit;
+  padding: 0;
+
+  &:hover { text-decoration: underline; }
+}
+
+.failure-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.failure-card {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 14px);
+  padding: 1.1rem 1.25rem;
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+
+    h3 { margin: 0 0 0.2rem; font-size: 1rem; color: var(--color-text-primary); display: inline; }
+  }
+
+  .type-chip {
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: var(--color-bg-sunken);
+    color: var(--color-text-secondary);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .repair-time { font-size: 0.82rem; color: var(--color-text-muted); white-space: nowrap; }
+  .description { margin: 0 0 0.3rem; font-size: 0.9rem; color: var(--color-text-primary); }
+  .date { margin: 0 0 0.6rem; font-size: 0.78rem; color: var(--color-text-muted); }
+
+  .root-cause {
+    p { margin: 0 0 0.3rem; font-size: 0.88rem; color: var(--color-text-secondary); }
+    .no-root-cause { font-style: italic; color: var(--color-text-muted); }
+  }
+}
+
+.root-cause-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  textarea {
+    min-height: 70px;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-bg-sunken);
+    color: var(--color-text-primary);
+    font-family: inherit;
+    resize: vertical;
+  }
+
+  .editor-actions {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: flex-end;
+  }
+}
+
+.btn-primary, .btn-secondary {
+  padding: 0.45rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+.btn-secondary {
+  background: var(--color-bg-sunken);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
