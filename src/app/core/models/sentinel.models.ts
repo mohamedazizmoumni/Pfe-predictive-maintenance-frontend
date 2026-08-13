@@ -253,6 +253,8 @@ export interface AlertStatsResponse {
   warningCount: number;
   infoCount: number;
   unviewedCount: number;
+  /** Real average (createdDate -> closedDate) across closed alerts, in hours. Null when no alert has been closed yet. */
+  averageResolutionTimeHours?: number | null;
 }
 
 export interface CreateAlertPayload {
@@ -674,6 +676,8 @@ export enum RapportStatus {
 }
 
 export interface RapportPartRequest {
+  /** Set when this line came from an active reservation for the job — see PartReservationResponse. */
+  partId?: number;
   partName: string;
   partCode?: string;
   quantity: number;
@@ -1417,6 +1421,8 @@ export interface ExecutiveSummary {
   openSupportTickets: number;
   budgetUtilizationPercentage: number | null;
   topReliabilityRisks: MachineReliabilitySummary[];
+  preventiveCompletedLast30Days: number;
+  correctiveCompletedLast30Days: number;
 }
 
 // ==================== WORK ORDER TEMPLATES & RECURRING MAINTENANCE ====================
@@ -1513,6 +1519,7 @@ export interface PartReservationResponse {
   partId: number;
   partName?: string;
   quantityReserved: number;
+  quantityConsumed?: number;
   maintenanceId?: number;
   status: PartReservationStatus;
   reservedBy: string;

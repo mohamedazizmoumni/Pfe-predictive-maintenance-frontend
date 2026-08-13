@@ -315,6 +315,7 @@ export class MaintenanceComponent implements OnInit {
       parts: (data.partsUsed || [])
         .filter((p: any) => p.name)
         .map((p: any) => ({
+          partId: p.partId ?? undefined,
           partName: p.name,
           quantity: Number(p.quantity) || 1,
           unitCost: Number(p.unitCost) || 0,

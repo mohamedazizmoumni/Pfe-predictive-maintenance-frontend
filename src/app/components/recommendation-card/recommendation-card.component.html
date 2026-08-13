@@ -1,52 +1,69 @@
-<mat-card class="rec-card urgency-{{recommendation.urgencyLevel.toLowerCase()}}">
+<mat-card class="rec-card urgency-{{urgencyLevel.toLowerCase()}}">
   <mat-card-header>
-    <mat-card-title>{{ recommendation.machineName }}</mat-card-title>
+    <mat-card-title>{{ recommendation.machineName || ('Machine #' + recommendation.machineId) }}</mat-card-title>
     <mat-card-subtitle>
-      <app-urgency-badge [urgency]="recommendation.urgencyLevel"></app-urgency-badge>
+      <app-urgency-badge [urgency]="urgencyLevel"></app-urgency-badge>
       &nbsp;
       <span class="action-badge action-{{recommendation.recommendedAction.toLowerCase()}}">
         {{ recommendation.recommendedAction }}
+      </span>
+      &nbsp;
+      <span class="status-badge status-{{recommendation.status.toLowerCase()}}">
+        {{ recommendation.status }}
       </span>
     </mat-card-subtitle>
   </mat-card-header>
 
   <mat-card-content>
 
-    <div class="days-row" [class.urgent]="recommendation.daysUntilFailure <= 3">
+    <div class="days-row" *ngIf="recommendation.daysUntilFailure != null" [class.urgent]="recommendation.daysUntilFailure! <= 3">
       <mat-icon>schedule</mat-icon>
       <span>{{ recommendation.daysUntilFailure }} days until predicted failure</span>
-      <span class="probability">({{ recommendation.failureProbability * 100 | number:'1.0-0' }}% probability)</span>
+      <span class="probability" *ngIf="recommendation.failureProbability != null">
+        ({{ recommendation.failureProbability! * 100 | number:'1.0-0' }}% probability)
+      </span>
     </div>
 
     <p class="justification">{{ recommendation.justification }}</p>
 
-    <div class="cost-row">
-      <div class="cost-box">
-        <span class="cost-label">Estimated Cost</span>
-        <span class="cost-value">{{ recommendation.estimatedCost | currency:'TND':'symbol':'1.0-0' }}</span>
-      </div>
-      <div class="cost-box success-box">
-        <span class="cost-label">Potential Savings</span>
-        <span class="cost-value success">{{ recommendation.estimatedSavings | currency:'TND':'symbol':'1.0-0' }}</span>
-      </div>
+    <div class="decision-row" *ngIf="recommendation.status !== 'PENDING'">
+      <mat-icon>{{ recommendation.status === 'APPROVED' ? 'check_circle' : 'cancel' }}</mat-icon>
+      <span>
+        {{ recommendation.status === 'APPROVED' ? 'Approved' : 'Rejected' }}
+        by {{ recommendation.decidedBy }}
+        <ng-container *ngIf="recommendation.decidedAt">on {{ recommendation.decidedAt | date:'short' }}</ng-container>
+      </span>
     </div>
+    <p class="decision-note" *ngIf="recommendation.decisionNote">"{{ recommendation.decisionNote }}"</p>
 
-    <div class="parts-section">
-      <div *ngIf="recommendation.partsAvailable" class="parts-ok">
-        <mat-icon>check_circle</mat-icon> All required parts in stock
-      </div>
-      <div *ngIf="!recommendation.partsAvailable" class="parts-missing">
-        <mat-icon>warning</mat-icon> Missing parts:
-        <ul>
-          <li *ngFor="let p of recommendation.missingParts">{{ p }}</li>
-        </ul>
-      </div>
+    <div class="resulting-task" *ngIf="recommendation.resultingMaintenanceId">
+      <button mat-stroked-button type="button" (click)="viewMaintenanceTask.emit(recommendation.resultingMaintenanceId)">
+        <mat-icon>build</mat-icon> View Maintenance Task #{{ recommendation.resultingMaintenanceId }}
+      </button>
     </div>
   </mat-card-content>
 
-  <mat-card-actions>
-    <button mat-flat-button color="primary" type="button" (click)="schedule.emit(recommendation)">
-      <mat-icon>build</mat-icon> Schedule Maintenance
-    </button>
+  <mat-card-actions *ngIf="recommendation.status === 'PENDING'">
+    <ng-container *ngIf="!showRejectForm">
+      <button mat-flat-button color="primary" type="button" (click)="approve()">
+        <mat-icon>check</mat-icon> Approve
+      </button>
+      <button mat-stroked-button color="warn" type="button" (click)="startReject()">
+        <mat-icon>close</mat-icon> Reject
+      </button>
+    </ng-container>
+
+    <div class="reject-form" *ngIf="showRejectForm">
+      <mat-form-field appearance="outline" class="reject-note-field">
+        <mat-label>Reason for rejecting (required)</mat-label>
+        <textarea matInput rows="2" [(ngModel)]="rejectNote" name="rejectNote"></textarea>
+      </mat-form-field>
+      <div class="reject-actions">
+        <button mat-flat-button color="warn" type="button" [disabled]="!rejectNote.trim()" (click)="confirmReject()">
+          Confirm Reject
+        </button>
+        <button mat-button type="button" (click)="cancelReject()">Cancel</button>
+      </div>
+    </div>
   </mat-card-actions>
 </mat-card>

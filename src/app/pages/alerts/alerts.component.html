@@ -25,7 +25,15 @@
       <article>
         <p>Closed</p>
         <h3>{{ stats.closedAlerts }}</h3>
-        <small>Resolved this week</small>
+        <small>Total resolved</small>
+      </article>
+      <article>
+        <p>Avg. Resolution Time</p>
+        <h3 *ngIf="stats.averageResolutionTimeHours != null; else noResolutionData">
+          {{ stats.averageResolutionTimeHours | number:'1.0-1' }}h
+        </h3>
+        <ng-template #noResolutionData><h3>&mdash;</h3></ng-template>
+        <small>{{ stats.averageResolutionTimeHours != null ? 'Created to closed' : 'No closed alerts yet' }}</small>
       </article>
     </div>
   </section>

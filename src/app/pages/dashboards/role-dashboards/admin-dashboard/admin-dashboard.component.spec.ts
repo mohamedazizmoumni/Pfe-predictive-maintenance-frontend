@@ -4,7 +4,6 @@ import { AdminDashboardComponent } from './admin-dashboard.component';
 import { MachineService } from '../../../../core/services/machine.service';
 import { MaintenanceService } from '../../../../core/services/maintenance.service';
 import { AlertApiService } from '../../../../core/services/alert.service';
-import { RecommendationService } from '../../../../core/services/recommendation.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { Machine } from '../../../../core/models/machine.model';
 import { Maintenance, AlertResponse } from '../../../../core/models/sentinel.models';
@@ -15,7 +14,6 @@ describe('AdminDashboardComponent', () => {
   let machineService: jasmine.SpyObj<MachineService>;
   let maintenanceService: jasmine.SpyObj<MaintenanceService>;
   let alertService: jasmine.SpyObj<AlertApiService>;
-  let recommendationService: jasmine.SpyObj<RecommendationService>;
   let notificationService: jasmine.SpyObj<NotificationService>;
 
   const machines: Machine[] = [
@@ -38,7 +36,6 @@ describe('AdminDashboardComponent', () => {
     machineService = jasmine.createSpyObj('MachineService', ['getAll']);
     maintenanceService = jasmine.createSpyObj('MaintenanceService', ['getAllMaintenanceTasks']);
     alertService = jasmine.createSpyObj('AlertApiService', ['list']);
-    recommendationService = jasmine.createSpyObj('RecommendationService', ['getLatestRecommendation']);
     notificationService = jasmine.createSpyObj('NotificationService', ['error', 'success', 'warn']);
 
     TestBed.configureTestingModule({
@@ -47,7 +44,6 @@ describe('AdminDashboardComponent', () => {
         { provide: MachineService, useValue: machineService },
         { provide: MaintenanceService, useValue: maintenanceService },
         { provide: AlertApiService, useValue: alertService },
-        { provide: RecommendationService, useValue: recommendationService },
         { provide: NotificationService, useValue: notificationService },
       ],
     });
@@ -71,7 +67,6 @@ describe('AdminDashboardComponent', () => {
     machineService.getAll.and.returnValue(of(machines));
     maintenanceService.getAllMaintenanceTasks.and.returnValue(of({ content: maintenance } as any));
     alertService.list.and.returnValue(of({ content: alerts } as any));
-    recommendationService.getLatestRecommendation.and.returnValue(of(null as any));
 
     fixture = TestBed.createComponent(AdminDashboardComponent);
     component = fixture.componentInstance;
@@ -108,7 +103,6 @@ describe('AdminDashboardComponent', () => {
     machineService.getAll.and.returnValue(of(machines));
     maintenanceService.getAllMaintenanceTasks.and.returnValue(throwError(() => new Error('db down')));
     alertService.list.and.returnValue(of({ content: alerts } as any));
-    recommendationService.getLatestRecommendation.and.returnValue(of(null as any));
 
     fixture = TestBed.createComponent(AdminDashboardComponent);
     component = fixture.componentInstance;
@@ -121,27 +115,11 @@ describe('AdminDashboardComponent', () => {
     expect(component.alerts()).toEqual(alerts);
   });
 
-  it('drops null recommendation lookups (e.g. machines with no recommendation yet)', () => {
-    configure();
-    machineService.getAll.and.returnValue(of(machines));
-    maintenanceService.getAllMaintenanceTasks.and.returnValue(of({ content: [] } as any));
-    alertService.list.and.returnValue(of({ content: [] } as any));
-    recommendationService.getLatestRecommendation.and.returnValue(throwError(() => new Error('no recommendation')));
-
-    fixture = TestBed.createComponent(AdminDashboardComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-
-    expect(component.loading()).toBeFalse();
-    expect(component.recommendations()).toEqual([]);
-  });
-
   it('refresh() re-triggers loadDashboardData()', () => {
     configure();
     machineService.getAll.and.returnValue(of(machines));
     maintenanceService.getAllMaintenanceTasks.and.returnValue(of({ content: maintenance } as any));
     alertService.list.and.returnValue(of({ content: alerts } as any));
-    recommendationService.getLatestRecommendation.and.returnValue(of(null as any));
 
     fixture = TestBed.createComponent(AdminDashboardComponent);
     component = fixture.componentInstance;

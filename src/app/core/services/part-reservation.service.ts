@@ -18,8 +18,9 @@ export class PartReservationService {
     return this.http.put<PartReservationResponse>(`${this.baseUrl}/${id}/release`, {});
   }
 
-  consume(id: number): Observable<PartReservationResponse> {
-    return this.http.put<PartReservationResponse>(`${this.baseUrl}/${id}/consume`, {});
+  consume(id: number, quantityUsed?: number): Observable<PartReservationResponse> {
+    const params = quantityUsed != null ? new HttpParams().set('quantityUsed', quantityUsed) : undefined;
+    return this.http.put<PartReservationResponse>(`${this.baseUrl}/${id}/consume`, {}, { params });
   }
 
   byPart(partId: number): Observable<PartReservationResponse[]> {

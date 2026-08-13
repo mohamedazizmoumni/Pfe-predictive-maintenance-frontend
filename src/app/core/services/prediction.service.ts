@@ -13,6 +13,20 @@ export interface PredictionsResponse {
   number?: number;
 }
 
+// Matches the real backend PredictionRecordDetailDTO
+// (com.pfe.predictive.ml.dto.PredictionRecordDetailDTO) - note this has no
+// failureProbability field, only rulValue (hours) and a bucketed riskLevel.
+export interface LatestPredictionRecord {
+  id: number;
+  machineId: number;
+  predictedAt: string;
+  rulValue: number;
+  confidenceLow?: number;
+  confidenceHigh?: number;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  modelVersion: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -118,10 +132,23 @@ export class PredictionService {
   }
 
   /**
+   * Get the most recent persisted prediction record for a machine, or null
+   * if none exists yet (e.g. telemetry replay hasn't produced one for this
+   * machine). Backs onto the real GET /machines/{id}/predictions/latest
+   * endpoint (PredictionRecordsController) — contrary to the removed note
+   * that used to sit on triggerPrediction() below, this endpoint does exist.
+   */
+  getLatestPrediction(machineId: number): Observable<LatestPredictionRecord | null> {
+    return this.http
+      .get<LatestPredictionRecord | null>(apiEndpoint(`/machines/${machineId}/predictions/latest`))
+      .pipe(catchError(() => of(null)));
+  }
+
+  /**
    * Trigger a new prediction for a machine.
-   * NOTE: /machines/{id}/predictions/latest does not exist in the backend contract.
-   * This now returns an empty observable so callers degrade gracefully.
-   * Replace with a real POST endpoint when the backend adds one.
+   * NOTE: there is no POST endpoint to force a fresh prediction on demand -
+   * predictions are produced by the telemetry replay pipeline, not
+   * synchronously per-request. This stays a no-op until that exists.
    */
   triggerPrediction(machineId: string): Observable<Prediction> {
     this.errorSubject.next(

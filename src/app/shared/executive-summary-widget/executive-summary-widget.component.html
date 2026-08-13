@@ -28,6 +28,10 @@
       <span class="value">{{ s.openSupportTickets }}</span>
       <span class="label">Open Support Tickets</span>
     </div>
+    <div class="exec-kpi" [ngClass]="preventiveRatioClass(s.preventiveCompletedLast30Days, s.correctiveCompletedLast30Days)">
+      <span class="value">{{ s.preventiveCompletedLast30Days }} / {{ s.correctiveCompletedLast30Days }}</span>
+      <span class="label">Preventive / Corrective (30d)</span>
+    </div>
   </div>
 
   <div class="risk-list" *ngIf="!isLoading && !error && summary?.topReliabilityRisks?.length">

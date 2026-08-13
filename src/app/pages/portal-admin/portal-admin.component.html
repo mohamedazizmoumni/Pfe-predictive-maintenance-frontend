@@ -1,0 +1,204 @@
+<div class="section-header">
+  <div>
+    <h2>Portal Admin</h2>
+    <p>Link customers to machines, and manage warranties and invoices for the Customer Portal.</p>
+  </div>
+</div>
+
+<div class="tabs">
+  <button
+    type="button"
+    *ngIf="canManageLinksAndWarranties"
+    [class.active]="activeTab === 'links'"
+    (click)="setTab('links')">
+    Customer Links
+  </button>
+  <button
+    type="button"
+    *ngIf="canManageLinksAndWarranties"
+    [class.active]="activeTab === 'warranties'"
+    (click)="setTab('warranties')">
+    Warranties
+  </button>
+  <button
+    type="button"
+    *ngIf="canManageInvoices"
+    [class.active]="activeTab === 'invoices'"
+    (click)="setTab('invoices')">
+    Invoices
+  </button>
+</div>
+
+<div class="loading" *ngIf="isLoadingPickers">Loading…</div>
+
+<ng-container *ngIf="!isLoadingPickers">
+
+  <!-- ============ LINKS ============ -->
+  <section class="tab-panel" *ngIf="activeTab === 'links' && canManageLinksAndWarranties">
+    <div class="picker-row">
+      <label>Customer</label>
+      <select [(ngModel)]="selectedCustomerId" (ngModelChange)="loadLinks()">
+        <option [ngValue]="null">— Select customer —</option>
+        <option *ngFor="let c of customers" [ngValue]="+c.id">{{ customerLabel(+c.id) }}</option>
+      </select>
+    </div>
+
+    <ng-container *ngIf="selectedCustomerId != null">
+      <div class="loading" *ngIf="isLoadingLinks">Loading links…</div>
+
+      <ul class="link-list" *ngIf="!isLoadingLinks">
+        <li *ngFor="let link of customerLinks; trackBy: trackById">
+          <span>{{ machineLabel(link.machineId) }}</span>
+          <button type="button" class="btn-remove" (click)="removeLink(link.id)">Remove</button>
+        </li>
+        <li class="empty" *ngIf="customerLinks.length === 0">No machines linked to this customer yet.</li>
+      </ul>
+
+      <div class="add-row">
+        <select [(ngModel)]="newLinkMachineId" [disabled]="availableMachinesForLink.length === 0">
+          <option [ngValue]="null">— Select machine to link —</option>
+          <option *ngFor="let m of availableMachinesForLink" [ngValue]="m.id">{{ m.name }} ({{ m.serialNumber }})</option>
+        </select>
+        <button type="button" class="btn-primary" [disabled]="newLinkMachineId == null || isSavingLink" (click)="addLink()">
+          Link Machine
+        </button>
+      </div>
+    </ng-container>
+  </section>
+
+  <!-- ============ WARRANTIES ============ -->
+  <section class="tab-panel" *ngIf="activeTab === 'warranties' && canManageLinksAndWarranties">
+    <div class="picker-row">
+      <label>Machine</label>
+      <select [(ngModel)]="selectedWarrantyMachineId" (ngModelChange)="loadWarranties()">
+        <option [ngValue]="null">— Select machine —</option>
+        <option *ngFor="let m of machines" [ngValue]="m.id">{{ m.name }} ({{ m.serialNumber }})</option>
+      </select>
+    </div>
+
+    <ng-container *ngIf="selectedWarrantyMachineId != null">
+      <div class="loading" *ngIf="isLoadingWarranties">Loading warranties…</div>
+
+      <ul class="warranty-list" *ngIf="!isLoadingWarranties">
+        <li *ngFor="let w of warranties; trackBy: trackById" [class.expired]="!w.active">
+          <div>
+            <strong>{{ w.provider }}</strong>
+            <span class="status-badge" [class.active-badge]="w.active">{{ w.active ? 'Active' : 'Expired' }}</span>
+            <p>{{ w.startDate | date:'mediumDate' }} – {{ w.endDate | date:'mediumDate' }}</p>
+            <p class="terms" *ngIf="w.terms">{{ w.terms }}</p>
+          </div>
+          <button type="button" class="btn-remove" (click)="removeWarranty(w.id)">Remove</button>
+        </li>
+        <li class="empty" *ngIf="warranties.length === 0">No warranties on file for this machine.</li>
+      </ul>
+
+      <div class="add-form">
+        <div class="form-row">
+          <label>Provider</label>
+          <input type="text" [(ngModel)]="newWarrantyProvider" placeholder="e.g. Siemens Care" />
+        </div>
+        <div class="form-row inline">
+          <div>
+            <label>Start Date</label>
+            <input type="date" [(ngModel)]="newWarrantyStart" />
+          </div>
+          <div>
+            <label>End Date</label>
+            <input type="date" [(ngModel)]="newWarrantyEnd" />
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Terms (optional)</label>
+          <textarea [(ngModel)]="newWarrantyTerms" rows="2"></textarea>
+        </div>
+        <button type="button" class="btn-primary" [disabled]="!canAddWarranty || isSavingWarranty" (click)="addWarranty()">
+          Add Warranty
+        </button>
+      </div>
+    </ng-container>
+  </section>
+
+  <!-- ============ INVOICES ============ -->
+  <section class="tab-panel" *ngIf="activeTab === 'invoices' && canManageInvoices">
+    <div class="add-form">
+      <h3>New Invoice</h3>
+      <div class="form-row inline">
+        <div>
+          <label>Customer</label>
+          <select [(ngModel)]="newInvoiceCustomerId">
+            <option [ngValue]="null">— Select customer —</option>
+            <option *ngFor="let c of customers" [ngValue]="+c.id">{{ customerLabel(+c.id) }}</option>
+          </select>
+        </div>
+        <div>
+          <label>Machine (optional)</label>
+          <select [(ngModel)]="newInvoiceMachineId">
+            <option [ngValue]="null">— No machine —</option>
+            <option *ngFor="let m of machines" [ngValue]="m.id">{{ m.name }} ({{ m.serialNumber }})</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row inline">
+        <div>
+          <label>Invoice Number</label>
+          <input type="text" [(ngModel)]="newInvoiceNumber" placeholder="INV-2026-001" />
+        </div>
+        <div>
+          <label>Amount</label>
+          <input type="number" min="0.01" step="0.01" [(ngModel)]="newInvoiceAmount" />
+        </div>
+      </div>
+      <div class="form-row inline">
+        <div>
+          <label>Issue Date</label>
+          <input type="date" [(ngModel)]="newInvoiceIssueDate" />
+        </div>
+        <div>
+          <label>Due Date</label>
+          <input type="date" [(ngModel)]="newInvoiceDueDate" />
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Description (optional)</label>
+        <textarea [(ngModel)]="newInvoiceDescription" rows="2"></textarea>
+      </div>
+      <button type="button" class="btn-primary" [disabled]="!canAddInvoice || isSavingInvoice" (click)="addInvoice()">
+        Create Invoice
+      </button>
+    </div>
+
+    <div class="loading" *ngIf="isLoadingInvoices">Loading invoices…</div>
+
+    <table class="invoice-table" *ngIf="!isLoadingInvoices">
+      <thead>
+        <tr>
+          <th>Invoice #</th>
+          <th>Customer</th>
+          <th>Machine</th>
+          <th>Amount</th>
+          <th>Issue Date</th>
+          <th>Due Date</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let inv of invoices; trackBy: trackById">
+          <td>{{ inv.invoiceNumber }}</td>
+          <td>{{ customerLabel(inv.customerUserId) }}</td>
+          <td>{{ machineLabel(inv.machineId) }}</td>
+          <td>{{ inv.amount | currency:'TND':'symbol' }}</td>
+          <td>{{ inv.issueDate | date:'mediumDate' }}</td>
+          <td>{{ inv.dueDate | date:'mediumDate' }}</td>
+          <td>
+            <select [ngModel]="inv.status" (ngModelChange)="updateInvoiceStatus(inv, $event)">
+              <option *ngFor="let s of invoiceStatuses" [ngValue]="s">{{ s }}</option>
+            </select>
+          </td>
+          <td><button type="button" class="btn-remove" (click)="removeInvoice(inv.id)">Delete</button></td>
+        </tr>
+        <tr *ngIf="invoices.length === 0"><td colspan="8" class="empty">No invoices yet.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</ng-container>

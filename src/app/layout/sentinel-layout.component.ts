@@ -286,6 +286,20 @@ export class SentinelLayoutComponent implements OnInit, OnDestroy {
       requiredRoles: ['FINANCE_MANAGER', 'MANAGER', 'ADMIN', 'SUPER_ADMIN']
     },
     {
+      label: 'Recommendation History',
+      path: '/recommendations',
+      icon: 'History',
+      caption: 'AI recommendation approvals & history',
+      requiredRoles: ['FINANCE_MANAGER', 'MANAGER', 'ADMIN', 'SUPER_ADMIN']
+    },
+    {
+      label: 'Portal Admin',
+      path: '/portal-admin',
+      icon: 'Link2',
+      caption: 'Customer links, warranties & invoices',
+      requiredRoles: ['ADMIN', 'SUPER_ADMIN', 'FINANCE_MANAGER']
+    },
+    {
       label: 'Team Capacity',
       path: '/team-capacity',
       icon: 'CalendarDays',
@@ -351,10 +365,10 @@ export class SentinelLayoutComponent implements OnInit, OnDestroy {
   ];
 
   private readonly sidebarMenuByRole: Record<SidebarRoleKey, string[]> = {
-    SUPER_ADMIN: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Technician Calendar', 'Alerts', 'Inventory', 'Parts', 'Reorder Requests', 'Stock Orders', 'Analytics', 'Suppliers', 'Demand Forecast', 'Stock Notifications', 'User Management', 'Inquiries', 'Expenses', 'Finance Dashboard', 'Budget Management', 'Rapport Approvals', 'Maintenance Cost Analytics', 'Team Capacity', 'Reliability', 'Work Order Templates', 'Audit Console', 'Part Reservations', 'Export Center'],
-    ADMIN: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Technician Calendar', 'Alerts', 'Inventory', 'Parts', 'Reorder Requests', 'Stock Orders', 'Analytics', 'Suppliers', 'Demand Forecast', 'Stock Notifications', 'User Management', 'Inquiries', 'Expenses', 'Finance Dashboard', 'Budget Management', 'Rapport Approvals', 'Maintenance Cost Analytics', 'Team Capacity', 'Reliability', 'Work Order Templates', 'Audit Console', 'Part Reservations', 'Export Center'],
-    FINANCE_MANAGER: ['Dashboard', 'Profile', 'Expenses', 'Finance Dashboard', 'Budget Management', 'Reorder Requests', 'Rapport Approvals', 'Maintenance Cost Analytics', 'Export Center'],
-    MANAGER: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Alerts', 'Analytics', 'User Management', 'Rapport Approvals', 'Team Capacity', 'Reliability', 'Work Order Templates', 'Suppliers', 'Demand Forecast', 'Part Reservations', 'Export Center'],
+    SUPER_ADMIN: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Technician Calendar', 'Alerts', 'Inventory', 'Parts', 'Reorder Requests', 'Stock Orders', 'Analytics', 'Suppliers', 'Demand Forecast', 'Stock Notifications', 'User Management', 'Inquiries', 'Expenses', 'Finance Dashboard', 'Budget Management', 'Rapport Approvals', 'Maintenance Cost Analytics', 'Recommendation History', 'Portal Admin', 'Team Capacity', 'Reliability', 'Work Order Templates', 'Audit Console', 'Part Reservations', 'Export Center'],
+    ADMIN: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Technician Calendar', 'Alerts', 'Inventory', 'Parts', 'Reorder Requests', 'Stock Orders', 'Analytics', 'Suppliers', 'Demand Forecast', 'Stock Notifications', 'User Management', 'Inquiries', 'Expenses', 'Finance Dashboard', 'Budget Management', 'Rapport Approvals', 'Maintenance Cost Analytics', 'Recommendation History', 'Portal Admin', 'Team Capacity', 'Reliability', 'Work Order Templates', 'Audit Console', 'Part Reservations', 'Export Center'],
+    FINANCE_MANAGER: ['Dashboard', 'Profile', 'Expenses', 'Finance Dashboard', 'Budget Management', 'Reorder Requests', 'Rapport Approvals', 'Maintenance Cost Analytics', 'Recommendation History', 'Portal Admin', 'Export Center'],
+    MANAGER: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Alerts', 'Analytics', 'User Management', 'Rapport Approvals', 'Recommendation History', 'Team Capacity', 'Reliability', 'Work Order Templates', 'Suppliers', 'Demand Forecast', 'Part Reservations', 'Export Center'],
     TECHNICIAN: ['Dashboard', 'Profile', 'Equipment', 'Maintenance', 'Technician Calendar', 'Alerts', 'AI Intelligence', 'Part Reservations', 'Export Center'],
     STOCK_MANAGER: ['Dashboard', 'Profile', 'Inventory', 'Parts', 'Reorder Requests', 'Stock Orders', 'Analytics', 'Suppliers', 'Demand Forecast', 'Stock Notifications', 'Expenses', 'Part Reservations', 'Export Center'],
     DATA_SCIENTIST: ['Dashboard', 'Profile', 'Alerts', 'AI Intelligence', 'Expenses'],

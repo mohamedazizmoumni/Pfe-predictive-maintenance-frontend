@@ -8,13 +8,18 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { Subject } from 'rxjs';
+import { BehaviorSubject, Subject, combineLatest } from 'rxjs';
 import { map, takeUntil } from 'rxjs/operators';
 import { trigger, transition, style, animate } from '@angular/animations';
 import { NotificationsRestService } from '../../core/services/notifications-rest.service';
+import { PreferenceService } from '../../core/services/preference.service';
 import { Notification, RISK_CONFIG } from '../../core/models/notification.model';
+import { NotificationPreferences } from '../../core/models/sentinel.models';
 import { AuthService } from '../../core/services/auth.service';
 import { userHasRequiredRole } from '../../core/utils/role.utils';
+
+const NOTIFICATION_PREF_KEY = 'notifications';
+const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = { inAppEnabled: true, mutedRiskLevels: [] };
 
 @Component({
   selector: 'app-notification-bell',
@@ -41,10 +46,43 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
   @ViewChild('dropdownPanel', { read: ElementRef }) dropdownPanel: ElementRef | null = null;
 
   isOpen = false;
-  notifications$ = this.notificationsService.notifications$;
-  unreadCount$ = this.notificationsService.unreadCount$;
-  recentNotifications$ = this.notificationsService.notifications$.pipe(
-    map((notifications) => (notifications || []).slice(0, 10))
+
+  private prefs$ = new BehaviorSubject<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFS);
+
+  /**
+   * Priority 10.1: filters by the user's own "Notification Preferences"
+   * (Profile page) - muted risk levels are hidden, and inAppEnabled=false
+   * empties the bell entirely. Scoped to the bell only (not the shared
+   * NotificationsRestService, which stock-notifications/inventory-analytics/
+   * notifications-page also consume unfiltered - the preference's own copy
+   * says "risk levels show up in your notification bell", not those pages).
+   */
+  private filteredNotifications$ = combineLatest([
+    this.notificationsService.notifications$,
+    this.prefs$,
+  ]).pipe(map(([notifications, prefs]) => this.applyPreferences(notifications || [], prefs)));
+
+  notifications$ = this.filteredNotifications$;
+  recentNotifications$ = this.filteredNotifications$.pipe(
+    map((notifications) => notifications.slice(0, 10))
+  );
+  /**
+   * The backend's /unread-count is not preference-aware. When no risk level
+   * is muted, trust it exactly (unchanged behavior). Once muting is active,
+   * approximate from the already-loaded (most-recent-50) filtered list
+   * instead - an honest best-effort rather than a false-precision backend
+   * count that ignores the user's mute settings.
+   */
+  unreadCount$ = combineLatest([
+    this.notificationsService.unreadCount$,
+    this.filteredNotifications$,
+    this.prefs$,
+  ]).pipe(
+    map(([backendCount, filteredNotifications, prefs]) => {
+      if (!prefs.inAppEnabled) return 0;
+      if (prefs.mutedRiskLevels.length === 0) return backendCount;
+      return filteredNotifications.filter((n) => !n.isRead).length;
+    })
   );
   canMarkAllAsRead$ = this.authService.currentUser$.pipe(
     map((user) => userHasRequiredRole(user, ['MANAGER', 'ADMIN', 'SUPER_ADMIN']))
@@ -54,6 +92,7 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
 
   constructor(
     private notificationsService: NotificationsRestService,
+    private preferenceService: PreferenceService,
     private authService: AuthService,
     private router: Router,
     private elementRef: ElementRef
@@ -61,6 +100,25 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.notificationsService.loadNotifications().pipe(takeUntil(this.destroy$)).subscribe();
+    this.preferenceService.get(NOTIFICATION_PREF_KEY).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (raw) => {
+        if (!raw) return;
+        try {
+          this.prefs$.next({ ...DEFAULT_NOTIFICATION_PREFS, ...JSON.parse(raw) });
+        } catch {
+          // Malformed stored value - keep defaults (show everything).
+        }
+      },
+      error: () => {
+        // No preference saved yet, or the endpoint failed - keep defaults.
+      },
+    });
+  }
+
+  private applyPreferences(notifications: Notification[], prefs: NotificationPreferences): Notification[] {
+    if (!prefs.inAppEnabled) return [];
+    if (prefs.mutedRiskLevels.length === 0) return notifications;
+    return notifications.filter((n) => !prefs.mutedRiskLevels.includes(n.riskLevel));
   }
 
   ngOnDestroy(): void {

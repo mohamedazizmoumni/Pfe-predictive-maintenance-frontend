@@ -1,0 +1,40 @@
+<div class="section-header">
+  <div>
+    <h2>Recommendation History</h2>
+    <p>AI-generated maintenance recommendations across the fleet — review, approve, or reject.</p>
+  </div>
+</div>
+
+<div class="tabs">
+  <button
+    type="button"
+    *ngFor="let f of filters"
+    [class.active]="activeFilter === f"
+    (click)="setFilter(f)">
+    {{ filterLabel(f) }}
+  </button>
+</div>
+
+<div class="loading" *ngIf="isLoading">
+  <mat-spinner diameter="32"></mat-spinner>
+</div>
+
+<ng-container *ngIf="!isLoading">
+  <div class="recommendations" *ngIf="recommendations.length > 0">
+    <app-recommendation-card
+      *ngFor="let rec of recommendations; trackBy: trackById"
+      [recommendation]="rec"
+      (approveRecommendation)="onApprove($event)"
+      (rejectRecommendation)="onReject($event)"
+      (viewMaintenanceTask)="onViewMaintenanceTask($event)">
+    </app-recommendation-card>
+  </div>
+
+  <p class="empty" *ngIf="recommendations.length === 0">No recommendations found for this filter.</p>
+
+  <div class="pagination" *ngIf="totalPages > 1">
+    <button mat-stroked-button type="button" [disabled]="page === 0" (click)="goToPage(page - 1)">Previous</button>
+    <span class="page-info">Page {{ page + 1 }} of {{ totalPages }} &middot; {{ totalElements }} total</span>
+    <button mat-stroked-button type="button" [disabled]="page + 1 >= totalPages" (click)="goToPage(page + 1)">Next</button>
+  </div>
+</ng-container>
