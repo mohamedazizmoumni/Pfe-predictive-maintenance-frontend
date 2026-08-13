@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 import { RapportService } from '../../core/services/rapport.service';
+import { ReportService } from '../../core/services/report.service';
 import { AuthService } from '../../core/services/auth.service';
 import { rolesCollectionHasAny } from '../../core/utils/role.utils';
 import { MaintenanceRapportResponse } from '../../core/models/sentinel.models';
@@ -39,8 +40,13 @@ export class RapportApprovalsComponent implements OnInit, OnDestroy {
 
   constructor(
     private rapportService: RapportService,
+    private reportService: ReportService,
     private authService: AuthService,
   ) {}
+
+  downloadReport(rapport: MaintenanceRapportResponse): void {
+    this.reportService.downloadMaintenanceInterventionReport(rapport.id);
+  }
 
   ngOnInit(): void {
     const user = this.authService.getCurrentUser();

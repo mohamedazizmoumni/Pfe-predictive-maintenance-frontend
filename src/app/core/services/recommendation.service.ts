@@ -2,10 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import {
-  MaintenanceRecommendationDTO,
-  RecommendationRequestDTO,
-} from '../models/recommendation.model';
+import { RecommendationRequestDTO } from '../models/recommendation.model';
 import {
   Page,
   RecommendationDecisionRequest,
@@ -13,23 +10,20 @@ import {
   SavedRecommendationResponse,
 } from '../models/sentinel.models';
 
+/**
+ * The legacy preview endpoints (`/generate`, `/machine/{machineId}`) are
+ * deliberately not wrapped here anymore - they resolve machines against a
+ * separate, sparsely-seeded demo table and 404 for any real machine outside
+ * it (see MaintenanceRecommendationController's Javadoc on the backend).
+ * generateAndSave/history/approve/reject below are the one real workflow:
+ * generate a recommendation for any real machine, persist it, and drive it
+ * through approve/reject.
+ */
 @Injectable({ providedIn: 'root' })
 export class RecommendationService {
   private readonly baseUrl = `${environment.apiUrl}/maintenance-cost/recommendations`;
 
   constructor(private readonly http: HttpClient) {}
-
-  generate(request: RecommendationRequestDTO): Observable<MaintenanceRecommendationDTO> {
-    return this.http.post<MaintenanceRecommendationDTO>(`${this.baseUrl}/generate`, request);
-  }
-
-  getLatestRecommendation(machineId: number): Observable<MaintenanceRecommendationDTO> {
-    return this.http.get<MaintenanceRecommendationDTO>(`${this.baseUrl}/machine/${machineId}`);
-  }
-
-  getForMachine(machineId: number): Observable<MaintenanceRecommendationDTO> {
-    return this.getLatestRecommendation(machineId);
-  }
 
   generateAndSave(request: RecommendationRequestDTO): Observable<SavedRecommendationResponse> {
     return this.http.post<SavedRecommendationResponse>(`${this.baseUrl}/generate-and-save`, request);

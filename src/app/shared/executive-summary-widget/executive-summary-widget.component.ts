@@ -45,4 +45,11 @@ export class ExecutiveSummaryWidgetComponent implements OnInit {
     if (pct >= 75) return 'kpi-warn';
     return 'kpi-good';
   }
+
+  /** A fleet leaning corrective (reactive) over preventive is the warning signal; no completions yet is neutral, not bad. */
+  preventiveRatioClass(preventive: number, corrective: number): string {
+    const total = preventive + corrective;
+    if (total === 0) return 'kpi-neutral';
+    return corrective > preventive ? 'kpi-warn' : 'kpi-good';
+  }
 }

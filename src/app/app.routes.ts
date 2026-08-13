@@ -201,6 +201,15 @@ export const routes: Routes = [
         canActivate: [dataRoleGuard],
       },
       {
+        path: 'equipment/:id/passport',
+        loadComponent: () =>
+          import('./pages/equipment/machine-passport.component').then(
+            (m) => m.MachinePassportComponent
+          ),
+        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'VIEWER', 'FINANCE_MANAGER', 'STOCK_MANAGER'] },
+        canActivate: [dataRoleGuard],
+      },
+      {
         path: 'maintenance',
         component: MaintenanceComponent,
         data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN'] },
@@ -222,9 +231,27 @@ export const routes: Routes = [
         canActivate: [dataRoleGuard],
       },
       {
+        path: 'recommendations',
+        loadComponent: () =>
+          import('./pages/recommendation/recommendation-history.component').then(
+            (m) => m.RecommendationHistoryComponent
+          ),
+        data: { requiredRoles: ['FINANCE_MANAGER', 'MANAGER', 'ADMIN', 'SUPER_ADMIN'] },
+        canActivate: [dataRoleGuard],
+      },
+      {
         path: 'recommendations/:machineId',
         component: RecommendationPageComponent,
         data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'DATA_SCIENTIST', 'FINANCE_MANAGER'] },
+        canActivate: [dataRoleGuard],
+      },
+      {
+        path: 'portal-admin',
+        loadComponent: () =>
+          import('./pages/portal-admin/portal-admin.component').then(
+            (m) => m.PortalAdminComponent
+          ),
+        data: { requiredRoles: ['ADMIN', 'SUPER_ADMIN', 'FINANCE_MANAGER'] },
         canActivate: [dataRoleGuard],
       },
       {

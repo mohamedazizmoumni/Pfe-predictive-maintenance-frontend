@@ -565,6 +565,10 @@
     <app-collapsible-section title="QR Code" icon="scan">
       <app-machine-qr-code [machineId]="m.id" [serialNumber]="m.serialNumber"></app-machine-qr-code>
     </app-collapsible-section>
+
+    <a class="passport-link" [routerLink]="['/equipment', m.id, 'passport']">
+      🛂 Open Digital Machine Passport
+    </a>
   </div>
 
   </ng-container>

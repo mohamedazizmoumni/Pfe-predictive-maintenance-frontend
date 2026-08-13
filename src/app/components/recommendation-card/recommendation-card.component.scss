@@ -20,7 +20,8 @@
   border-left-color: var(--danger);
 }
 
-.action-badge {
+.action-badge,
+.status-badge {
   padding: 3px 10px;
   border-radius: 12px;
   font-size: 12px;
@@ -40,6 +41,21 @@
 .action-monitor {
   background: #e3f2fd;
   color: #1565c0;
+}
+
+.status-pending {
+  background: #fff8e1;
+  color: #f57f17;
+}
+
+.status-approved {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-rejected {
+  background: #ffebee;
+  color: #c62828;
 }
 
 .days-row {
@@ -62,56 +78,36 @@
   color: var(--text-secondary);
 }
 
-.cost-row {
-  display: flex;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.cost-box {
-  flex: 1;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-}
-
-.cost-label {
-  color: var(--text-secondary);
-  font-size: 12px;
-  text-transform: uppercase;
-}
-
-.cost-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.success {
-  color: var(--success);
-}
-
-.parts-section {
-  margin-top: 14px;
-}
-
-.parts-ok {
-  color: var(--success);
+.decision-row {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-top: 12px;
+  color: var(--text-secondary);
 }
 
-.parts-missing {
-  color: var(--danger);
+.decision-note {
+  margin-top: 4px;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.resulting-task {
+  margin-top: 12px;
+}
+
+.reject-form {
+  width: 100%;
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 8px;
 }
 
-.parts-missing ul {
-  margin: 0;
-  padding-left: 18px;
+.reject-note-field {
+  width: 100%;
+}
+
+.reject-actions {
+  display: flex;
+  gap: 8px;
 }

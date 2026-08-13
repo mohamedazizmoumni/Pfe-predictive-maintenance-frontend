@@ -1,21 +1,50 @@
 <section class="recommendation-page">
-  <div class="loading-container" *ngIf="isLoading">
+  <div class="loading-container" *ngIf="isLoadingMachines">
     <mat-spinner diameter="46"></mat-spinner>
   </div>
 
-  <ng-container *ngIf="!isLoading">
-    <mat-card class="machine-summary" *ngIf="machine as machineInfo">
-      <p class="label">Machine</p>
-      <h2>{{ machineInfo.name }}</h2>
-      <p class="meta">Location: {{ machineInfo.location }} | Status: {{ machineInfo.status }}</p>
+  <ng-container *ngIf="!isLoadingMachines">
+    <mat-card class="machine-picker">
+      <mat-form-field appearance="outline" class="machine-select">
+        <mat-label>Machine</mat-label>
+        <mat-select
+          [(ngModel)]="selectedMachineId"
+          (selectionChange)="onMachineSelected($event.value)"
+          name="machineId"
+        >
+          <mat-option *ngFor="let m of machines" [value]="m.id">
+            {{ m.name }} ({{ m.status }})
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-card class="machine-summary" *ngIf="machine as machineInfo">
+        <p class="label">Selected Machine</p>
+        <h2>{{ machineInfo.name }}</h2>
+        <p class="meta">
+          Location: {{ machineInfo.location || 'Not set' }} | Status: {{ machineInfo.status }}
+          <span *ngIf="machineInfo.riskScore != null"> | Risk score: {{ machineInfo.riskScore | number:'1.0-0' }}</span>
+        </p>
+      </mat-card>
+
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        [disabled]="!selectedMachineId || isGenerating"
+        (click)="generateRecommendation()"
+      >
+        <mat-icon>psychology</mat-icon>
+        {{ isGenerating ? 'Analyzing...' : 'Generate AI Recommendation' }}
+      </button>
     </mat-card>
 
     <app-recommendation-card
       *ngIf="recommendation as recommendationData"
       [recommendation]="recommendationData"
-      (schedule)="onScheduleMaintenance($event)"
+      (approveRecommendation)="onApprove($event)"
+      (rejectRecommendation)="onReject($event)"
+      (viewMaintenanceTask)="onViewMaintenanceTask($event)"
     ></app-recommendation-card>
-
-    <app-cost-comparison [preselectedMachineId]="selectedMachineId"></app-cost-comparison>
   </ng-container>
 </section>

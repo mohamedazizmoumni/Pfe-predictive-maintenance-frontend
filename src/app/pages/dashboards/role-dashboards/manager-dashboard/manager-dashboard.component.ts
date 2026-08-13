@@ -12,9 +12,8 @@ import { NotificationService } from '../../../../core/services/notification.serv
 import { RecommendationService } from '../../../../core/services/recommendation.service';
 import { ThemeService } from '../../../../core/services/theme.service';
 
-import { AlertResponse, AlertStatus, Maintenance } from '../../../../core/models/sentinel.models';
+import { AlertResponse, AlertStatus, Maintenance, SavedRecommendationResponse } from '../../../../core/models/sentinel.models';
 import { Machine } from '../../../../core/models/machine.model';
-import { MaintenanceRecommendationDTO } from '../../../../core/models/recommendation.model';
 
 import {
   BaseDashboardComponent,
@@ -40,7 +39,7 @@ export class ManagerDashboardComponent extends BaseDashboardComponent implements
   readonly machines    = signal<Machine[]>([]);
   readonly maintenance = signal<Maintenance[]>([]);
   readonly alerts      = signal<AlertResponse[]>([]);
-  readonly recommendations = signal<MaintenanceRecommendationDTO[]>([]);
+  readonly recommendations = signal<SavedRecommendationResponse[]>([]);
 
   get isDark(): boolean {
     return this.themeService.theme() === 'dark';
@@ -461,10 +460,6 @@ export class ManagerDashboardComponent extends BaseDashboardComponent implements
       switchMap(machines => {
         this.machines.set(machines);
 
-        const recommendationCalls = machines.slice(0, 8).map(machine =>
-          this.recommendationService.getLatestRecommendation(machine.id).pipe(catchError(() => of(null)))
-        );
-
         return forkJoin({
           maintenance: this.maintenanceService
             .getAllMaintenanceTasks(0, 100)
@@ -474,18 +469,20 @@ export class ManagerDashboardComponent extends BaseDashboardComponent implements
             .list({ size: 50, status: AlertStatus.NEW })
             .pipe(catchError(() => of({ content: [] as AlertResponse[] }))),
 
-          recommendations: recommendationCalls.length
-            ? forkJoin(recommendationCalls)
-            : of([] as Array<MaintenanceRecommendationDTO | null>),
+          // Pending AI recommendations awaiting approval across the fleet -
+          // reuses the real generate-and-save/approve/reject system instead
+          // of the old per-machine preview endpoint (which 404s for any
+          // machine outside 3 hardcoded demo rows).
+          recommendations: this.recommendationService
+            .history('PENDING', 0, 8)
+            .pipe(catchError(() => of({ content: [] as SavedRecommendationResponse[], totalElements: 0, totalPages: 0, number: 0, size: 8 }))),
         });
       })
     ).subscribe({
       next: ({ maintenance, alerts, recommendations }) => {
         this.maintenance.set(maintenance.content ?? []);
         this.alerts.set(alerts.content ?? []);
-        this.recommendations.set(
-          (recommendations ?? []).filter((item): item is MaintenanceRecommendationDTO => !!item)
-        );
+        this.recommendations.set(recommendations.content ?? []);
         this.endLoad();
       },
       error: () => {

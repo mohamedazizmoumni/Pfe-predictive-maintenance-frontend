@@ -3,9 +3,12 @@ import { CommonModule } from '@angular/common';
 import * as QRCode from 'qrcode';
 
 /**
- * Encodes a direct URL to this machine's detail page — scanning it with a
- * phone camera opens the page directly, no dedicated backend "scan"
- * endpoint needed.
+ * Encodes a direct URL to this machine's Digital Machine Passport (Priority
+ * 3/4) — scanning it with a phone camera opens the full passport, with
+ * contextual quick actions (start my assigned task, report a problem, view
+ * live telemetry) laid out for exactly this "walked up to a physical
+ * machine" moment. No dedicated backend "scan" endpoint needed — it's just
+ * a URL, same as before this changed from the plain visualization page.
  */
 @Component({
   selector: 'app-machine-qr-code',
@@ -14,7 +17,7 @@ import * as QRCode from 'qrcode';
   template: `
     <div class="qr">
       <img *ngIf="dataUrl" [src]="dataUrl" alt="QR code linking to this machine" />
-      <p class="hint">Scan to open this machine's page on a phone.</p>
+      <p class="hint">Scan to open this machine's digital passport on a phone.</p>
       <button type="button" class="download" *ngIf="dataUrl" (click)="download()">⬇ Download PNG</button>
     </div>
   `,
@@ -36,7 +39,7 @@ export class MachineQrCodeComponent implements OnChanges {
 
   ngOnChanges(): void {
     if (!this.machineId) return;
-    const url = `${window.location.origin}/equipment/${this.machineId}/visual`;
+    const url = `${window.location.origin}/equipment/${this.machineId}/passport`;
     QRCode.toDataURL(url, { width: 320, margin: 1 })
       .then((dataUrl) => { this.dataUrl = dataUrl; })
       .catch(() => { this.dataUrl = null; });

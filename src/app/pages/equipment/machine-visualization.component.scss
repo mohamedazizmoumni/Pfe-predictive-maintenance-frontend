@@ -1345,3 +1345,19 @@
   gap: 14px;
   margin-top: 18px;
 }
+.passport-link {
+  display: block;
+  text-align: center;
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--color-accent-dim, #e3f2fd);
+  color: var(--color-accent-text, #1565c0);
+  font-weight: 700;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+
+  &:hover {
+    opacity: 0.85;
+  }
+}

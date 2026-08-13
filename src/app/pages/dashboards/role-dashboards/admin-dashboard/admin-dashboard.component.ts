@@ -6,10 +6,8 @@ import { AlertApiService } from '../../../../core/services/alert.service';
 import { MaintenanceService } from '../../../../core/services/maintenance.service';
 import { MachineService } from '../../../../core/services/machine.service';
 import { NotificationService } from '../../../../core/services/notification.service';
-import { RecommendationService } from '../../../../core/services/recommendation.service';
 import { AlertResponse, Maintenance } from '../../../../core/models/sentinel.models';
 import { Machine } from '../../../../core/models/machine.model';
-import { MaintenanceRecommendationDTO } from '../../../../core/models/recommendation.model';
 import { BaseDashboardComponent, DashboardBarRow, DashboardKpiCard } from '../../base-dashboard/base-dashboard.component';
 import { DASHBOARD_SHELL_STYLES } from '../../base-dashboard/dashboard-shell.styles';
 import { ExecutiveSummaryWidgetComponent } from '../../../../shared/executive-summary-widget/executive-summary-widget.component';
@@ -136,7 +134,6 @@ export class AdminDashboardComponent extends BaseDashboardComponent implements O
   readonly machines = signal<Machine[]>([]);
   readonly maintenance = signal<Maintenance[]>([]);
   readonly alerts = signal<AlertResponse[]>([]);
-  readonly recommendations = signal<MaintenanceRecommendationDTO[]>([]);
 
   readonly kpiCards = computed<DashboardKpiCard[]>(() => {
     const total = this.machines().length;
@@ -205,7 +202,6 @@ export class AdminDashboardComponent extends BaseDashboardComponent implements O
     private readonly machineService: MachineService,
     private readonly maintenanceService: MaintenanceService,
     private readonly alertService: AlertApiService,
-    private readonly recommendationService: RecommendationService,
     private readonly notificationService: NotificationService
   ) {
     super();
@@ -228,9 +224,6 @@ export class AdminDashboardComponent extends BaseDashboardComponent implements O
         catchError(() => of([] as Machine[])),
         switchMap((machines) => {
           this.machines.set(machines);
-          const recommendationCalls = machines.slice(0, 8).map((machine) =>
-            this.recommendationService.getLatestRecommendation(machine.id).pipe(catchError(() => of(null)))
-          );
 
           return forkJoin({
             maintenance: this.maintenanceService.getAllMaintenanceTasks(0, 100).pipe(
@@ -239,15 +232,13 @@ export class AdminDashboardComponent extends BaseDashboardComponent implements O
             alerts: this.alertService.list({ size: 25 }).pipe(
               catchError(() => of({ content: [] as AlertResponse[] } as { content: AlertResponse[] }))
             ),
-            recommendations: recommendationCalls.length ? forkJoin(recommendationCalls) : of([] as Array<MaintenanceRecommendationDTO | null>),
           });
         })
       )
       .subscribe({
-        next: ({ maintenance, alerts, recommendations }) => {
+        next: ({ maintenance, alerts }) => {
           this.maintenance.set(maintenance.content ?? []);
           this.alerts.set(alerts.content ?? []);
-          this.recommendations.set((recommendations ?? []).filter((item): item is MaintenanceRecommendationDTO => !!item));
           this.endLoad();
         },
         error: () => {

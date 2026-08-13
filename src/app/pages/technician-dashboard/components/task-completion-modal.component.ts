@@ -1,8 +1,9 @@
 import { Component, EventEmitter, Input, Output, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Maintenance, Machine } from '../../../core/models/sentinel.models';
+import { Maintenance, Machine, PartReservationResponse } from '../../../core/models/sentinel.models';
 import { EquipmentService } from '../../../core/services/equipment.service';
+import { PartReservationService } from '../../../core/services/part-reservation.service';
 import { Observable } from 'rxjs';
 
 // Local type definition for expense categories (no longer using simple finance module)
@@ -157,7 +158,16 @@ interface PartUsed {
           <!-- Step 2: Parts Used -->
           <div *ngIf="currentStep() === 2" class="step-content">
             <h3>⚙️ Parts Used</h3>
-            
+
+            <div class="reserved-parts" *ngIf="reservedParts().length">
+              <label>Reserved for this job</label>
+              <div class="reserved-part-row" *ngFor="let r of reservedParts()">
+                <span class="reserved-name">{{ r.partName || ('Part #' + r.partId) }}</span>
+                <span class="reserved-qty">{{ r.quantityReserved }} reserved</span>
+                <button type="button" class="btn-add-part" (click)="useReservedPart(r)">Use this part</button>
+              </div>
+            </div>
+
             <div class="parts-list" formArrayName="partsUsed">
               <div *ngFor="let part of partsUsed.controls; let i = index" 
                    [formGroupName]="i" 
@@ -639,6 +649,38 @@ interface PartUsed {
       }
     }
 
+    .reserved-parts {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 1rem;
+      background: var(--color-accent-dim);
+      border-radius: var(--radius-md, 14px);
+
+      label {
+        font-weight: 600;
+        color: var(--color-text-primary);
+        font-size: 0.9rem;
+      }
+    }
+
+    .reserved-part-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+
+      .reserved-name {
+        flex: 1;
+        color: var(--color-text-primary);
+        font-weight: 600;
+      }
+
+      .reserved-qty {
+        color: var(--color-text-secondary);
+        font-size: 0.85rem;
+      }
+    }
+
     .parts-list {
       display: flex;
       flex-direction: column;
@@ -810,13 +852,15 @@ export class TaskCompletionModalComponent implements OnInit {
   currentStep = signal(1);
   isSubmitting = signal(false);
   selectedFiles: File[] = [];
+  reservedParts = signal<PartReservationResponse[]>([]);
 
   form: FormGroup;
   machines$: Observable<Machine[]>;
 
   constructor(
     private fb: FormBuilder,
-    private equipmentService: EquipmentService
+    private equipmentService: EquipmentService,
+    private partReservationService: PartReservationService
   ) {
     this.machines$ = this.equipmentService.machines$;
     this.form = this.fb.group({
@@ -849,11 +893,22 @@ export class TaskCompletionModalComponent implements OnInit {
   ngOnInit(): void {
     // Load machines list
     this.equipmentService.loadMachines(0, 1000);
-    
+
     // If task has machineId, pre-select it
     if (this.task?.machineId) {
       this.form.patchValue({ machineId: this.task.machineId });
       this.onMachineSelected();
+    }
+
+    // task.id here is a Maintenance id (this modal completes Maintenance
+    // work orders, not the separate lightweight Task entity) - the same id
+    // PartReservation.maintenanceId uses, so this lines up directly with
+    // whatever was reserved for this job on the maintenance detail page.
+    if (this.task?.id) {
+      this.partReservationService.byMaintenance(Number(this.task.id)).subscribe({
+        next: (reservations) => this.reservedParts.set(reservations.filter(r => r.status === 'RESERVED')),
+        error: () => this.reservedParts.set([]),
+      });
     }
   }
 
@@ -906,6 +961,7 @@ export class TaskCompletionModalComponent implements OnInit {
 
   addPart(): void {
     const partGroup = this.fb.group({
+      partId: [null as number | null],
       name: ['', Validators.required],
       quantity: [1, [Validators.required, Validators.min(1)]],
       unitCost: [0, [Validators.required, Validators.min(0)]],
@@ -913,6 +969,24 @@ export class TaskCompletionModalComponent implements OnInit {
     });
 
     this.partsUsed.push(partGroup);
+  }
+
+  /**
+   * Prefills a part line from an active reservation instead of free text,
+   * tagging it with partId so MaintenanceRapportService.recordPartUsage()
+   * can consume this specific reservation on submit instead of doing an
+   * independent name-matched stock decrement.
+   */
+  useReservedPart(reservation: PartReservationResponse): void {
+    const emptyRow = this.partsUsed.controls.find(c => !c.get('name')?.value);
+    const target = emptyRow ?? (this.addPart(), this.partsUsed.at(this.partsUsed.length - 1));
+
+    target.patchValue({
+      partId: reservation.partId,
+      name: reservation.partName || `Part #${reservation.partId}`,
+      quantity: reservation.quantityReserved,
+    });
+    this.calculatePartTotal(this.partsUsed.controls.indexOf(target));
   }
 
   removePart(index: number): void {

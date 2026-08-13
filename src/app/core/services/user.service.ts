@@ -104,6 +104,25 @@ export class UserService {
   }
 
   /**
+   * Fetch customer accounts directly from the backend (GET /v1/users?role=CUSTOMER),
+   * without touching the shared users$ list — same shape as getTechnicians().
+   * Used by the Portal Admin screens to pick a customer for a machine link or invoice.
+   */
+  getCustomers(): Observable<User[]> {
+    const params = new HttpParams().set('role', 'CUSTOMER');
+    return this.http
+      .get<User[] | UsersResponse>(apiEndpoint('/v1/users'), { params })
+      .pipe(
+        map((response) => this.extractUsers(response).map((user) => this.mapUser(user))),
+        catchError((error) => {
+          const errorMessage = error.error?.error || error.error?.message || 'Failed to load customers';
+          this.errorSubject.next(errorMessage);
+          throw error;
+        })
+      );
+  }
+
+  /**
    * Get a specific user
    */
   getUser(userId: string | number): Observable<User> {

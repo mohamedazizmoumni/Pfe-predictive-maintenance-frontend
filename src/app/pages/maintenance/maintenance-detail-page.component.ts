@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { MaintenanceService } from '../../core/services/maintenance.service';
 import { RapportService } from '../../core/services/rapport.service';
@@ -8,7 +9,10 @@ import { ConfirmDialogService } from '../../core/services/confirm-dialog.service
 import { ToastService } from '../../core/services/toast.service';
 import { UserService } from '../../core/services/user.service';
 import { AuthService } from '../../core/services/auth.service';
-import { Maintenance, MaintenanceRapportRequest, User } from '../../core/models/sentinel.models';
+import { PartReservationService } from '../../core/services/part-reservation.service';
+import { PartService } from '../../core/services/part.service';
+import { Maintenance, MaintenanceRapportRequest, PartReservationResponse, User } from '../../core/models/sentinel.models';
+import { MaintenancePart } from '../../core/models/maintenance-part.model';
 import { normalizeRoleName } from '../../core/utils/role.utils';
 import { TaskCompletionModalComponent } from '../technician-dashboard/components/task-completion-modal.component';
 import { MachineCommentsComponent } from '../equipment/digital-twin/components/machine-comments.component';
@@ -16,7 +20,7 @@ import { MachineCommentsComponent } from '../equipment/digital-twin/components/m
 @Component({
   selector: 'app-maintenance-detail-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, TaskCompletionModalComponent, MachineCommentsComponent],
+  imports: [CommonModule, FormsModule, RouterLink, TaskCompletionModalComponent, MachineCommentsComponent],
   template: `
     <div class="detail-page">
       <div class="page-header">
@@ -214,6 +218,36 @@ import { MachineCommentsComponent } from '../equipment/digital-twin/components/m
         <div class="notes-card" data-card *ngIf="task()?.notes">
           <h3>📌 Notes</h3>
           <p>{{ task()?.notes }}</p>
+        </div>
+
+        <!-- Reserved Parts -->
+        <div class="notes-card" data-card>
+          <h3>🧰 Spare Parts</h3>
+
+          <div class="reservation-list" *ngIf="reservations().length; else noReservations">
+            <div class="reservation-row" *ngFor="let r of reservations()">
+              <span class="res-name">{{ r.partName || ('Part #' + r.partId) }}</span>
+              <span class="badge" [class]="'res-status-' + r.status.toLowerCase()">{{ r.status }}</span>
+              <span class="res-qty">
+                {{ r.status === 'CONSUMED' ? (r.quantityConsumed + ' of ' + r.quantityReserved + ' used') : (r.quantityReserved + ' reserved') }}
+              </span>
+              <button *ngIf="r.status === 'RESERVED'" class="btn-release" (click)="releaseReservation(r.id)">Release</button>
+            </div>
+          </div>
+          <ng-template #noReservations>
+            <p class="empty-hint">No parts reserved for this job yet.</p>
+          </ng-template>
+
+          <form class="reserve-form" (ngSubmit)="reservePart()">
+            <select [(ngModel)]="reservePartId" name="reservePartId">
+              <option [ngValue]="null" disabled>Select a part…</option>
+              <option *ngFor="let p of catalogParts()" [ngValue]="p.id">
+                {{ p.name }} ({{ p.stockQuantity }} in stock)
+              </option>
+            </select>
+            <input type="number" min="1" [(ngModel)]="reserveQuantity" name="reserveQuantity" placeholder="Qty" />
+            <button type="submit" class="btn-add-part" [disabled]="!reservePartId || reserveQuantity < 1">Reserve</button>
+          </form>
         </div>
 
         <!-- Comments -->
@@ -633,6 +667,81 @@ import { MachineCommentsComponent } from '../equipment/digital-twin/components/m
       }
     }
 
+    .reservation-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .reservation-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 0.75rem;
+      background: var(--color-bg-sunken);
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+
+      .res-name { flex: 1; font-weight: 600; color: var(--color-text-primary); }
+      .res-qty { font-size: 0.85rem; color: var(--color-text-secondary); }
+
+      .res-status-reserved { background: var(--color-warning-bg, #fff8e1); color: var(--color-warning-text, #f57f17); }
+      .res-status-consumed { background: var(--color-success-bg, #e8f5e9); color: var(--color-success-text, #2e7d32); }
+      .res-status-released { background: var(--color-bg-elevated); color: var(--color-text-muted); }
+    }
+
+    .empty-hint {
+      color: var(--color-text-muted);
+      font-size: 0.9rem;
+      margin: 0 0 1rem 0;
+    }
+
+    .reserve-form {
+      display: flex;
+      gap: 0.5rem;
+
+      select, input {
+        padding: 0.6rem 0.75rem;
+        border: 1px solid var(--color-border);
+        border-radius: 10px;
+        background: var(--color-bg-sunken);
+        color: var(--color-text-primary);
+        font-family: inherit;
+      }
+
+      select { flex: 1; }
+      input { width: 80px; }
+    }
+
+    .btn-release {
+      padding: 0.35rem 0.75rem;
+      background: var(--color-danger-bg, #ffebee);
+      color: var(--color-danger-text, #c62828);
+      border: 1px solid transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-family: inherit;
+    }
+
+    .btn-add-part {
+      padding: 0.6rem 1.2rem;
+      background: var(--color-accent);
+      color: var(--color-text-on-accent);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: inherit;
+
+      &:disabled {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-disabled);
+        cursor: not-allowed;
+      }
+    }
+
     .loading-state {
       display: flex;
       flex-direction: column;
@@ -685,6 +794,12 @@ export class MaintenanceDetailPageComponent implements OnInit, OnDestroy {
   task = signal<Maintenance | null>(null);
   technicians = signal<User[]>([]);
   showCompletionModal = signal(false);
+
+  // Spare parts reservation (Priority 1: Maintenance + Inventory integration)
+  reservations = signal<PartReservationResponse[]>([]);
+  catalogParts = signal<MaintenancePart[]>([]);
+  reservePartId: number | null = null;
+  reserveQuantity = 1;
   
   // Timer state
   timerRunning = signal(false);
@@ -706,17 +821,62 @@ export class MaintenanceDetailPageComponent implements OnInit, OnDestroy {
     private confirmDialog: ConfirmDialogService,
     private toastService: ToastService,
     private userService: UserService,
-    private authService: AuthService
+    private authService: AuthService,
+    private partReservationService: PartReservationService,
+    private partService: PartService
   ) {}
 
   ngOnInit(): void {
     const taskId = this.route.snapshot.paramMap.get('id');
     if (taskId) {
       this.loadTask(taskId);
+      this.loadReservations(taskId);
     }
     this.userService.getTechnicians().subscribe({
       next: (technicians) => this.technicians.set(technicians),
       error: () => {},
+    });
+    this.partService.getAll().subscribe({
+      next: (parts) => this.catalogParts.set(parts),
+      error: () => this.catalogParts.set([]),
+    });
+  }
+
+  loadReservations(maintenanceId: string): void {
+    this.partReservationService.byMaintenance(Number(maintenanceId)).subscribe({
+      next: (reservations) => this.reservations.set(reservations),
+      error: () => this.reservations.set([]),
+    });
+  }
+
+  reservePart(): void {
+    if (!this.reservePartId || this.reserveQuantity < 1) return;
+    const maintenanceId = this.task()?.id;
+    if (!maintenanceId) return;
+
+    this.partReservationService.reserve({
+      partId: this.reservePartId,
+      quantity: this.reserveQuantity,
+      maintenanceId: Number(maintenanceId),
+    }).subscribe({
+      next: () => {
+        this.toastService.success('Part reserved.');
+        this.reservePartId = null;
+        this.reserveQuantity = 1;
+        this.loadReservations(String(maintenanceId));
+      },
+      error: (err: any) => this.toastService.error(err?.error?.message || 'Unable to reserve part — check availability.'),
+    });
+  }
+
+  releaseReservation(id: number): void {
+    const maintenanceId = this.task()?.id;
+    this.partReservationService.release(id).subscribe({
+      next: () => {
+        this.toastService.success('Reservation released.');
+        if (maintenanceId) this.loadReservations(String(maintenanceId));
+      },
+      error: (err: any) => this.toastService.error(err?.error?.message || 'Unable to release reservation.'),
     });
   }
 
@@ -894,6 +1054,7 @@ export class MaintenanceDetailPageComponent implements OnInit, OnDestroy {
           this.submitRapport(data);
           this.showCompletionModal.set(false);
           this.loadTask(data.taskId);
+          this.loadReservations(data.taskId);
 
           const elapsed = this.timerDisplay();
           this.toastService.success(`Task completed successfully — time taken: ${elapsed}.`);
@@ -921,6 +1082,7 @@ export class MaintenanceDetailPageComponent implements OnInit, OnDestroy {
       parts: (data.partsUsed || [])
         .filter((p: any) => p.name)
         .map((p: any) => ({
+          partId: p.partId ?? undefined,
           partName: p.name,
           quantity: Number(p.quantity) || 1,
           unitCost: Number(p.unitCost) || 0,
