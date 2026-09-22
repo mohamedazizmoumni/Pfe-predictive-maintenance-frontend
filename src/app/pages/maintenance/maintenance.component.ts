@@ -290,7 +290,6 @@ export class MaintenanceComponent implements OnInit {
         this.submitRapport(data);
         this.closeCompletionModal();
         this.handleRefresh();
-        this.toastService.success('Task completed — rapport submitted for manager approval.');
       },
       error: (err) => {
         const normalized = normalizeApiError(err, 'Failed to complete task.');
@@ -318,7 +317,7 @@ export class MaintenanceComponent implements OnInit {
           partId: p.partId ?? undefined,
           partName: p.name,
           quantity: Number(p.quantity) || 1,
-          unitCost: Number(p.unitCost) || 0,
+          unitCost: Number(p.unitCost),
         })),
       checklistItems: (data.checklistItems || []).map((c: any) => ({
         description: c.description,
@@ -328,8 +327,14 @@ export class MaintenanceComponent implements OnInit {
     };
 
     this.rapportService.createRapport(request).subscribe({
-      next: (rapport) => this.uploadEvidencePhotos(rapport.id, data.attachmentFiles),
-      error: (err) => console.error('Failed to submit maintenance rapport:', err),
+      next: (rapport) => {
+        this.uploadEvidencePhotos(rapport.id, data.attachmentFiles);
+        this.toastService.success('Task completed — rapport submitted for manager approval.');
+      },
+      error: (err) => {
+        const normalized = normalizeApiError(err, 'Task completed, but the rapport could not be submitted.');
+        this.toastService.error(normalized.message);
+      },
     });
   }
 

@@ -12,8 +12,6 @@ type ExpenseCategory = 'MAINTENANCE' | 'PARTS' | 'LABOR' | 'EQUIPMENT' | 'OTHER'
 interface PartUsed {
   name: string;
   quantity: number;
-  unitCost: number;
-  totalCost: number;
 }
 
 @Component({
@@ -196,34 +194,24 @@ interface PartUsed {
                       formControlName="quantity"
                       placeholder="1"
                       min="1"
-                      (input)="calculatePartTotal(i)"
                     />
                   </div>
-                </div>
 
-                <div class="form-row">
                   <div class="form-group">
-                    <label>Unit Cost ($) *</label>
+                    <label>Unit Cost (TND) *</label>
                     <input
                       type="number"
                       formControlName="unitCost"
-                      placeholder="0.00"
+                      placeholder="0.01"
                       step="0.01"
-                      min="0"
-                      (input)="calculatePartTotal(i)"
+                      min="0.01"
                     />
-                  </div>
-
-                  <div class="form-group">
-                    <label>Total Cost</label>
-                    <input
-                      type="number"
-                      formControlName="totalCost"
-                      readonly
-                      class="readonly"
-                    />
+                    <small *ngIf="part.get('unitCost')?.hasError('min') || part.get('unitCost')?.hasError('required')" class="error">
+                      Unit cost must be positive
+                    </small>
                   </div>
                 </div>
+
               </div>
             </div>
 
@@ -231,10 +219,7 @@ interface PartUsed {
               ➕ Add Part
             </button>
 
-            <div class="parts-summary">
-              <span>Total Parts Cost:</span>
-              <span class="total-amount">{{ formatCurrency(getTotalPartsCost()) }}</span>
-            </div>
+            <p class="parts-summary">Record the replaced part name and quantity. Cost details are handled during approval.</p>
           </div>
 
           <!-- Step 3: Expense Report -->
@@ -309,10 +294,6 @@ interface PartUsed {
 
             <div class="expense-breakdown">
               <h4>Expense Breakdown</h4>
-              <div class="breakdown-item">
-                <span>Parts Cost:</span>
-                <span>{{ formatCurrency(getTotalPartsCost()) }}</span>
-              </div>
               <div class="breakdown-item">
                 <span>Labor Cost:</span>
                 <span>{{ formatCurrency(form.get('laborCost')?.value || 0) }}</span>
@@ -964,8 +945,7 @@ export class TaskCompletionModalComponent implements OnInit {
       partId: [null as number | null],
       name: ['', Validators.required],
       quantity: [1, [Validators.required, Validators.min(1)]],
-      unitCost: [0, [Validators.required, Validators.min(0)]],
-      totalCost: [0],
+      unitCost: [null, [Validators.required, Validators.min(0.01)]],
     });
 
     this.partsUsed.push(partGroup);
@@ -986,34 +966,14 @@ export class TaskCompletionModalComponent implements OnInit {
       name: reservation.partName || `Part #${reservation.partId}`,
       quantity: reservation.quantityReserved,
     });
-    this.calculatePartTotal(this.partsUsed.controls.indexOf(target));
   }
 
   removePart(index: number): void {
     this.partsUsed.removeAt(index);
-    this.calculateTotalExpense();
-  }
-
-  calculatePartTotal(index: number): void {
-    const part = this.partsUsed.at(index);
-    const quantity = part.get('quantity')?.value || 0;
-    const unitCost = part.get('unitCost')?.value || 0;
-    const total = quantity * unitCost;
-    part.get('totalCost')?.setValue(total);
-    this.calculateTotalExpense();
-  }
-
-  getTotalPartsCost(): number {
-    return this.partsUsed.controls.reduce((sum, part) => {
-      return sum + (part.get('totalCost')?.value || 0);
-    }, 0);
   }
 
   calculateTotalExpense(): void {
-    const partsCost = this.getTotalPartsCost();
-    const laborCost = this.form.get('laborCost')?.value || 0;
-    const total = partsCost + laborCost;
-    this.form.get('totalExpense')?.setValue(total);
+    this.form.get('totalExpense')?.setValue(this.form.get('laborCost')?.value || 0);
   }
 
   isCurrentStepValid(): boolean {
@@ -1072,7 +1032,7 @@ export class TaskCompletionModalComponent implements OnInit {
 
   private generateExpenseDescription(formValue: any): string {
     const parts = formValue.partsUsed.map((p: any) => 
-      `${p.name} (${p.quantity}x @ $${p.unitCost})`
+      `${p.name} (${p.quantity}x)`
     ).join(', ');
     
     return `Task: ${this.task?.description}\nParts: ${parts}\nLabor: ${formValue.timeSpent}h @ $${formValue.laborCost}`;

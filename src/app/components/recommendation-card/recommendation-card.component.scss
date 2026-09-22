@@ -1,99 +1,144 @@
 .rec-card {
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  border-left: 4px solid var(--primary);
+  height: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-xl, 20px);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--ease-base), border-color var(--ease-base), box-shadow var(--ease-base);
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-md, var(--shadow-sm));
+  }
 }
 
 .rec-card.urgency-low {
-  border-left-color: var(--primary);
+  border-left-color: var(--color-info);
 }
 
 .rec-card.urgency-medium {
-  border-left-color: var(--warning);
+  border-left-color: var(--color-warning);
 }
 
 .rec-card.urgency-high {
-  border-left-color: var(--warning);
+  border-left-color: var(--color-warning);
 }
 
 .rec-card.urgency-critical {
-  border-left-color: var(--danger);
+  border-left-color: var(--color-danger);
+}
+
+:host ::ng-deep .mat-mdc-card-header {
+  padding: 1.1rem 1.15rem 0.75rem;
+}
+
+:host ::ng-deep .mat-mdc-card-content {
+  padding: 0 1.15rem 0.5rem;
+}
+
+:host ::ng-deep .mat-mdc-card-actions {
+  min-height: auto;
+  padding: 0.5rem 1.15rem 1.1rem;
+}
+
+:host ::ng-deep .mat-mdc-card-title {
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+:host ::ng-deep .mat-mdc-card-subtitle {
+  color: var(--color-text-secondary);
+  margin-top: 0.55rem;
 }
 
 .action-badge,
 .status-badge {
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 0.55rem;
+  border-radius: var(--radius-full, 999px);
+  font-size: 0.68rem;
   font-weight: 600;
 }
 
 .action-preventive {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
 }
 
 .action-corrective {
-  background: #ffebee;
-  color: #c62828;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
 }
 
 .action-monitor {
-  background: #e3f2fd;
-  color: #1565c0;
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
 }
 
 .status-pending {
-  background: #fff8e1;
-  color: #f57f17;
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
 }
 
 .status-approved {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
 }
 
 .status-rejected {
-  background: #ffebee;
-  color: #c62828;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
 }
 
 .days-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+  color: var(--color-text-secondary);
+  font-size: 0.82rem;
 }
 
 .days-row.urgent {
-  color: var(--danger);
+  color: var(--color-danger);
   font-weight: 600;
 }
 
 .probability {
-  color: var(--text-secondary);
+  color: var(--color-text-muted);
 }
 
 .justification {
-  color: var(--text-secondary);
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.55;
 }
 
 .decision-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-  color: var(--text-secondary);
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
 }
 
 .decision-note {
-  margin-top: 4px;
+  margin: 0.4rem 0 0;
   font-style: italic;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .resulting-task {
-  margin-top: 12px;
+  margin-top: 0.85rem;
 }
 
 .reject-form {

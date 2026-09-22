@@ -3,7 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PartReservationService } from '../../../core/services/part-reservation.service';
 import { InventoryService } from '../../../core/services/inventory.service';
-import { PartReservationRequest, PartReservationResponse } from '../../../core/models/sentinel.models';
+import { Maintenance, PartReservationRequest, PartReservationResponse } from '../../../core/models/sentinel.models';
+import { MaintenanceService } from '../../../core/services/maintenance.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { normalizeRoleName } from '../../../core/utils/role.utils';
 
 @Component({
   selector: 'app-reservations',
@@ -20,15 +23,33 @@ export class ReservationsComponent implements OnInit {
   form: PartReservationRequest = this.emptyForm();
   isSaving = false;
   error: string | null = null;
+  isTechnician = false;
+  availableMaintenances: Maintenance[] = [];
 
   summary: Record<number, number> = {};
 
   constructor(
     private reservationService: PartReservationService,
     private inventoryService: InventoryService,
+    private maintenanceService: MaintenanceService,
+    private authService: AuthService,
   ) {}
 
   ngOnInit(): void {
+    const user = this.authService.getCurrentUser();
+    this.isTechnician = !!user?.roles?.some(role => normalizeRoleName(role.name) === 'TECHNICIAN');
+
+    if (this.isTechnician && user?.id) {
+      this.maintenanceService.getTechnicianTasks(user.id, 0, 100).subscribe({
+        next: response => {
+          this.availableMaintenances = (response.content || []).filter(task =>
+            !['COMPLETED', 'APPROVED', 'CANCELLED'].includes(task.status)
+          );
+        },
+        error: () => { this.availableMaintenances = []; },
+      });
+    }
+
     this.reservationService.summary().subscribe({
       next: (summary) => { this.summary = summary; },
       error: () => {},
@@ -49,10 +70,14 @@ export class ReservationsComponent implements OnInit {
   }
 
   reserve(): void {
-    if (!this.form.partId || !this.form.quantity) return;
+    if (!this.form.partId || !this.form.quantity || (this.isTechnician && !this.form.maintenanceId)) return;
     this.isSaving = true;
     this.error = null;
-    this.reservationService.reserve(this.form).subscribe({
+    const request: PartReservationRequest = {
+      ...this.form,
+      maintenanceId: this.form.maintenanceId != null ? Number(this.form.maintenanceId) : undefined,
+    };
+    this.reservationService.reserve(request).subscribe({
       next: () => {
         this.isSaving = false;
         this.lookupPartId = this.form.partId;
