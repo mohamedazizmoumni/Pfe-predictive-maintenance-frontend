@@ -1057,7 +1057,7 @@ export class MaintenanceDetailPageComponent implements OnInit, OnDestroy {
           this.loadReservations(data.taskId);
 
           const elapsed = this.timerDisplay();
-          this.toastService.success(`Task completed successfully — time taken: ${elapsed}.`);
+          this.toastService.success(`Task completed successfully — time taken: ${elapsed}. The rapport is being submitted.`);
         },
         error: (err: any) => {
           this.toastService.error(err?.error?.message || 'Task completion failed. Please try again.');
@@ -1085,7 +1085,7 @@ export class MaintenanceDetailPageComponent implements OnInit, OnDestroy {
           partId: p.partId ?? undefined,
           partName: p.name,
           quantity: Number(p.quantity) || 1,
-          unitCost: Number(p.unitCost) || 0,
+          unitCost: Number(p.unitCost),
         })),
       checklistItems: (data.checklistItems || []).map((c: any) => ({
         description: c.description,
@@ -1099,7 +1099,9 @@ export class MaintenanceDetailPageComponent implements OnInit, OnDestroy {
         console.log('📄 Maintenance rapport submitted for manager approval');
         this.uploadEvidencePhotos(rapport.id, data.attachmentFiles);
       },
-      error: (err: any) => console.error('❌ Failed to submit maintenance rapport:', err),
+      error: (err: any) => {
+        this.toastService.error(err?.error?.message || 'Task completed, but the rapport could not be submitted.');
+      },
     });
   }
 

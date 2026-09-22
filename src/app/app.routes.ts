@@ -236,13 +236,13 @@ export const routes: Routes = [
           import('./pages/recommendation/recommendation-history.component').then(
             (m) => m.RecommendationHistoryComponent
           ),
-        data: { requiredRoles: ['FINANCE_MANAGER', 'MANAGER', 'ADMIN', 'SUPER_ADMIN'] },
+        data: { requiredRoles: [ 'MANAGER', 'ADMIN', 'SUPER_ADMIN'] },
         canActivate: [dataRoleGuard],
       },
       {
         path: 'recommendations/:machineId',
         component: RecommendationPageComponent,
-        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'DATA_SCIENTIST', 'FINANCE_MANAGER'] },
+        data: { requiredRoles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN', 'DATA_SCIENTIST'] },
         canActivate: [dataRoleGuard],
       },
       {

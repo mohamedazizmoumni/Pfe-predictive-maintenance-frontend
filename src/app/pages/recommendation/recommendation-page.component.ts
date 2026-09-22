@@ -9,7 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { Machine } from '../../core/models/machine.model';
 import { RecommendationRequestDTO } from '../../core/models/recommendation.model';
 import { SavedRecommendationResponse } from '../../core/models/sentinel.models';
@@ -17,6 +17,9 @@ import { MachineService } from '../../core/services/machine.service';
 import { RecommendationService } from '../../core/services/recommendation.service';
 import { PredictionService } from '../../core/services/prediction.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { MaintenanceService } from '../../core/services/maintenance.service';
+import { AuthService } from '../../core/services/auth.service';
+import { normalizeRoleName } from '../../core/utils/role.utils';
 import { RecommendationCardComponent, RecommendationDecision } from '../../components/recommendation-card/recommendation-card.component';
 
 // Fallback used only when a machine has no persisted prediction record yet
@@ -57,6 +60,8 @@ export class RecommendationPageComponent implements OnInit {
     private machineService: MachineService,
     private recommendationService: RecommendationService,
     private predictionService: PredictionService,
+    private maintenanceService: MaintenanceService,
+    private authService: AuthService,
     private notificationService: NotificationService,
     private cdr: ChangeDetectorRef
   ) {}
@@ -65,7 +70,20 @@ export class RecommendationPageComponent implements OnInit {
     const paramValue = this.route.snapshot.paramMap.get('machineId');
     const routeMachineId = paramValue ? Number(paramValue) : null;
 
-    this.machineService.getAll().subscribe({
+    const user = this.authService.getCurrentUser();
+    const isTechnician = user?.roles?.some(role => normalizeRoleName(role.name) === 'TECHNICIAN');
+    const machines$ = isTechnician && user?.id
+      ? this.maintenanceService.getTechnicianTasks(user.id, 0, 100).pipe(
+          switchMap(response => this.machineService.getAll().pipe(
+            map(machines => {
+              const assignedMachineIds = new Set((response.content || []).map(task => Number(task.machineId)));
+              return machines.filter(machine => assignedMachineIds.has(Number(machine.id)));
+            })
+          ))
+        )
+      : this.machineService.getAll();
+
+    machines$.subscribe({
       next: (machines) => {
         this.machines = machines;
         this.isLoadingMachines = false;

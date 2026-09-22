@@ -5,7 +5,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RecommendationService } from '../../core/services/recommendation.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { AuthService } from '../../core/services/auth.service';
+import { MaintenanceService } from '../../core/services/maintenance.service';
 import { Page, RecommendationStatus, SavedRecommendationResponse } from '../../core/models/sentinel.models';
+import { normalizeRoleName } from '../../core/utils/role.utils';
 import { RecommendationCardComponent, RecommendationDecision } from '../../components/recommendation-card/recommendation-card.component';
 
 type StatusFilter = 'ALL' | RecommendationStatus;
@@ -42,18 +45,45 @@ export class RecommendationHistoryComponent implements OnInit {
   totalPages = 0;
   totalElements = 0;
   isLoading = false;
+  private technicianMachineIds: Set<number> | null = null;
 
   readonly filters: StatusFilter[] = ['ALL', 'PENDING', 'APPROVED', 'REJECTED'];
 
   constructor(
     private recommendationService: RecommendationService,
     private notificationService: NotificationService,
+    private authService: AuthService,
+    private maintenanceService: MaintenanceService,
     private router: Router,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
-    this.load();
+    const user = this.authService.getCurrentUser();
+    const isTechnician = user?.roles?.some(role => normalizeRoleName(role.name) === 'TECHNICIAN');
+
+    if (!isTechnician) {
+      this.load();
+      return;
+    }
+
+    if (!user?.id) {
+      this.notificationService.error('Unable to identify the technician account.');
+      return;
+    }
+
+    this.isLoading = true;
+    this.maintenanceService.getTechnicianTasks(user.id, 0, 100).subscribe({
+      next: response => {
+        this.technicianMachineIds = new Set((response.content || []).map(task => Number(task.machineId)));
+        this.load();
+      },
+      error: () => {
+        this.isLoading = false;
+        this.notificationService.error('Unable to load your assigned machines.');
+        this.cdr.markForCheck();
+      },
+    });
   }
 
   filterLabel(filter: StatusFilter): string {
@@ -112,11 +142,20 @@ export class RecommendationHistoryComponent implements OnInit {
   private load(): void {
     this.isLoading = true;
     const status = this.activeFilter === 'ALL' ? undefined : this.activeFilter;
-    this.recommendationService.history(status, this.page, PAGE_SIZE).subscribe({
+    const requestPage = this.technicianMachineIds ? 0 : this.page;
+    const requestSize = this.technicianMachineIds ? 1000 : PAGE_SIZE;
+    this.recommendationService.history(status, requestPage, requestSize).subscribe({
       next: (result: Page<SavedRecommendationResponse>) => {
-        this.recommendations = result.content;
-        this.totalPages = result.totalPages;
-        this.totalElements = result.totalElements;
+        const visibleRecommendations = this.technicianMachineIds
+          ? result.content.filter(recommendation => this.technicianMachineIds!.has(Number(recommendation.machineId)))
+          : result.content;
+        this.totalElements = this.technicianMachineIds ? visibleRecommendations.length : result.totalElements;
+        this.totalPages = this.technicianMachineIds
+          ? Math.ceil(this.totalElements / PAGE_SIZE)
+          : result.totalPages;
+        this.recommendations = this.technicianMachineIds
+          ? visibleRecommendations.slice(this.page * PAGE_SIZE, (this.page + 1) * PAGE_SIZE)
+          : visibleRecommendations;
         this.isLoading = false;
         this.cdr.markForCheck();
       },

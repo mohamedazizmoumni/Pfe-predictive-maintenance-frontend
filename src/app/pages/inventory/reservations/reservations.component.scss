@@ -1,31 +1,47 @@
+:host {
+  display: block;
+  min-height: 100%;
+  background: var(--dashboard-bg, var(--color-bg-page));
+  color: var(--color-text-primary);
+}
+
 .reservations-page {
-  padding: 1.5rem;
-  max-width: 1000px;
+  min-height: 100%;
+  padding: 24px;
+  max-width: 1240px;
   margin: 0 auto;
 }
 
 .page-header {
-  margin-bottom: 1.5rem;
-  h1 { margin: 0 0 0.35rem; font-size: 1.6rem; color: var(--color-text-primary); }
-  p { margin: 0; color: var(--color-text-secondary); }
+  padding: 24px 26px;
+  margin-bottom: 18px;
+  border: 1px solid var(--dashboard-border, var(--color-border));
+  border-radius: 22px;
+  background: linear-gradient(135deg, var(--dashboard-surface), var(--dashboard-surface-soft));
+  box-shadow: var(--dashboard-shadow-lg, var(--shadow-xl));
+
+  h1 {
+    margin: 0 0 0.45rem;
+    font-size: 1.85rem;
+    line-height: 1.1;
+    color: var(--color-text-primary);
+  }
+
+  p {
+    max-width: 70ch;
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+  }
 }
 
 .lookup-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 18px;
 
-  label { font-weight: 600; font-size: 0.85rem; color: var(--color-text-primary); }
-  input {
-    width: 140px;
-    padding: 0.5rem 0.7rem;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    background: var(--color-bg-sunken);
-    color: var(--color-text-primary);
-    font-family: inherit;
-  }
+  label { font-weight: 700; font-size: 0.78rem; color: var(--color-text-muted); }
 }
 
 .loading, .empty { color: var(--color-text-muted); padding: 0.5rem 0; }
@@ -42,27 +58,30 @@
 
 .twrap {
   overflow-x: auto;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  margin-bottom: 1.5rem;
+  border: 1px solid var(--dashboard-border, var(--color-border));
+  border-radius: 18px;
+  margin-bottom: 18px;
+  background: var(--dashboard-surface);
+  box-shadow: var(--dashboard-shadow-sm, var(--shadow-sm));
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
 }
 
 th, td {
   text-align: left;
-  padding: 0.6rem 0.8rem;
-  border-bottom: 1px solid var(--color-border);
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--dashboard-border, var(--color-border));
 }
 
 th {
-  background: var(--color-bg-sunken);
+  background: var(--dashboard-surface-alt, var(--color-bg-elevated));
   color: var(--color-text-muted);
   font-size: 0.75rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -72,12 +91,13 @@ th {
 }
 
 .form-card {
-  background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md, 14px);
-  padding: 1.1rem 1.25rem;
+  background: var(--dashboard-surface);
+  border: 1px solid var(--dashboard-border, var(--color-border));
+  border-radius: 18px;
+  padding: 1.25rem;
+  box-shadow: var(--dashboard-shadow-sm, var(--shadow-sm));
 
-  h3 { margin: 0 0 0.9rem; font-size: 1rem; color: var(--color-text-primary); }
+  h3 { margin: 0 0 1rem; font-size: 1.05rem; color: var(--color-text-primary); }
 }
 
 .form-grid {
@@ -92,37 +112,51 @@ th {
   flex-direction: column;
   gap: 0.35rem;
 
-  label { font-weight: 600; font-size: 0.82rem; color: var(--color-text-primary); }
-  input {
-    padding: 0.55rem 0.7rem;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
+  label { font-weight: 700; font-size: 0.78rem; color: var(--color-text-muted); }
+  input, select {
+    min-height: 42px;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--dashboard-border, var(--color-border));
+    border-radius: 10px;
     background: var(--color-bg-sunken);
     color: var(--color-text-primary);
-    font-family: inherit;
+    font: inherit;
+    outline: none;
+    transition: border-color var(--ease-base), box-shadow var(--ease-base), background var(--ease-base);
+
+    &:focus {
+      border-color: var(--accent-blue, var(--color-accent));
+      box-shadow: 0 0 0 3px var(--color-accent-dim);
+    }
   }
+
+  small { color: var(--color-text-muted); font-size: 0.75rem; line-height: 1.4; }
 }
 
 .btn-primary, .btn-secondary {
-  padding: 0.55rem 1.1rem;
-  border-radius: 8px;
-  font-weight: 600;
+  min-height: 40px;
+  padding: 0.65rem 1rem;
+  border-radius: 999px;
+  font-weight: 700;
   cursor: pointer;
-  border: none;
+  border: 1px solid transparent;
   font-family: inherit;
   font-size: 0.85rem;
+  transition: transform var(--ease-base), filter var(--ease-base), background var(--ease-base);
+
+  &:hover:not(:disabled) { transform: translateY(-1px); }
 }
 
 .btn-primary {
-  background: var(--color-accent);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
   color: var(--color-text-on-accent);
   &:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 
 .btn-secondary {
-  background: var(--color-bg-sunken);
+  background: var(--dashboard-surface-alt, var(--color-bg-elevated));
   color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
+  border-color: var(--dashboard-border, var(--color-border));
   &:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 
@@ -137,4 +171,12 @@ th {
   font-family: inherit;
 
   &.danger { color: var(--color-danger-text); }
+}
+
+@media (max-width: 720px) {
+  .reservations-page { padding: 16px; }
+  .page-header { padding: 20px; }
+  .lookup-row { align-items: stretch; flex-direction: column; }
+  .lookup-row input { width: 100%; box-sizing: border-box; }
+  .form-grid { grid-template-columns: 1fr; }
 }

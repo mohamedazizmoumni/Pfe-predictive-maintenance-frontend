@@ -44,10 +44,22 @@
         <label>Quantity</label>
         <input type="number" min="1" [(ngModel)]="form.quantity" name="quantity" />
       </div>
-      <div class="form-row">
-        <label>Maintenance ID (optional)</label>
-        <input type="number" [(ngModel)]="form.maintenanceId" name="maintenanceId" />
+      <div class="form-row" *ngIf="isTechnician; else maintenanceIdInput">
+        <label for="maintenanceId">Maintenance *</label>
+        <select id="maintenanceId" [(ngModel)]="form.maintenanceId" name="maintenanceId">
+          <option [ngValue]="undefined">Select an unfinished maintenance task</option>
+          <option *ngFor="let maintenance of availableMaintenances" [ngValue]="maintenance.id">
+            #{{ maintenance.id }} — {{ maintenance.description }} ({{ maintenance.status }})
+          </option>
+        </select>
+        <small *ngIf="availableMaintenances.length === 0">No unfinished maintenance tasks assigned to you.</small>
       </div>
+      <ng-template #maintenanceIdInput>
+        <div class="form-row">
+          <label>Maintenance ID (optional)</label>
+          <input type="number" [(ngModel)]="form.maintenanceId" name="maintenanceId" />
+        </div>
+      </ng-template>
     </div>
     <button type="button" class="btn-primary" [disabled]="isSaving" (click)="reserve()">
       {{ isSaving ? 'Reserving…' : 'Reserve' }}
